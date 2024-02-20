@@ -17,7 +17,7 @@
 ---
 type: specs.openrewrite.org/v1beta/category
 name: Error Prone Support
-packageName: tech.picnic.errorprone
+packageName: tech.picnic.errorprone.refasterrules
 root: true
 description: |
   [Error Prone Support](https://github.com/PicnicSupermarket/error-prone-support) is a Picnic-opinionated extension of Google's [Error Prone](https://github.com/google/error-prone).
