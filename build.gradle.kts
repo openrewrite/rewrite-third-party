@@ -15,12 +15,14 @@ dependencies {
     runtimeOnly("org.openrewrite:rewrite-java")
     runtimeOnly("org.openrewrite:rewrite-templating:${rewriteVersion}")
 
+    runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release")
     runtimeOnly("org.axonframework:axon-migration:latest.release")
     runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:latest.release")
 
     testImplementation("org.openrewrite:rewrite-java")
     testImplementation("org.openrewrite:rewrite-test")
 
+    testImplementation("io.quarkus:quarkus-update-recipes:latest.release")
     testImplementation("tech.picnic.error-prone-support:error-prone-contrib:latest.release")
     testImplementation("org.junit.jupiter:junit-jupiter-engine:latest.release")
 
@@ -31,6 +33,7 @@ dependencies {
 tasks.withType<ShadowJar> {
     archiveClassifier.set("")
     dependencies {
+        include(dependency("io.quarkus:quarkus-update-recipes:latest.release"))
         include(dependency("org.axonframework:axon-migration"))
         include(dependency("tech.picnic.error-prone-support:error-prone-contrib"))
     }
