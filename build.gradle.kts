@@ -14,13 +14,16 @@ dependencies {
 
     runtimeOnly("org.openrewrite:rewrite-java")
     runtimeOnly("org.openrewrite:rewrite-templating:${rewriteVersion}")
+
+    runtimeOnly("org.axonframework:axon-migration:latest.release")
     runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:latest.release")
 
     testImplementation("org.openrewrite:rewrite-java")
     testImplementation("org.openrewrite:rewrite-test")
-    testImplementation("tech.picnic.error-prone-support:error-prone-contrib:latest.release")
 
+    testImplementation("tech.picnic.error-prone-support:error-prone-contrib:latest.release")
     testImplementation("org.junit.jupiter:junit-jupiter-engine:latest.release")
+
     testRuntimeOnly("org.openrewrite:rewrite-java-17")
     testRuntimeOnly("org.gradle:gradle-tooling-api:latest.release")
 }
@@ -28,6 +31,7 @@ dependencies {
 tasks.withType<ShadowJar> {
     archiveClassifier.set("")
     dependencies {
+        include(dependency("org.axonframework:axon-migration"))
         include(dependency("tech.picnic.error-prone-support:error-prone-contrib"))
     }
 }
