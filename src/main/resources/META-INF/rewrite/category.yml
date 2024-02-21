@@ -30,3 +30,10 @@ description: |
   [Error Prone Support](https://github.com/PicnicSupermarket/error-prone-support) is a Picnic-opinionated extension of Google's [Error Prone](https://github.com/google/error-prone).
   It aims to improve code quality, focussing on maintainability, consistency and avoidance of common pitfalls.
 ---
+type: specs.openrewrite.org/v1beta/category
+name: Axon Framework
+packageName: org.axonframework
+root: true
+description: |
+  The [Axon Framework](https://axoniq.io/) is a Java framework for building high-performance, high-reliability applications with a focus on CQRS and Event Sourcing patterns.
+---
