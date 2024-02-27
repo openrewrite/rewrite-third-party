@@ -15,6 +15,7 @@ dependencies {
     runtimeOnly("org.openrewrite:rewrite-java")
     runtimeOnly("org.openrewrite:rewrite-templating:${rewriteVersion}")
 
+    runtimeOnly("ai.timefold.solver:timefold-solver-migration:latest.release")
     runtimeOnly("org.axonframework:axon-migration:latest.release")
     runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:latest.release")
 
@@ -31,6 +32,7 @@ dependencies {
 tasks.withType<ShadowJar> {
     archiveClassifier.set("")
     dependencies {
+        include(dependency("ai.timefold.solver:timefold-solver-migration"))
         include(dependency("org.axonframework:axon-migration"))
         include(dependency("tech.picnic.error-prone-support:error-prone-contrib"))
     }
