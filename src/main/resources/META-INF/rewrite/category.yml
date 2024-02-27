@@ -23,6 +23,14 @@ description: |
   Timefold is a fork of OptaPlanner by its creator and other experts.
 ---
 type: specs.openrewrite.org/v1beta/category
+name: Quarkus
+packageName: io.quarkus.updates
+root: true
+description: |
+  [Quarkus](https://quarkus.io/) is a Cloud Native, (Linux) Container First framework for writing Java applications.
+  The [quarkus-updates](https://github.com/quarkusio/quarkus-updates) repository contains the recipes used to update Quarkus projects to newer versions.
+---
+type: specs.openrewrite.org/v1beta/category
 name: Axon Framework
 packageName: org.axonframework
 root: true
