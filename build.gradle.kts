@@ -36,5 +36,8 @@ tasks.withType<ShadowJar> {
         include(dependency("org.axonframework:axon-migration"))
         include(dependency("tech.picnic.error-prone-support:error-prone-contrib"))
     }
+    // Binary files for ErrorProne; not needed for recipes
     exclude("**/*.refaster")
+    // Redeclares existing Quarkus and OpenRewrite recipes
+    exclude("**/ToLatest9.yml")
 }
