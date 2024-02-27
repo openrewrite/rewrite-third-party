@@ -34,4 +34,5 @@ tasks.withType<ShadowJar> {
         include(dependency("org.axonframework:axon-migration"))
         include(dependency("tech.picnic.error-prone-support:error-prone-contrib"))
     }
+    exclude("**/*.refaster")
 }
