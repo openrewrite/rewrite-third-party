@@ -17,6 +17,7 @@ dependencies {
 
     runtimeOnly("ai.timefold.solver:timefold-solver-migration:latest.release")
     runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release")
+    runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release:core")
     runtimeOnly("org.axonframework:axon-migration:latest.release")
     runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:latest.release")
 
@@ -36,6 +37,7 @@ tasks.withType<ShadowJar> {
     dependencies {
         include(dependency("ai.timefold.solver:timefold-solver-migration"))
         include(dependency("io.quarkus:quarkus-update-recipes:latest.release"))
+        include(dependency("io.quarkus:quarkus-update-recipes:latest.release:core"))
         include(dependency("org.axonframework:axon-migration"))
         include(dependency("tech.picnic.error-prone-support:error-prone-contrib"))
     }
