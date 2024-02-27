@@ -17,14 +17,12 @@ dependencies {
 
     runtimeOnly("ai.timefold.solver:timefold-solver-migration:latest.release")
     runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release")
-    runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release:core")
     runtimeOnly("org.axonframework:axon-migration:latest.release")
     runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:latest.release")
 
     testImplementation("org.openrewrite:rewrite-java")
     testImplementation("org.openrewrite:rewrite-test")
 
-    testImplementation("io.quarkus:quarkus-update-recipes:latest.release")
     testImplementation("tech.picnic.error-prone-support:error-prone-contrib:latest.release")
     testImplementation("org.junit.jupiter:junit-jupiter-engine:latest.release")
 
@@ -36,8 +34,7 @@ tasks.withType<ShadowJar> {
     archiveClassifier.set("")
     dependencies {
         include(dependency("ai.timefold.solver:timefold-solver-migration"))
-        include(dependency("io.quarkus:quarkus-update-recipes:latest.release"))
-        include(dependency("io.quarkus:quarkus-update-recipes:latest.release:core"))
+        include(dependency("io.quarkus:quarkus-update-recipes:.*"))
         include(dependency("org.axonframework:axon-migration"))
         include(dependency("tech.picnic.error-prone-support:error-prone-contrib"))
     }
@@ -45,4 +42,5 @@ tasks.withType<ShadowJar> {
     exclude("**/*.refaster")
     // Redeclares existing Quarkus and OpenRewrite recipes
     exclude("**/ToLatest9.yml")
+    relocate("quarkus-updates", "META-INF.rewrite")
 }
