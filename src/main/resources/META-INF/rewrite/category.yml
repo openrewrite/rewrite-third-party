@@ -13,7 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
+---
+type: specs.openrewrite.org/v1beta/category
+name: Timefold
+packageName: ai.timefold.solver.migration
+root: true
+description: |
+  [Timefold](https://timefold.ai/) is the open source AI solver to optimize operations and scheduling in Java, Python or Kotlin.
+  Timefold is a fork of OptaPlanner by its creator and other experts.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Axon Framework
+packageName: org.axonframework
+root: true
+description: |
+  The [Axon Framework](https://axoniq.io/) is a Java framework for building high-performance, high-reliability applications with a focus on CQRS and Event Sourcing patterns.
 ---
 type: specs.openrewrite.org/v1beta/category
 name: Picnic
@@ -29,11 +43,4 @@ packageName: tech.picnic.errorprone.refasterrules
 description: |
   [Error Prone Support](https://github.com/PicnicSupermarket/error-prone-support) is a Picnic-opinionated extension of Google's [Error Prone](https://github.com/google/error-prone).
   It aims to improve code quality, focussing on maintainability, consistency and avoidance of common pitfalls.
----
-type: specs.openrewrite.org/v1beta/category
-name: Axon Framework
-packageName: org.axonframework
-root: true
-description: |
-  The [Axon Framework](https://axoniq.io/) is a Java framework for building high-performance, high-reliability applications with a focus on CQRS and Event Sourcing patterns.
 ---
