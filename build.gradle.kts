@@ -23,10 +23,10 @@ dependencies {
 
     // error-prone-contrib only has provided dependencies, whereas the platform needs these on the classpath at runtime
     runtimeOnly("org.assertj:assertj-core:latest.release")
-    runtimeOnly("org.springframework:spring-context:latest.release")
-    runtimeOnly("org.springframework:spring-test:latest.release")
-    runtimeOnly("org.springframework:spring-web:latest.release")
-    runtimeOnly("org.springframework:spring-webflux:latest.release")
+    runtimeOnly("org.springframework:spring-context:5.3.32")
+    runtimeOnly("org.springframework:spring-test:5.3.32")
+    runtimeOnly("org.springframework:spring-web:5.3.32")
+    runtimeOnly("org.springframework:spring-webflux:5.3.32")
     runtimeOnly("org.testng:testng:latest.release")
     runtimeOnly("io.projectreactor:reactor-core:latest.release")
     runtimeOnly("io.projectreactor:reactor-test:latest.release")
