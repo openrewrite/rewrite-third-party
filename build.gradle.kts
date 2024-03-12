@@ -21,6 +21,18 @@ dependencies {
     runtimeOnly("org.axonframework:axon-migration:latest.release")
     runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:latest.release")
 
+    // error-prone-contrib only has provided dependencies, whereas the platform needs these on the classpath at runtime
+    runtimeOnly("org.assertj:assertj-core:latest.release")
+    runtimeOnly("org.springframework:spring-context:latest.release")
+    runtimeOnly("org.springframework:spring-test:latest.release")
+    runtimeOnly("org.springframework:spring-web:latest.release")
+    runtimeOnly("org.springframework:spring-webflux:latest.release")
+    runtimeOnly("org.testng:testng:latest.release")
+    runtimeOnly("io.projectreactor:reactor-core:latest.release")
+    runtimeOnly("io.projectreactor:reactor-test:latest.release")
+    runtimeOnly("io.projectreactor.addons:reactor-adapter:latest.release")
+    runtimeOnly("io.projectreactor.addons:reactor-extra:latest.release")
+
     testImplementation("org.openrewrite:rewrite-java")
     testImplementation("org.openrewrite:rewrite-test")
 
