@@ -22,6 +22,7 @@ dependencies {
     runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:latest.release")
 
     // error-prone-contrib only has provided dependencies, whereas the platform needs these on the classpath at runtime
+    runtimeOnly("org.junit.jupiter:junit-jupiter-api:latest.release")
     runtimeOnly("org.assertj:assertj-core:latest.release")
     runtimeOnly("org.springframework:spring-context:5.3.32")
     runtimeOnly("org.springframework:spring-test:5.3.32")
