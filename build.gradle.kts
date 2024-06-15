@@ -15,7 +15,9 @@ dependencies {
     runtimeOnly("org.openrewrite:rewrite-java")
     runtimeOnly("org.openrewrite:rewrite-templating:${rewriteVersion}")
 
-    runtimeOnly("ai.timefold.solver:timefold-solver-migration:latest.release")
+    runtimeOnly("ai.timefold.solver:timefold-solver-migration:latest.release") {
+        exclude(module = "jakarta.xml.bind-api")
+    }
     runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release")
     runtimeOnly("org.apache.wicket:wicket-migration:latest.release")
     runtimeOnly("org.axonframework:axon-migration:latest.release")
