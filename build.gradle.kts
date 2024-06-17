@@ -57,6 +57,8 @@ tasks.withType<ShadowJar> {
     }
     // Binary files for ErrorProne; not needed for recipes
     exclude("**/*.refaster")
+    exclude("**/*Rules.class")
+    exclude("**/bugpatterns/")
     // Redeclares existing Quarkus and OpenRewrite recipes
     exclude("**/ToLatest9.yml")
     relocate("quarkus-updates", "META-INF.rewrite")
