@@ -21,6 +21,7 @@ dependencies {
     runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release")
     runtimeOnly("org.apache.wicket:wicket-migration:latest.release")
     runtimeOnly("org.axonframework:axon-migration:latest.release")
+    runtimeOnly("software.amazon.awssdk:v2-migration:2.27.1-PREVIEW")
     runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:latest.release:recipes")
 
     // error-prone-contrib only has provided dependencies, whereas the platform needs these on the classpath at runtime
@@ -54,9 +55,14 @@ tasks.withType<ShadowJar> {
         include(dependency("io.quarkus:quarkus-update-recipes:.*"))
         include(dependency("org.apache.wicket:wicket-migration"))
         include(dependency("org.axonframework:axon-migration"))
+        include(dependency("software.amazon.awssdk:v2-migration"))
         include(dependency("tech.picnic.error-prone-support:error-prone-contrib"))
     }
     // Redeclares existing Quarkus and OpenRewrite recipes
     exclude("**/ToLatest9.yml")
     relocate("quarkus-updates", "META-INF.rewrite")
+    // Amazon SDK v2 migration recipe contains some scripts
+    exclude("generate-recipes")
+    exclude("scripts/")
+    exclude("v1-v2-service-mapping-diffs.csv")
 }
