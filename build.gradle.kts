@@ -21,7 +21,7 @@ dependencies {
     runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release")
     runtimeOnly("org.apache.wicket:wicket-migration:latest.release")
     runtimeOnly("org.axonframework:axon-migration:latest.release")
-    runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:latest.release")
+    runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:latest.release:recipes")
 
     // error-prone-contrib only has provided dependencies, whereas the platform needs these on the classpath at runtime
     runtimeOnly("org.junit.jupiter:junit-jupiter-api:latest.release")
@@ -39,13 +39,14 @@ dependencies {
     testImplementation("org.openrewrite:rewrite-java")
     testImplementation("org.openrewrite:rewrite-test")
 
-    testImplementation("tech.picnic.error-prone-support:error-prone-contrib:latest.release")
+    testImplementation("tech.picnic.error-prone-support:error-prone-contrib:latest.release:recipes")
     testImplementation("org.junit.jupiter:junit-jupiter-engine:latest.release")
 
     testRuntimeOnly("org.openrewrite:rewrite-java-17")
     testRuntimeOnly("org.gradle:gradle-tooling-api:latest.release")
 }
 
+// ./gradlew shadowJar
 tasks.withType<ShadowJar> {
     archiveClassifier.set("")
     dependencies {
@@ -55,10 +56,6 @@ tasks.withType<ShadowJar> {
         include(dependency("org.axonframework:axon-migration"))
         include(dependency("tech.picnic.error-prone-support:error-prone-contrib"))
     }
-    // Binary files for ErrorProne; not needed for recipes
-    exclude("**/*.refaster")
-    exclude("**/*Rules.class")
-    exclude("**/bugpatterns/")
     // Redeclares existing Quarkus and OpenRewrite recipes
     exclude("**/ToLatest9.yml")
     relocate("quarkus-updates", "META-INF.rewrite")
