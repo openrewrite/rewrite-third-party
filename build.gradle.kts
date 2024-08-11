@@ -54,7 +54,7 @@ tasks.withType<ShadowJar> {
         include(dependency("io.quarkus:quarkus-update-recipes:.*"))
         include(dependency("org.apache.wicket:wicket-migration"))
         include(dependency("org.axonframework:axon-migration"))
-        include(dependency("tech.picnic.error-prone-support:error-prone-contrib:recipes"))
+        include(dependency("tech.picnic.error-prone-support:error-prone-contrib"))
     }
     // Redeclares existing Quarkus and OpenRewrite recipes
     exclude("**/ToLatest9.yml")
