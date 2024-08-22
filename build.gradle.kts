@@ -19,6 +19,7 @@ dependencies {
         exclude(module = "jakarta.xml.bind-api")
     }
     runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release")
+    runtimeOnly("org.apache.camel:camel-upgrade-recipes:latest.release")
     runtimeOnly("org.apache.wicket:wicket-migration:latest.release")
     runtimeOnly("org.axonframework:axon-migration:latest.release")
     runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:latest.release:recipes")
@@ -52,6 +53,7 @@ tasks.withType<ShadowJar> {
     dependencies {
         include(dependency("ai.timefold.solver:timefold-solver-migration"))
         include(dependency("io.quarkus:quarkus-update-recipes:.*"))
+        include(dependency("org.apache.camel:camel-upgrade-recipes"))
         include(dependency("org.apache.wicket:wicket-migration"))
         include(dependency("org.axonframework:axon-migration"))
         include(dependency("tech.picnic.error-prone-support:error-prone-contrib"))
