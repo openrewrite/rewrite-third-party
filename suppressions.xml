@@ -32,4 +32,12 @@
         <cve>CVE-2019-0188</cve>
         <cve>CVE-2017-5643</cve>
     </suppress>
+    <suppress>
+        <notes><![CDATA[
+   file name: spring-webflux-5.3.32.jar
+   reason: Should not affect us; need further investigation if we can move to newer version
+   ]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.springframework/spring-webflux@.*$</packageUrl>
+        <vulnerabilityName>CVE-2024-38816</vulnerabilityName>
+    </suppress>
 </suppressions>
