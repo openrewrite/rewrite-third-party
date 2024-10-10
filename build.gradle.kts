@@ -21,7 +21,7 @@ dependencies {
     runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release")
     runtimeOnly("org.apache.wicket:wicket-migration:latest.release")
     runtimeOnly("org.axonframework:axon-migration:latest.release")
-    runtimeOnly("software.amazon.awssdk:v2-migration:2.27.1-PREVIEW")
+    runtimeOnly("software.amazon.awssdk:v2-migration:latest.release")
     runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:latest.release:recipes")
 
     // error-prone-contrib only has provided dependencies, whereas the platform needs these on the classpath at runtime
