@@ -3,6 +3,17 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 plugins {
     id("org.openrewrite.build.recipe-library") version "latest.release"
     id("com.github.johnrengelman.shadow") version "latest.release"
+    id("org.owasp.dependencycheck") version "latest.release"
+}
+
+dependencyCheck {
+    analyzers.assemblyEnabled = false
+    analyzers.nodeAuditEnabled = false
+    analyzers.nodeEnabled = false
+    failBuildOnCVSS = System.getenv("FAIL_BUILD_ON_CVSS")?.toFloatOrNull() ?: 9.0F
+    format = System.getenv("DEPENDENCY_CHECK_FORMAT") ?: "HTML"
+    nvd.apiKey = System.getenv("NVD_API_KEY")
+    suppressionFile = "suppressions.xml"
 }
 
 group = "org.openrewrite.recipe"
