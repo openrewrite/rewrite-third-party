@@ -2,7 +2,7 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
 plugins {
     id("org.openrewrite.build.recipe-library") version "latest.release"
-    id("com.github.johnrengelman.shadow") version "latest.release"
+    id("com.gradleup.shadow") version "latest.release"
     id("org.owasp.dependencycheck") version "latest.release"
 }
 
