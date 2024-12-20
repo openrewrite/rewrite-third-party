@@ -29,6 +29,7 @@ dependencies {
     runtimeOnly("ai.timefold.solver:timefold-solver-migration:latest.release") {
         exclude(module = "jakarta.xml.bind-api")
     }
+    runtimeOnly("com.oracle.weblogic.rewrite:rewrite-weblogic:latest.release")
     runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release")
     runtimeOnly("org.apache.camel.upgrade:camel-upgrade-recipes:latest.release")
     runtimeOnly("org.apache.wicket:wicket-migration:latest.release")
@@ -64,6 +65,7 @@ tasks.withType<ShadowJar> {
     archiveClassifier.set("")
     dependencies {
         include(dependency("ai.timefold.solver:timefold-solver-migration"))
+        include(dependency("com.oracle.weblogic.rewrite:rewrite-weblogic"))
         include(dependency("io.quarkus:quarkus-update-recipes:.*"))
         include(dependency("org.apache.camel.upgrade:camel-upgrade-recipes"))
         include(dependency("org.apache.wicket:wicket-migration"))
