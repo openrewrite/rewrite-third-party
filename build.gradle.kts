@@ -29,10 +29,10 @@ dependencies {
     runtimeOnly("ai.timefold.solver:timefold-solver-migration:latest.release") {
         exclude(module = "jakarta.xml.bind-api")
     }
-    runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release")
-    runtimeOnly("org.apache.camel.upgrade:camel-upgrade-recipes:latest.release")
-    runtimeOnly("org.apache.wicket:wicket-migration:latest.release")
-    runtimeOnly("org.axonframework:axon-migration:latest.release")
+    runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release") {isTransitive = false}
+    runtimeOnly("org.apache.camel.upgrade:camel-upgrade-recipes:latest.release") {isTransitive = false}
+    runtimeOnly("org.apache.wicket:wicket-migration:latest.release") {isTransitive = false}
+    runtimeOnly("org.axonframework:axon-migration:latest.release") {isTransitive = false}
     runtimeOnly("software.amazon.awssdk:v2-migration:latest.release")
     runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:latest.release:recipes")
 
