@@ -29,12 +29,12 @@ dependencies {
     runtimeOnly("ai.timefold.solver:timefold-solver-migration:latest.release") {
         exclude(module = "jakarta.xml.bind-api")
     }
-    runtimeOnly("com.oracle.weblogic.rewrite:rewrite-weblogic:latest.release")
-    runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release")
-    runtimeOnly("org.apache.camel.upgrade:camel-upgrade-recipes:latest.release")
-    runtimeOnly("org.apache.wicket:wicket-migration:latest.release")
-    runtimeOnly("org.axonframework:axon-migration:latest.release")
-    runtimeOnly("software.amazon.awssdk:v2-migration:latest.release")
+    runtimeOnly("com.oracle.weblogic.rewrite:rewrite-weblogic:latest.release") {isTransitive = false}
+    runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release") {isTransitive = false}
+    runtimeOnly("org.apache.camel.upgrade:camel-upgrade-recipes:latest.release") {isTransitive = false}
+    runtimeOnly("org.apache.wicket:wicket-migration:latest.release") {isTransitive = false}
+    runtimeOnly("org.axonframework:axon-migration:latest.release") {isTransitive = false}
+    runtimeOnly("software.amazon.awssdk:v2-migration:latest.release") {isTransitive = false}
     runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:latest.release:recipes")
 
     // error-prone-contrib only has provided dependencies, whereas the platform needs these on the classpath at runtime
