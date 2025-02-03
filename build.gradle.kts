@@ -29,11 +29,12 @@ dependencies {
     runtimeOnly("ai.timefold.solver:timefold-solver-migration:latest.release") {
         exclude(module = "jakarta.xml.bind-api")
     }
+    runtimeOnly("com.oracle.weblogic.rewrite:rewrite-weblogic:latest.release") {isTransitive = false}
     runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release") {isTransitive = false}
     runtimeOnly("org.apache.camel.upgrade:camel-upgrade-recipes:latest.release") {isTransitive = false}
     runtimeOnly("org.apache.wicket:wicket-migration:latest.release") {isTransitive = false}
     runtimeOnly("org.axonframework:axon-migration:latest.release") {isTransitive = false}
-    runtimeOnly("software.amazon.awssdk:v2-migration:latest.release")
+    runtimeOnly("software.amazon.awssdk:v2-migration:latest.release") {isTransitive = false}
     runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:latest.release:recipes")
 
     // error-prone-contrib only has provided dependencies, whereas the platform needs these on the classpath at runtime
@@ -64,6 +65,7 @@ tasks.withType<ShadowJar> {
     archiveClassifier.set("")
     dependencies {
         include(dependency("ai.timefold.solver:timefold-solver-migration"))
+        include(dependency("com.oracle.weblogic.rewrite:rewrite-weblogic"))
         include(dependency("io.quarkus:quarkus-update-recipes:.*"))
         include(dependency("org.apache.camel.upgrade:camel-upgrade-recipes"))
         include(dependency("org.apache.wicket:wicket-migration"))
