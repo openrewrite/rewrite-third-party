@@ -29,20 +29,20 @@ dependencies {
     runtimeOnly("ai.timefold.solver:timefold-solver-migration:latest.release") {
         exclude(module = "jakarta.xml.bind-api")
     }
-    runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release") {isTransitive = false}
-    runtimeOnly("org.apache.camel.upgrade:camel-upgrade-recipes:latest.release") {isTransitive = false}
-    runtimeOnly("org.apache.wicket:wicket-migration:latest.release") {isTransitive = false}
-    runtimeOnly("org.axonframework:axon-migration:latest.release") {isTransitive = false}
+    runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release") { isTransitive = false }
+    runtimeOnly("org.apache.camel.upgrade:camel-upgrade-recipes:latest.release") { isTransitive = false }
+    runtimeOnly("org.apache.wicket:wicket-migration:latest.release") { isTransitive = false }
+    runtimeOnly("org.axonframework:axon-migration:latest.release") { isTransitive = false }
     runtimeOnly("software.amazon.awssdk:v2-migration:latest.release")
     runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:latest.release:recipes")
 
     // error-prone-contrib only has provided dependencies, whereas the platform needs these on the classpath at runtime
     runtimeOnly("org.junit.jupiter:junit-jupiter-api:latest.release")
     runtimeOnly("org.assertj:assertj-core:latest.release")
-    runtimeOnly("org.springframework:spring-context:5.3.32")
-    runtimeOnly("org.springframework:spring-test:5.3.32")
-    runtimeOnly("org.springframework:spring-web:5.3.32")
-    runtimeOnly("org.springframework:spring-webflux:5.3.32")
+    runtimeOnly("org.springframework:spring-context:5.3.39")
+    runtimeOnly("org.springframework:spring-test:5.3.39")
+    runtimeOnly("org.springframework:spring-web:5.3.39")
+    runtimeOnly("org.springframework:spring-webflux:5.3.39")
     runtimeOnly("org.testng:testng:7.5")
     runtimeOnly("io.projectreactor:reactor-core:latest.release")
     runtimeOnly("io.projectreactor:reactor-test:latest.release")
