@@ -44,7 +44,7 @@ dependencies {
     runtimeOnly("org.springframework:spring-test")
     runtimeOnly("org.springframework:spring-web")
     runtimeOnly("org.springframework:spring-webflux")
-    runtimeOnly("org.testng:testng:7.11.0")
+    runtimeOnly("org.testng:testng:7.5")
     runtimeOnly("io.projectreactor:reactor-core:latest.release")
     runtimeOnly("io.projectreactor:reactor-test:latest.release")
     runtimeOnly("io.projectreactor.addons:reactor-adapter:latest.release")

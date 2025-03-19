@@ -33,6 +33,15 @@
     </suppress>
     <suppress until="2025-03-25Z">
         <notes><![CDATA[
+    file name: testng-7.5.jar
+        sev: HIGH
+          reason: False positive. Reference only
+    ]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.testng/testng@.*$</packageUrl>
+        <vulnerabilityName>CVE-2022-4065</vulnerabilityName>
+    </suppress>
+    <suppress until="2025-03-25Z">
+        <notes><![CDATA[
             file name: camel-upgrade-recipes-0.1.jar
             sev: CRITICAL
             reason: False positive. Reference only
