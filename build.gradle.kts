@@ -39,7 +39,7 @@ dependencies {
     // error-prone-contrib only has provided dependencies, whereas the platform needs these on the classpath at runtime
     runtimeOnly("org.junit.jupiter:junit-jupiter-api:latest.release")
     runtimeOnly("org.assertj:assertj-core:latest.release")
-    runtimeOnly(platform("org.springframework:spring-framework-bom:6.2.4"))
+    runtimeOnly(platform("org.springframework:spring-framework-bom:5.3.39")) // Necessary for Java 8 compatibility
     runtimeOnly("org.springframework:spring-context")
     runtimeOnly("org.springframework:spring-test")
     runtimeOnly("org.springframework:spring-web")

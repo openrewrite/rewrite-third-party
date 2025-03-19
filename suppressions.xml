@@ -17,6 +17,13 @@
     </suppress>
     <suppress until="2025-03-25Z">
         <notes><![CDATA[
+    file name: spring-web-5.3.39.jar
+    ]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.springframework/spring-web@.*$</packageUrl>
+        <cve>CVE-2016-1000027</cve>
+    </suppress>
+    <suppress until="2025-03-25Z">
+        <notes><![CDATA[
    file name: quarkus-update-recipes-1.0.19.jar
        sev: HIGH
          reason: False positive. Reference only
@@ -37,5 +44,13 @@
         <cve>CVE-2014-0002</cve>
         <cve>CVE-2019-0188</cve>
         <cve>CVE-2017-5643</cve>
+    </suppress>
+    <suppress>
+        <notes><![CDATA[
+    file name: spring-webflux-5.3.32.jar
+    reason: Should not affect us; need further investigation if we can move to newer version
+    ]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.springframework/spring-webflux@.*$</packageUrl>
+        <vulnerabilityName>CVE-2024-38816</vulnerabilityName>
     </suppress>
 </suppressions>
