@@ -24,6 +24,14 @@ description: |
   Timefold is a fork of OptaPlanner by its creator and other experts.
 ---
 type: specs.openrewrite.org/v1beta/category
+packageName: com.oracle
+name: Oracle
+root: true
+description: |
+  [Oracle WebLogic Server](https://www.oracle.com/java/weblogic/) is a unified and extensible platform for developing, deploying, and running enterprise applications in Java for on-premises and in the cloud.
+  WebLogic Server offers a robust, mature, and scalable implementation of Jakarta EE.
+---
+type: specs.openrewrite.org/v1beta/category
 name: Amazon Web Services SDK
 packageName: software.amazon.awssdk
 description: |
