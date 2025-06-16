@@ -28,8 +28,8 @@ class StringRulesRecipesTest implements RewriteTest {
         spec.recipe(new StringRulesRecipes());
     }
 
-    @Test
     @DocumentExample
+    @Test
     void stringValueOf() {
         //language=java
         rewriteRun(
