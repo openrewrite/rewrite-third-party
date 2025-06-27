@@ -38,7 +38,7 @@ dependencies {
     runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:latest.release:recipes")
 
     // error-prone-contrib only has provided dependencies, whereas the platform needs these on the classpath at runtime
-    runtimeOnly("org.junit.jupiter:junit-jupiter-api:latest.release")
+    runtimeOnly("org.junit.jupiter:junit-jupiter-api:5.+")
     runtimeOnly("org.assertj:assertj-core:latest.release")
     runtimeOnly(platform("org.springframework:spring-framework-bom:5.3.39")) // Necessary for Java 8 compatibility
     runtimeOnly("org.springframework:spring-context")
@@ -55,7 +55,7 @@ dependencies {
     testImplementation("org.openrewrite:rewrite-test")
 
     testImplementation("tech.picnic.error-prone-support:error-prone-contrib:latest.release:recipes")
-    testImplementation("org.junit.jupiter:junit-jupiter-engine:latest.release")
+    testImplementation("org.junit.jupiter:junit-jupiter-engine:5.+")
 
     testRuntimeOnly("org.openrewrite:rewrite-java-17")
     testRuntimeOnly("org.gradle:gradle-tooling-api:latest.release")
