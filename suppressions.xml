@@ -8,7 +8,7 @@
         <cve>CVE-2019-11403</cve>
         <cve>CVE-2019-11402</cve>
     </suppress>
-    <suppress until="2025-07-01Z">
+    <suppress until="2025-08-01Z">
         <notes><![CDATA[
     file name: spring-web-5.3.39.jar
     ]]></notes>
@@ -16,7 +16,7 @@
         <cve>CVE-2016-1000027</cve>
         <cve>CVE-2025-41234</cve>
     </suppress>
-    <suppress until="2025-07-01Z">
+    <suppress until="2025-08-01Z">
         <notes><![CDATA[
    file name: quarkus-update-recipes-1.0.19.jar
        sev: HIGH
@@ -25,7 +25,7 @@
         <packageUrl regex="true">^pkg:maven/io\.quarkus/quarkus-update-recipes@.*$</packageUrl>
         <cpe>cpe:/a:quarkus:quarkus</cpe>
     </suppress>
-    <suppress until="2025-07-01Z">
+    <suppress until="2025-08-01Z">
         <notes><![CDATA[
     file name: testng-7.5.jar
         sev: HIGH
