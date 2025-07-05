@@ -55,7 +55,7 @@ dependencies {
     testImplementation("org.openrewrite:rewrite-test")
 
     testImplementation("tech.picnic.error-prone-support:error-prone-contrib:latest.release:recipes")
-    testImplementation("org.junit.jupiter:junit-jupiter-engine:5.+")
+    testImplementation("org.junit.jupiter:junit-jupiter-engine:5.13.3")
 
     testRuntimeOnly("org.openrewrite:rewrite-java-17")
     testRuntimeOnly("org.gradle:gradle-tooling-api:latest.release")
