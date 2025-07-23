@@ -35,7 +35,7 @@ dependencies {
     runtimeOnly("org.apache.wicket:wicket-migration:latest.release") { isTransitive = false }
     runtimeOnly("org.axonframework:axon-migration:latest.release") { isTransitive = false }
     runtimeOnly("software.amazon.awssdk:v2-migration:latest.release")
-    runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:latest.release:recipes")
+    runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:${rewriteVersion}:recipes")
 
     // error-prone-contrib only has provided dependencies, whereas the platform needs these on the classpath at runtime
     runtimeOnly("org.junit.jupiter:junit-jupiter-api:5.+")
@@ -54,7 +54,7 @@ dependencies {
     testImplementation("org.openrewrite:rewrite-java")
     testImplementation("org.openrewrite:rewrite-test")
 
-    testImplementation("tech.picnic.error-prone-support:error-prone-contrib:latest.release:recipes")
+    testImplementation("tech.picnic.error-prone-support:error-prone-contrib:${rewriteVersion}:recipes")
     testImplementation("org.junit.jupiter:junit-jupiter-engine:5.13.3")
 
     testRuntimeOnly("org.openrewrite:rewrite-java-17")
