@@ -56,4 +56,12 @@
         <packageUrl regex="true">^pkg:maven/org\.springframework/spring-webflux@.*$</packageUrl>
         <vulnerabilityName>CVE-2024-38816</vulnerabilityName>
     </suppress>
+    <suppress until="2025-09-01Z">
+        <notes><![CDATA[
+    file name: spring-core-5.3.39.jar
+    reason: We're not affected due to the nature of how we use this library.
+    ]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.springframework/spring-core@.*$</packageUrl>
+        <cve>CVE-2025-41242</cve>
+    </suppress>
 </suppressions>
