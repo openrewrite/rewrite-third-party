@@ -1,13 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
-    <suppress until="2025-07-01Z">
-        <notes><![CDATA[
-   file name: rewrite-gradle-8.48.0-SNAPSHOT.jar: gradle-enterprise-gradle-plugin-3.19.2.jar
-   ]]></notes>
-        <cpe>cpe:/a:gradle:enterprise</cpe>
-        <cve>CVE-2019-11403</cve>
-        <cve>CVE-2019-11402</cve>
-    </suppress>
     <suppress until="2025-09-01Z">
         <notes><![CDATA[
     file name: spring-web-5.3.39.jar
@@ -33,20 +25,6 @@
     ]]></notes>
         <packageUrl regex="true">^pkg:maven/org\.testng/testng@.*$</packageUrl>
         <vulnerabilityName>CVE-2022-4065</vulnerabilityName>
-    </suppress>
-    <suppress until="2025-07-01Z">
-        <notes><![CDATA[
-            file name: camel-upgrade-recipes-0.1.jar
-            sev: CRITICAL
-            reason: False positive. Reference only
-        ]]></notes>
-        <packageUrl regex="true">^pkg:maven/org\.apache\.camel/camel-upgrade-recipes@.*$</packageUrl>
-        <cve>CVE-2015-5344</cve>
-        <cve>CVE-2017-3159</cve>
-        <cve>CVE-2014-0003</cve>
-        <cve>CVE-2014-0002</cve>
-        <cve>CVE-2019-0188</cve>
-        <cve>CVE-2017-5643</cve>
     </suppress>
     <suppress>
         <notes><![CDATA[
