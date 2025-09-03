@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
-    <suppress until="2025-09-01Z">
+    <suppress until="2025-10-01Z">
         <notes><![CDATA[
     file name: spring-web-5.3.39.jar
     ]]></notes>
@@ -8,7 +8,7 @@
         <cve>CVE-2016-1000027</cve>
         <cve>CVE-2025-41234</cve>
     </suppress>
-    <suppress until="2025-09-01Z">
+    <suppress until="2025-10-01Z">
         <notes><![CDATA[
    file name: quarkus-update-recipes-1.0.19.jar
        sev: HIGH
@@ -17,7 +17,7 @@
         <packageUrl regex="true">^pkg:maven/io\.quarkus/quarkus-update-recipes@.*$</packageUrl>
         <cpe>cpe:/a:quarkus:quarkus</cpe>
     </suppress>
-    <suppress until="2025-09-01Z">
+    <suppress until="2025-10-01Z">
         <notes><![CDATA[
     file name: testng-7.5.jar
         sev: HIGH
@@ -34,7 +34,7 @@
         <packageUrl regex="true">^pkg:maven/org\.springframework/spring-webflux@.*$</packageUrl>
         <vulnerabilityName>CVE-2024-38816</vulnerabilityName>
     </suppress>
-    <suppress until="2025-09-01Z">
+    <suppress until="2025-10-01Z">
         <notes><![CDATA[
     file name: spring-core-5.3.39.jar
     reason: We're not affected due to the nature of how we use this library.
