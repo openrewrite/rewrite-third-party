@@ -1,0 +1,285 @@
+# Generated quarkus-all.yml - Combined version recipes
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_21_alpha1
+displayName: Quarkus All 3_21_alpha1
+description: Complete migration recipe for Quarkus 3_21_alpha1 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3_19_alpha1
+  - io.quarkus.updates.core.quarkus321.TlsRegistrySplitPackagesFix
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_19_alpha1
+displayName: Quarkus All 3_19_alpha1
+description: Complete migration recipe for Quarkus 3_19_alpha1 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3_18
+  - io.quarkus.updates.core.quarkus319.MoveAccessTokenAnnotationToNewPackage
+  - io.quarkus.updates.core.quarkus319.ConfigurationPropertiesChange
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_18
+displayName: Quarkus All 3_18
+description: Complete migration recipe for Quarkus 3_18 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3_18_alpha1
+  - io.quarkus.updates.camel.camel410.CamelQuarkusMigrationRecipe
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_18_alpha1
+displayName: Quarkus All 3_18_alpha1
+description: Complete migration recipe for Quarkus 3_18_alpha1 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3_17
+  - io.quarkus.updates.core.quarkus318.RemoveFlywayCleanOnValidationError
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_17
+displayName: Quarkus All 3_17
+description: Complete migration recipe for Quarkus 3_17 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3_15
+  - io.quarkus.updates.camel.camel49.CamelQuarkusMigrationRecipe
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_15
+displayName: Quarkus All 3_15
+description: Complete migration recipe for Quarkus 3_15 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3_13_alpha1
+  - io.quarkus.updates.camel.camel47.CamelQuarkusMigrationRecipe
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_13_alpha1
+displayName: Quarkus All 3_13_alpha1
+description: Complete migration recipe for Quarkus 3_13_alpha1 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3_12_alpha1
+  - io.quarkus.updates.core.quarkus313.SyncHibernateJpaModelgenVersionWithBOM
+  - io.quarkus.updates.core.quarkus313.UpdateTestOIDCAuthServerUrl
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_12_alpha1
+displayName: Quarkus All 3_12_alpha1
+description: Complete migration recipe for Quarkus 3_12_alpha1 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3_11_alpha1
+  - io.quarkus.updates.core.quarkus312.SyncHibernateJpaModelgenVersionWithBOM
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_11_alpha1
+displayName: Quarkus All 3_11_alpha1
+description: Complete migration recipe for Quarkus 3_11_alpha1 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3_10_alpha1
+  - io.quarkus.updates.core.quarkus311.SyncHibernateJpaModelgenVersionWithBOM
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_10_alpha1
+displayName: Quarkus All 3_10_alpha1
+description: Complete migration recipe for Quarkus 3_10_alpha1 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3_9_alpha1
+  - io.quarkus.updates.core.quarkus310.SyncHibernateJpaModelgenVersionWithBOM
+  - io.quarkus.updates.core.quarkus310.UpdateConfigPackagePom
+  - io.quarkus.updates.core.quarkus310.UpdateConfigPackageTypeJar
+  - io.quarkus.updates.core.quarkus310.UpdateConfigPackageTypeFastJar
+  - io.quarkus.updates.core.quarkus310.UpdateConfigPackageTypeUberJar
+  - io.quarkus.updates.core.quarkus310.UpdateConfigPackageTypeMutableJar
+  - io.quarkus.updates.core.quarkus310.UpdateConfigPackageTypeNative
+  - io.quarkus.updates.core.quarkus310.UpdateConfigPackageTypeNativeSources
+  - io.quarkus.updates.core.quarkus310.UpdateConfigPackageSimpleProperties
+  - io.quarkus.updates.core.quarkus310.FlywayPostgreSQL
+  - io.quarkus.updates.core.quarkus310.FlywayDb2
+  - io.quarkus.updates.core.quarkus310.FlywayDerby
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_9_alpha1
+displayName: Quarkus All 3_9_alpha1
+description: Complete migration recipe for Quarkus 3_9_alpha1 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3_8
+  - io.quarkus.updates.core.quarkus39.RemovePanacheAnnotationProcessor
+  - io.quarkus.updates.core.quarkus39.SyncHibernateJpaModelgenVersionWithBOM
+  - io.quarkus.updates.core.quarkus39.Relocations
+  - io.quarkus.updates.core.quarkus39.UpdateConfigRoots
+  - io.quarkus.updates.core.quarkus39.GraalSDK
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_8
+displayName: Quarkus All 3_8
+description: Complete migration recipe for Quarkus 3_8 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3_8_3
+  - io.quarkus.updates.camel.camel44.CamelQuarkusMigrationRecipe
+  - io.quarkus.updates.minio.minio38.UpdateAll
+  - io.quarkus.updates.minio.minio38.UpdateProperties
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_8_3
+displayName: Quarkus All 3_8_3
+description: Complete migration recipe for Quarkus 3_8_3 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3_8_alpha1
+  - io.quarkus.updates.core.quarkus383.GraalSDK
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_8_alpha1
+displayName: Quarkus All 3_8_alpha1
+description: Complete migration recipe for Quarkus 3_8_alpha1 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3_7_alpha1
+  - io.quarkus.updates.core.quarkus38.SyncHibernateJpaModelgenVersionWithBOM
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_7_alpha1
+displayName: Quarkus All 3_7_alpha1
+description: Complete migration recipe for Quarkus 3_7_alpha1 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3_6_alpha1
+  - io.quarkus.updates.core.quarkus37.HibernateSearchOutboxPolling
+  - io.quarkus.updates.core.quarkus37.ResteasyClientRenaming
+  - io.quarkus.updates.core.quarkus37.MavenPlugins
+  - io.quarkus.updates.core.quarkus37.ReplaceJpaModelgenAnnotationProcessor
+  - io.quarkus.updates.core.quarkus37.AddJpaModelgenAnnotationProcessor
+  - io.quarkus.updates.core.quarkus37.AddJpaModelgenAnnotationProcessorIfOldArtifact
+  - io.quarkus.updates.core.quarkus37.RemoveJpaModelgenDependencies
+  - io.quarkus.updates.core.quarkus37.SyncHibernateJpaModelgenVersionWithBOM
+  - io.quarkus.updates.core.quarkus37.UpgradeToJava17
+  - io.quarkus.updates.core.quarkus37.JavaVersion17
+  - io.quarkus.updates.core.quarkus37.DeprecatedJavaxSecurityCert
+  - io.quarkus.updates.core.quarkus37.RemovedLegacySunJSSEProviderName
+  - io.quarkus.updates.core.quarkus37.DeprecatedLogRecordThreadID
+  - io.quarkus.updates.core.quarkus37.Jre17AgentMainPreMainPublic
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_6_alpha1
+displayName: Quarkus All 3_6_alpha1
+description: Complete migration recipe for Quarkus 3_6_alpha1 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3_5_alpha1
+  - io.quarkus.updates.core.quarkus36.JaegerSmallRyeOpenTracing
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_5_alpha1
+displayName: Quarkus All 3_5_alpha1
+description: Complete migration recipe for Quarkus 3_5_alpha1 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3_3_alpha1
+  - io.quarkus.updates.core.quarkus35.MutinyUniAndGroupCombinedWith
+  - io.quarkus.updates.core.quarkus35.MutinyUniMemoizeAtLeast
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_3_alpha1
+displayName: Quarkus All 3_3_alpha1
+description: Complete migration recipe for Quarkus 3_3_alpha1 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3_2_alpha1
+  - io.quarkus.updates.core.quarkus33.ApplicationProperties
+  - io.quarkus.updates.core.quarkus33.ApplicationYml
+  - io.quarkus.updates.core.quarkus33.GraalVMSubstitutionsArtifact
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_2_alpha1
+displayName: Quarkus All 3_2_alpha1
+description: Complete migration recipe for Quarkus 3_2_alpha1 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3_1_alpha1
+  - io.quarkus.updates.core.quarkus32.InjectMock
+  - io.quarkus.updates.core.quarkus32.ApplicationProperties
+  - io.quarkus.updates.core.quarkus32.ApplicationYml
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_1_alpha1
+displayName: Quarkus All 3_1_alpha1
+description: Complete migration recipe for Quarkus 3_1_alpha1 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3_0_alpha1
+  - io.quarkus.updates.core.quarkus31.RemoveMockitoInline
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3_0_alpha1
+displayName: Quarkus All 3_0_alpha1
+description: Complete migration recipe for Quarkus 3_0_alpha1 including all extensions
+recipeList:
+  - io.moderne.quarkus.all.recipe.3alpha
+  - io.quarkus.updates.core.quarkus30.UpgradeQuarkiverse
+  - io.quarkus.updates.core.quarkus30.JavaxActivationMigrationToJakartaActivation
+  - io.quarkus.updates.core.quarkus30.JavaxAnnotationMigrationToJakartaAnnotation
+  - io.quarkus.updates.core.quarkus30.ChangeJavaxAnnotationToJakarta
+  - io.quarkus.updates.core.quarkus30.JavaxAnnotationPackageToJakarta
+  - io.quarkus.updates.core.quarkus30.JavaxAnnotationSecurityPackageToJakarta
+  - io.quarkus.updates.core.quarkus30.JavaxAnnotationSqlPackageToJakarta
+  - io.quarkus.updates.core.quarkus30.JavaxAuthenticationMigrationToJakartaAuthentication
+  - io.quarkus.updates.core.quarkus30.JavaxAuthorizationMigrationToJakartaAuthorization
+  - io.quarkus.updates.core.quarkus30.JavaxBatchMigrationToJakartaBatch
+  - io.quarkus.updates.core.quarkus30.JavaxValidationMigrationToJakartaValidation
+  - io.quarkus.updates.core.quarkus30.JavaxDecoratorToJakartaDecorator
+  - io.quarkus.updates.core.quarkus30.JavaxEjbToJakartaEjb
+  - io.quarkus.updates.core.quarkus30.JavaxElToJakartaEl
+  - io.quarkus.updates.core.quarkus30.JavaxEnterpriseToJakartaEnterprise
+  - io.quarkus.updates.core.quarkus30.JavaxFacesToJakartaFaces
+  - io.quarkus.updates.core.quarkus30.JavaxInjectMigrationToJakartaInject
+  - io.quarkus.updates.core.quarkus30.JavaxInterceptorToJakartaInterceptor
+  - io.quarkus.updates.core.quarkus30.JavaxJmsToJakartaJms
+  - io.quarkus.updates.core.quarkus30.JavaxJsonToJakartaJson
+  - io.quarkus.updates.core.quarkus30.JavaxJwsToJakartaJws
+  - io.quarkus.updates.core.quarkus30.JavaxMailToJakartaMail
+  - io.quarkus.updates.core.quarkus30.JavaxPersistenceToJakartaPersistence
+  - io.quarkus.updates.core.quarkus30.JavaxResourceToJakartaResource
+  - io.quarkus.updates.core.quarkus30.JavaxSecurityToJakartaSecurity
+  - io.quarkus.updates.core.quarkus30.JavaxServletToJakartaServlet
+  - io.quarkus.updates.core.quarkus30.JavaxTransactionMigrationToJakartaTransaction
+  - io.quarkus.updates.core.quarkus30.JavaxWebsocketToJakartaWebsocket
+  - io.quarkus.updates.core.quarkus30.JavaxWsToJakartaWs
+  - io.quarkus.updates.core.quarkus30.JavaxXmlBindMigrationToJakartaXmlBind
+  - io.quarkus.updates.core.quarkus30.JavaxXmlSoapToJakartaXmlSoap
+  - io.quarkus.updates.core.quarkus30.JavaxXmlWsMigrationToJakartaXmlWs
+  - io.quarkus.updates.core.quarkus30.JavaxPersistenceXmlToJakartaPersistenceXml
+  - io.quarkus.updates.core.quarkus30.JacksonJavaxToJakarta
+  - io.quarkus.updates.core.quarkus30.RestAssuredJavaxToJakarta
+  - io.quarkus.updates.core.quarkus30.JavaxToJakartaAdditionalMigration
+  - io.quarkus.updates.core.quarkus30.RenameJavaxServiceFiles
+  - io.quarkus.updates.core.quarkus30.JavaxConfigurationFiles
+  - io.quarkus.updates.core.quarkus30.AdditionalChanges
+  - io.quarkus.updates.core.quarkus30.Kotlin
+  - io.quarkus.updates.core.quarkus30.ApplicationProperties
+  - io.quarkus.updates.core.quarkus30.ApplicationYml
+  - io.quarkus.updates.core.quarkus30.JavaxToJakartaDocumentationAdoc
+  - io.quarkus.updates.core.quarkus30.JavaxToJakartaDocumentationMd
+  - io.quarkus.updates.core.quarkus30.JavaxToJakartaCodestarts
+  - io.quarkus.updates.core.quarkus30.JavaxToJakartaCodestartsTests
+  - io.quarkus.updates.core.quarkus30.JavaxToJakartaKotlin
+  - io.quarkus.updates.core.quarkus30.JavaxToJakartaKotlinCodestarts
+  - io.quarkus.updates.core.quarkus30.JavaxToJakartaKotlinCodestartsTests
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.moderne.quarkus.all.recipe.3alpha
+displayName: Quarkus All 3alpha
+description: Complete migration recipe for Quarkus 3alpha including all extensions
+recipeList:
+  - io.quarkus.updates.camel.camel40.CamelQuarkusMigrationRecipe
+  - org.openrewrite.java.camel.migrate.removedExtensions
+
