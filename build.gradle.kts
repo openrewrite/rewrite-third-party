@@ -82,3 +82,12 @@ tasks.withType<ShadowJar> {
     exclude("scripts/")
     exclude("v1-v2-service-mapping-diffs.csv")
 }
+
+tasks {
+    val generateQuarkusAggregation by registering(JavaExec::class) {
+        group = "generate"
+        description = "Generate Quarkus migration aggregation Recipes."
+        mainClass = "org.openrewrite.recipe.quarkus.internal.AggregateQuarkusUpdates"
+        classpath = sourceSets.getByName("test").runtimeClasspath
+    }
+}
