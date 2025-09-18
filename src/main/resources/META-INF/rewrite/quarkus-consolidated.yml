@@ -1,9 +1,9 @@
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.Quarkus_v3_0_alpha1
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_0_alpha1
 displayName: Quarkus Updates Aggregate 3.0.alpha1
 description: Quarkus update recipes to upgrade your application to 3.0.alpha1.
-recipeList: 
+recipeList:
 	- io.quarkus.updates.core.quarkus30.JavaxToJakartaKotlinCodestartsTests
 	- io.quarkus.updates.core.quarkus30.JavaxAnnotationSqlPackageToJakarta
 	- io.quarkus.updates.core.quarkus30.JavaxEjbToJakartaEjb
@@ -16,6 +16,8 @@ recipeList:
 	- io.quarkus.updates.core.quarkus30.JavaxTransactionMigrationToJakartaTransaction
 	- io.quarkus.updates.core.quarkus30.JavaxBatchMigrationToJakartaBatch
 	- io.quarkus.updates.core.quarkus30.JavaxPersistenceToJakartaPersistence
+	- io.quarkus.updates.camel.camel40.CamelQuarkusMigrationRecipe
+	- org.openrewrite.java.camel.migrate.removedExtensions
 	- io.quarkus.updates.core.quarkus30.JavaxWebsocketToJakartaWebsocket
 	- io.quarkus.updates.core.quarkus30.JavaxPersistenceXmlToJakartaPersistenceXml
 	- io.quarkus.updates.core.quarkus30.JavaxResourceToJakartaResource
@@ -23,6 +25,7 @@ recipeList:
 	- io.quarkus.updates.core.quarkus30.JavaxAnnotationMigrationToJakartaAnnotation
 	- io.quarkus.updates.core.quarkus30.JavaxValidationMigrationToJakartaValidation
 	- io.quarkus.updates.core.quarkus30.JavaxToJakartaKotlin
+	- io.quarkus.updates.core.quarkus30.RenameJavaxServiceFiles
 	- io.quarkus.updates.core.quarkus30.RenameJavaxServiceFiles
 	- io.quarkus.updates.core.quarkus30.JavaxToJakartaDocumentationAdoc
 	- io.quarkus.updates.core.quarkus30.JavaxToJakartaDocumentationMd
@@ -56,61 +59,61 @@ recipeList:
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.Quarkus_v3_1_alpha1
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_1_alpha1
 displayName: Quarkus Updates Aggregate 3.1.alpha1
 description: Quarkus update recipes to upgrade your application to 3.1.alpha1.
-recipeList: 
-	- org.openrewrite.quarkus.Quarkus_v3_0_alpha1
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_0_alpha1
 	- io.quarkus.updates.core.quarkus31.RemoveMockitoInline
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.Quarkus_v3_2_alpha1
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_2_alpha1
 displayName: Quarkus Updates Aggregate 3.2.alpha1
 description: Quarkus update recipes to upgrade your application to 3.2.alpha1.
-recipeList: 
-	- org.openrewrite.quarkus.Quarkus_v3_1_alpha1
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_1_alpha1
 	- io.quarkus.updates.core.quarkus32.ApplicationYml
 	- io.quarkus.updates.core.quarkus32.InjectMock
 	- io.quarkus.updates.core.quarkus32.ApplicationProperties
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.Quarkus_v3_3_alpha1
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_3_alpha1
 displayName: Quarkus Updates Aggregate 3.3.alpha1
 description: Quarkus update recipes to upgrade your application to 3.3.alpha1.
-recipeList: 
-	- org.openrewrite.quarkus.Quarkus_v3_2_alpha1
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_2_alpha1
 	- io.quarkus.updates.core.quarkus33.ApplicationProperties
 	- io.quarkus.updates.core.quarkus33.ApplicationYml
 	- io.quarkus.updates.core.quarkus33.GraalVMSubstitutionsArtifact
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.Quarkus_v3_5_alpha1
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_5_alpha1
 displayName: Quarkus Updates Aggregate 3.5.alpha1
 description: Quarkus update recipes to upgrade your application to 3.5.alpha1.
-recipeList: 
-	- org.openrewrite.quarkus.Quarkus_v3_3_alpha1
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_3_alpha1
 	- io.quarkus.updates.core.quarkus35.MutinyUniMemoizeAtLeast
 	- io.quarkus.updates.core.quarkus35.MutinyUniAndGroupCombinedWith
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.Quarkus_v3_6_alpha1
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_6_alpha1
 displayName: Quarkus Updates Aggregate 3.6.alpha1
 description: Quarkus update recipes to upgrade your application to 3.6.alpha1.
-recipeList: 
-	- org.openrewrite.quarkus.Quarkus_v3_5_alpha1
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_5_alpha1
 	- io.quarkus.updates.core.quarkus36.JaegerSmallRyeOpenTracing
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.Quarkus_v3_7_alpha1
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_7_alpha1
 displayName: Quarkus Updates Aggregate 3.7.alpha1
 description: Quarkus update recipes to upgrade your application to 3.7.alpha1.
-recipeList: 
-	- org.openrewrite.quarkus.Quarkus_v3_6_alpha1
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_6_alpha1
 	- io.quarkus.updates.core.quarkus37.MavenPlugins
 	- io.quarkus.updates.core.quarkus37.ReplaceJpaModelgenAnnotationProcessor
 	- io.quarkus.updates.core.quarkus37.JavaVersion17
@@ -128,29 +131,39 @@ recipeList:
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.Quarkus_v3_8_3
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_8_null
+displayName: Quarkus Updates Aggregate 3.8
+description: Quarkus update recipes to upgrade your application to 3.8.
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_7_alpha1
+	- io.quarkus.updates.camel.camel44.CamelQuarkusMigrationRecipe
+	- io.quarkus.updates.minio.minio38.UpdateAll
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_8_3
 displayName: Quarkus Updates Aggregate 3.8.3
 description: Quarkus update recipes to upgrade your application to 3.8.3.
-recipeList: 
-	- org.openrewrite.quarkus.Quarkus_v3_7_alpha1
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_8_null
 	- io.quarkus.updates.core.quarkus383.GraalSDK
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.Quarkus_v3_8_alpha1
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_8_alpha1
 displayName: Quarkus Updates Aggregate 3.8.alpha1
 description: Quarkus update recipes to upgrade your application to 3.8.alpha1.
-recipeList: 
-	- org.openrewrite.quarkus.Quarkus_v3_8_3
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_8_3
 	- io.quarkus.updates.core.quarkus38.SyncHibernateJpaModelgenVersionWithBOM
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.Quarkus_v3_9_alpha1
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_9_alpha1
 displayName: Quarkus Updates Aggregate 3.9.alpha1
 description: Quarkus update recipes to upgrade your application to 3.9.alpha1.
-recipeList: 
-	- org.openrewrite.quarkus.Quarkus_v3_8_alpha1
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_8_alpha1
 	- io.quarkus.updates.core.quarkus39.RemovePanacheAnnotationProcessor
 	- io.quarkus.updates.core.quarkus39.GraalSDK
 	- io.quarkus.updates.core.quarkus39.SyncHibernateJpaModelgenVersionWithBOM
@@ -159,11 +172,11 @@ recipeList:
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.Quarkus_v3_10_alpha1
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_10_alpha1
 displayName: Quarkus Updates Aggregate 3.10.alpha1
 description: Quarkus update recipes to upgrade your application to 3.10.alpha1.
-recipeList: 
-	- org.openrewrite.quarkus.Quarkus_v3_9_alpha1
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_9_alpha1
 	- io.quarkus.updates.core.quarkus310.FlywayDb2
 	- io.quarkus.updates.core.quarkus310.UpdateConfigPackageSimpleProperties
 	- io.quarkus.updates.core.quarkus310.UpdateConfigPackageTypeUberJar
@@ -179,77 +192,122 @@ recipeList:
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.Quarkus_v3_11_alpha1
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_11_alpha1
 displayName: Quarkus Updates Aggregate 3.11.alpha1
 description: Quarkus update recipes to upgrade your application to 3.11.alpha1.
-recipeList: 
-	- org.openrewrite.quarkus.Quarkus_v3_10_alpha1
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_10_alpha1
 	- io.quarkus.updates.core.quarkus311.SyncHibernateJpaModelgenVersionWithBOM
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.Quarkus_v3_12_alpha1
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_12_alpha1
 displayName: Quarkus Updates Aggregate 3.12.alpha1
 description: Quarkus update recipes to upgrade your application to 3.12.alpha1.
-recipeList: 
-	- org.openrewrite.quarkus.Quarkus_v3_11_alpha1
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_11_alpha1
 	- io.quarkus.updates.core.quarkus312.SyncHibernateJpaModelgenVersionWithBOM
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.Quarkus_v3_13_alpha1
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_13_alpha1
 displayName: Quarkus Updates Aggregate 3.13.alpha1
 description: Quarkus update recipes to upgrade your application to 3.13.alpha1.
-recipeList: 
-	- org.openrewrite.quarkus.Quarkus_v3_12_alpha1
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_12_alpha1
 	- io.quarkus.updates.core.quarkus313.SyncHibernateJpaModelgenVersionWithBOM
 	- io.quarkus.updates.core.quarkus313.UpdateTestOIDCAuthServerUrl
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.Quarkus_v3_18_alpha1
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_15_null
+displayName: Quarkus Updates Aggregate 3.15
+description: Quarkus update recipes to upgrade your application to 3.15.
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_13_alpha1
+	- io.quarkus.updates.camel.camel47.CamelQuarkusMigrationRecipe
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_17_null
+displayName: Quarkus Updates Aggregate 3.17
+description: Quarkus update recipes to upgrade your application to 3.17.
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_15_null
+	- io.quarkus.updates.camel.camel49.CamelQuarkusMigrationRecipe
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_18_null
+displayName: Quarkus Updates Aggregate 3.18
+description: Quarkus update recipes to upgrade your application to 3.18.
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_17_null
+	- io.quarkus.updates.camel.camel410.CamelQuarkusMigrationRecipe
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_18_alpha1
 displayName: Quarkus Updates Aggregate 3.18.alpha1
 description: Quarkus update recipes to upgrade your application to 3.18.alpha1.
-recipeList: 
-	- org.openrewrite.quarkus.Quarkus_v3_13_alpha1
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_18_null
 	- io.quarkus.updates.core.quarkus318.RemoveFlywayCleanOnValidationError
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.Quarkus_v3_19_alpha1
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_19_alpha1
 displayName: Quarkus Updates Aggregate 3.19.alpha1
 description: Quarkus update recipes to upgrade your application to 3.19.alpha1.
-recipeList: 
-	- org.openrewrite.quarkus.Quarkus_v3_18_alpha1
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_18_alpha1
 	- io.quarkus.updates.core.quarkus319.MoveAccessTokenAnnotationToNewPackage
 	- io.quarkus.updates.core.quarkus319.HibernateORMValidationMode
 	- io.quarkus.updates.core.quarkus319.ConfigurationPropertiesChange
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.Quarkus_v3_21_alpha1
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_21_alpha1
 displayName: Quarkus Updates Aggregate 3.21.alpha1
 description: Quarkus update recipes to upgrade your application to 3.21.alpha1.
-recipeList: 
-	- org.openrewrite.quarkus.Quarkus_v3_19_alpha1
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_19_alpha1
 	- io.quarkus.updates.core.quarkus321.TlsRegistrySplitPackagesFix
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.Quarkus_v3_23_alpha1
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_22_null
+displayName: Quarkus Updates Aggregate 3.22
+description: Quarkus update recipes to upgrade your application to 3.22.
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_21_alpha1
+	- io.quarkus.updates.camel.camel411.CamelQuarkusMigrationRecipe
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_23_alpha1
 displayName: Quarkus Updates Aggregate 3.23.alpha1
 description: Quarkus update recipes to upgrade your application to 3.23.alpha1.
-recipeList: 
-	- org.openrewrite.quarkus.Quarkus_v3_21_alpha1
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_22_null
 	- io.quarkus.updates.core.quarkus323.HibernateORMSchemaManagementProperties
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.Quarkus_v3_24_alpha1
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_24_null
+displayName: Quarkus Updates Aggregate 3.24
+description: Quarkus update recipes to upgrade your application to 3.24.
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_23_alpha1
+	- io.quarkus.updates.camel.camel412.CamelQuarkusMigrationRecipe
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_24_alpha1
 displayName: Quarkus Updates Aggregate 3.24.alpha1
 description: Quarkus update recipes to upgrade your application to 3.24.alpha1.
-recipeList: 
-	- org.openrewrite.quarkus.Quarkus_v3_23_alpha1
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_24_null
 	- io.quarkus.updates.core.quarkus324.MigrateFromHibernateOrmSessionMethodsRemovedIn7
 	- io.quarkus.updates.core.quarkus324.AddHibernateAnnotationProcessorIfNewJpaModelgenDependency
 	- io.quarkus.updates.core.quarkus324.ReplaceOldJpaModelgenAnnotationProcessor
@@ -261,10 +319,19 @@ recipeList:
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.Quarkus_v3_26_alpha1
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_25_null
+displayName: Quarkus Updates Aggregate 3.25
+description: Quarkus update recipes to upgrade your application to 3.25.
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_24_alpha1
+	- io.quarkus.updates.camel.camel413.CamelQuarkusMigrationRecipe
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_26_alpha1
 displayName: Quarkus Updates Aggregate 3.26.alpha1
 description: Quarkus update recipes to upgrade your application to 3.26.alpha1.
-recipeList: 
-	- org.openrewrite.quarkus.Quarkus_v3_24_alpha1
+recipeList:
+	- org.openrewrite.quarkus.MigrateToQuarkus_v3_25_null
 	- io.quarkus.updates.core.quarkus326.EnableEnabledConfigChanges
 

@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           repository: quarkusio/quarkus-updates
-          path: quarkus-upgrade
+          path: quarkus-updates
           ref: 1.5.2 # Use the latest stable release tag here
 
       - name: Create quarkus aggregation recipes
