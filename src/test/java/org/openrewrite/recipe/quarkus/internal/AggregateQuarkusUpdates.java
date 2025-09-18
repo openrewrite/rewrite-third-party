@@ -26,7 +26,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.*;
@@ -139,7 +138,7 @@ public class AggregateQuarkusUpdates {
 
     /// Parse the defined recipe names from a given file using `type: specs.openrewrite.org/v1beta/recipe\nname: ([\.\w]*)``
     static Set<String> extractRecipeVersions(Path file) {
-        Pattern compile = Pattern.compile("type: specs.openrewrite.org/v1beta/recipe\\nname: ([\\.\\w]*)");
+        Pattern compile = Pattern.compile("type: specs.openrewrite.org/v1beta/recipe\\nname: ([.\\w]*)");
         try {
             return compile.matcher(Files.readString(file))
               .results()
