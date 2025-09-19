@@ -132,8 +132,8 @@ public class AggregateQuarkusUpdates {
             recipeNameFor(version),
             version,
             version,
-            priorVersion != null ? "\n\t- " + recipeNameFor(priorVersion) : "",
-            recipeList.stream().collect(joining("\n\t- ", "\n\t- ", "\n")));
+            priorVersion != null ? "\n  - " + recipeNameFor(priorVersion) : "",
+            recipeList.stream().collect(joining("\n  - ", "\n  - ", "\n")));
     }
 
     /// Parse the defined recipe names from a given file using `type: specs.openrewrite.org/v1beta/recipe\nname: ([\.\w]*)``
