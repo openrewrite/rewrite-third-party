@@ -18,7 +18,7 @@ jobs:
         with:
           repository: quarkusio/quarkus-updates
           path: quarkus-updates
-          ref: 1.5.2 # Use the latest stable release tag here
+          ref: main
 
       - name: Create quarkus aggregation recipes
         run: ./gradlew generateQuarkusAggregation
