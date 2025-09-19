@@ -1,0 +1,40 @@
+name: Generate Quarkus aggregation recipes
+
+on:
+  schedule:
+    - cron: 0 11 * * TUE
+  workflow_dispatch: {}
+
+jobs:
+  update-migrations:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule' || github.repository_owner == 'moderneinc'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Init submodules
+        uses: snickerbockers/submodules-init@v4
+
+      - name: Create quarkus aggregation recipes
+        run: ./gradlew generateQuarkusAggregation --args "quarkus-updates/recipes/src/main/resources/quarkus-updates src/main/resources/META-INF/rewrite/quarkus-consolidated.yml"
+
+      # Create pull request
+      - name: Timestamp
+        run: echo "NOW=$(date +'%Y-%m-%dT%H%M')" >> $GITHUB_ENV
+      - name: Create Pull Request
+        id: cpr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          base: main
+          branch: migrations/${{ env.NOW }}
+          title: "[Auto] Aggregational Quarkus migration recipes as of ${{ env.NOW }}"
+          body: |
+            [Auto] Aggregational Quarkus migration recipes as of ${{ env.NOW }}.
+          commit-message: "[Auto] Aggregational Quarkus migration recipes as of ${{ env.NOW }}"
+          labels: enhancement
+      - name: Check outputs
+        if: ${{ steps.cpr.outputs.pull-request-number }}
+        run: |
+          echo "Pull Request Number - ${{ steps.cpr.outputs.pull-request-number }}"
+          echo "Pull Request URL - ${{ steps.cpr.outputs.pull-request-url }}"
