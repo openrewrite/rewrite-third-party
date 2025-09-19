@@ -15,8 +15,6 @@
  */
 package org.openrewrite.recipe.quarkus.internal;
 
-import org.jetbrains.annotations.NotNull;
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
