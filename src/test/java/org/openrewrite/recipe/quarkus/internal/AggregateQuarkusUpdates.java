@@ -15,13 +15,16 @@
  */
 package org.openrewrite.recipe.quarkus.internal;
 
+import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
+import java.util.function.BiPredicate;
 import java.util.regex.Pattern;
 
 import static java.util.Comparator.*;
@@ -31,18 +34,23 @@ import static java.util.stream.Collectors.*;
 @NullMarked
 public class AggregateQuarkusUpdates {
 
-    private static final Path input = Path.of("quarkus-updates/recipes/src/main/resources/quarkus-updates");
-    private static final Path output = Path.of("src/main/resources/META-INF/rewrite/quarkus-consolidated.yml");
 
     public static void main(String[] args) {
-        System.out.printf("Starting aggregation of Quarkus update recipes from %s to %s%n", input.toAbsolutePath(), output.toAbsolutePath());
+        if (args.length < 2) {
+            System.out.println("Usage: java AggregateQuarkusUpdates <path to quarkus-updates recipes> <path to consolidated recipes>");
+        }
 
-        if (!input.toFile().exists()) {
+        Path quarkusRecipesDirectory = Path.of(args[0]);
+        Path consolidatedRecipe = Path.of(args[1]);
+
+        System.out.printf("Starting aggregation of Quarkus update recipes from %s to %s%n", quarkusRecipesDirectory.toAbsolutePath(), consolidatedRecipe.toAbsolutePath());
+
+        if (!quarkusRecipesDirectory.toFile().exists()) {
             throw new IllegalStateException("quarkusio/quarkus-updates.git is not available under 'quarkus-updates', please clone here temporarily");
         }
 
-        System.out.printf("Reading recipes from %s%n", input.toAbsolutePath());
-        SortedMap<Version, Set<String>> sortedByVersion = recipesDefinedInQuarkusRepo();
+        System.out.printf("Reading recipes from %s%n", quarkusRecipesDirectory.toAbsolutePath());
+        SortedMap<Version, Set<String>> sortedByVersion = recipesDefinedInQuarkusRepo(quarkusRecipesDirectory);
 
         System.out.printf(
           "Found %s different versions and %s recipes in total%n",
@@ -83,16 +91,17 @@ public class AggregateQuarkusUpdates {
         }
 
         try {
-            Files.writeString(output, recipeYml);
-            System.out.printf("Wrote aggregating recipes to %s", output.toAbsolutePath());
+            Files.writeString(consolidatedRecipe, recipeYml);
+            System.out.printf("Wrote aggregating recipes to %s", consolidatedRecipe.toAbsolutePath());
         } catch (IOException e) {
-            System.err.printf("Failed to write to %s due to %s", output.toAbsolutePath(), e.getMessage());
+            System.err.printf("Failed to write to %s due to %s", consolidatedRecipe.toAbsolutePath(), e.getMessage());
         }
 
     }
 
-    private static SortedMap<Version, Set<String>> recipesDefinedInQuarkusRepo() {
-        try (var recipesFiles = Files.find(input, 3, (p, a) -> p.getFileName().toString().endsWith(".yml") || p.getFileName().toString().endsWith(".yaml"))) {
+    private static SortedMap<Version, Set<String>> recipesDefinedInQuarkusRepo(Path quarkusRecipesDirectory) {
+        BiPredicate<Path, BasicFileAttributes> yamlFileFilter = (p, a) -> p.getFileName().toString().endsWith(".yml") || p.getFileName().toString().endsWith(".yaml");
+        try (var recipesFiles = Files.find(quarkusRecipesDirectory, 3, yamlFileFilter)) {
             return recipesFiles.collect(toMap(
               p -> Version.parse(p.getFileName().toString()),
               AggregateQuarkusUpdates::extractRecipeVersions,

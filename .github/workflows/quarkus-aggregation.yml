@@ -13,15 +13,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Clone quarkus upgrade
-        uses: actions/checkout@v2
-        with:
-          repository: quarkusio/quarkus-updates
-          path: quarkus-updates
-          ref: main
+      - name: Init submodules
+        uses: snickerbockers/submodules-init@v4
 
       - name: Create quarkus aggregation recipes
-        run: ./gradlew generateQuarkusAggregation
+        run: ./gradlew generateQuarkusAggregation --args "quarkus-updates/recipes/src/main/resources/quarkus-updates src/main/resources/META-INF/rewrite/quarkus-consolidated.yml"
 
       # Create pull request
       - name: Timestamp

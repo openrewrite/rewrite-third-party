@@ -1,0 +1,3 @@
+[submodule "quarkus-updates"]
+	path = quarkus-updates
+	url = git@github.com:quarkusio/quarkus-updates.git
