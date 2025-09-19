@@ -21,12 +21,10 @@ import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.SortedMap;
+import java.util.*;
 import java.util.regex.Pattern;
 
+import static java.util.Comparator.*;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.*;
 
@@ -110,7 +108,7 @@ public class AggregateQuarkusUpdates {
 
     /// Normalize recipe name for a given version
     static String recipeNameFor(Version version) {
-        if (version.patch == null) {
+        if (version.patch == null || version.patch.startsWith("alpha")) {
             return "org.openrewrite.quarkus.MigrateToQuarkus_v%s_%s".formatted(version.major, version.minor);
         }
 
@@ -157,7 +155,7 @@ public class AggregateQuarkusUpdates {
         public static Version parse(String version) {
             if ("3alpha.yaml".equals(version)) {
                 // Special case for the initial Quarkus 3 alpha recipe
-                return new Version(3, 0, "alpha1");
+                return new Version(3, 0, "alpha");
             }
 
             String[] parts = version.split("\\.");
@@ -173,31 +171,17 @@ public class AggregateQuarkusUpdates {
             return new Version(major, minor, parts[2]);
         }
 
+        private static final Comparator<Version> versionComparator = comparing(Version::major).thenComparing(Version::minor).thenComparing(Version::patch, nullsFirst(naturalOrder()));
         @Override
         public int compareTo(Version other) {
-            if (this.major != other.major) {
-                return Integer.compare(this.major, other.major);
-            }
-            if (this.minor != other.minor) {
-                return Integer.compare(this.minor, other.minor);
-            }
-
-            if (this.patch == null && other.patch == null) {
-                return 0;
-            }
-            if (this.patch == null) {
-                return -1;
-            }
-            if (other.patch == null) {
-                return 1;
-            }
-
-            return CharSequence.compare(this.patch, other.patch);
+            return versionComparator.compare(this, other);
         }
 
         @Override
         public String toString() {
-            return patch != null ? major + "." + minor + "." + patch : major + "." + minor;
+            return (patch == null || patch.startsWith("alpha")) ?
+                "%s.%s".formatted(major, minor) :
+                "%s.%s.%s".formatted(major, minor, patch);
         }
     }
 }
