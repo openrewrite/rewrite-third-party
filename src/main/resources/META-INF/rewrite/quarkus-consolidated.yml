@@ -20,16 +20,6 @@ name: org.openrewrite.quarkus.MigrateToQuarkus_v3_0
 displayName: Quarkus Updates Aggregate 3.0
 description: Quarkus update recipes to upgrade your application to 3.0.
 recipeList:
-  - io.quarkus.updates.camel.camel40.CamelQuarkusMigrationRecipe
-  - org.openrewrite.java.camel.migrate.removedExtensions
-
----
-type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.quarkus.MigrateToQuarkus_v3_0
-displayName: Quarkus Updates Aggregate 3.0
-description: Quarkus update recipes to upgrade your application to 3.0.
-recipeList:
-  - org.openrewrite.quarkus.MigrateToQuarkus_v3_0
   - io.quarkus.updates.core.quarkus30.JavaxToJakartaKotlinCodestartsTests
   - io.quarkus.updates.core.quarkus30.JavaxAnnotationSqlPackageToJakarta
   - io.quarkus.updates.core.quarkus30.JavaxEjbToJakartaEjb
@@ -42,6 +32,8 @@ recipeList:
   - io.quarkus.updates.core.quarkus30.JavaxTransactionMigrationToJakartaTransaction
   - io.quarkus.updates.core.quarkus30.JavaxBatchMigrationToJakartaBatch
   - io.quarkus.updates.core.quarkus30.JavaxPersistenceToJakartaPersistence
+  - io.quarkus.updates.camel.camel40.CamelQuarkusMigrationRecipe
+  - org.openrewrite.java.camel.migrate.removedExtensions
   - io.quarkus.updates.core.quarkus30.JavaxWebsocketToJakartaWebsocket
   - io.quarkus.updates.core.quarkus30.JavaxPersistenceXmlToJakartaPersistenceXml
   - io.quarkus.updates.core.quarkus30.JavaxResourceToJakartaResource

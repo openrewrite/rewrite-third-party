@@ -103,7 +103,7 @@ public class AggregateQuarkusUpdates {
         try (var recipesFiles = Files.find(quarkusRecipesDirectory, 3, yamlFileFilter)) {
             return recipesFiles.collect(toMap(
               p -> Version.parse(p.getFileName().toString()),
-              AggregateQuarkusUpdates::extractRecipeVersions,
+              AggregateQuarkusUpdates::extractRecipeNames,
               (a, b) -> {
                   a.addAll(b);
                   return a;
@@ -143,7 +143,7 @@ public class AggregateQuarkusUpdates {
     }
 
     /// Parse the defined recipe names from a given file using `type: specs.openrewrite.org/v1beta/recipe\nname: ([\.\w]*)``
-    static Set<String> extractRecipeVersions(Path file) {
+    static Set<String> extractRecipeNames(Path file) {
         Pattern compile = Pattern.compile("type: specs.openrewrite.org/v1beta/recipe\\nname: ([.\\w]*)");
         try {
             return compile.matcher(Files.readString(file))
@@ -163,7 +163,7 @@ public class AggregateQuarkusUpdates {
         public static Version parse(String version) {
             if ("3alpha.yaml".equals(version)) {
                 // Special case for the initial Quarkus 3 alpha recipe
-                return new Version(3, 0, "alpha");
+                return new Version(3, 0, "alpha1");
             }
 
             String[] parts = version.split("\\.");
