@@ -27,8 +27,8 @@ import java.util.function.BiPredicate;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 
-import static java.util.Comparator.*;
-import static java.util.stream.Collectors.*;
+import static java.util.Comparator.comparing;
+import static java.util.stream.Collectors.toSet;
 
 @NullMarked
 public class AggregateQuarkusUpdates {

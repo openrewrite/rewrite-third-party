@@ -71,18 +71,18 @@ class AggregateQuarkusUpdatesTest {
             assertThat(recipe)
               //language=YAML
               .isEqualTo("""
-              ---
-              type: specs.openrewrite.org/v1beta/recipe
-              name: org.openrewrite.quarkus.MigrateToQuarkus_v1_2_3
-              displayName: Quarkus Updates Aggregate 1.2.3
-              description: Quarkus update recipes to upgrade your application to 1.2.3.
-              recipeList:
-                - org.openrewrite.quarkus.MigrateToQuarkus_v1_2_0
-                - org.test.r1
-                - org.test.r2
-                - org.test.r3
+                ---
+                type: specs.openrewrite.org/v1beta/recipe
+                name: org.openrewrite.quarkus.MigrateToQuarkus_v1_2_3
+                displayName: Quarkus Updates Aggregate 1.2.3
+                description: Quarkus update recipes to upgrade your application to 1.2.3.
+                recipeList:
+                  - org.openrewrite.quarkus.MigrateToQuarkus_v1_2_0
+                  - org.test.r1
+                  - org.test.r2
+                  - org.test.r3
 
-              """);
+                """);
         }
 
         @Test
@@ -91,17 +91,17 @@ class AggregateQuarkusUpdatesTest {
             assertThat(recipe)
               //language=YAML
               .isEqualTo("""
-              ---
-              type: specs.openrewrite.org/v1beta/recipe
-              name: org.openrewrite.quarkus.MigrateToQuarkus_v1_2_3
-              displayName: Quarkus Updates Aggregate 1.2.3
-              description: Quarkus update recipes to upgrade your application to 1.2.3.
-              recipeList:
-                - org.test.r1
-                - org.test.r2
-                - org.test.r3
+                ---
+                type: specs.openrewrite.org/v1beta/recipe
+                name: org.openrewrite.quarkus.MigrateToQuarkus_v1_2_3
+                displayName: Quarkus Updates Aggregate 1.2.3
+                description: Quarkus update recipes to upgrade your application to 1.2.3.
+                recipeList:
+                  - org.test.r1
+                  - org.test.r2
+                  - org.test.r3
 
-              """);
+                """);
         }
     }
 
