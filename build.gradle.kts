@@ -56,6 +56,7 @@ dependencies {
 
     testImplementation("tech.picnic.error-prone-support:error-prone-contrib:${rewriteVersion}:recipes")
     testImplementation("org.junit.jupiter:junit-jupiter-engine:5.13.3")
+    testImplementation("org.junit-pioneer:junit-pioneer:latest.release")
 
     testRuntimeOnly("org.openrewrite:rewrite-java-17")
     testRuntimeOnly("org.gradle:gradle-tooling-api:latest.release")
@@ -81,4 +82,13 @@ tasks.withType<ShadowJar> {
     exclude("generate-recipes")
     exclude("scripts/")
     exclude("v1-v2-service-mapping-diffs.csv")
+}
+
+tasks {
+    val generateQuarkusAggregation by registering(JavaExec::class) {
+        group = "generate"
+        description = "Generate Quarkus migration aggregation Recipes."
+        mainClass = "org.openrewrite.recipe.quarkus.internal.AggregateQuarkusUpdates"
+        classpath = sourceSets.getByName("test").runtimeClasspath
+    }
 }
