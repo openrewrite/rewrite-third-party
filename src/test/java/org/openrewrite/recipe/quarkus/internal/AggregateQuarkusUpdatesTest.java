@@ -61,7 +61,7 @@ class AggregateQuarkusUpdatesTest {
     }
 
     @Test
-    void readRecipesFromCamlQuarkusModule() throws IOException {
+    void readRecipesFromCamelQuarkusModule() throws Exception {
         Path camelQuarkusDir = Path.of("quarkus-updates/recipes/src/main/resources/quarkus-updates/org.apache.camel.quarkus");
         assertThat(recipesDefinedInQuarkusRepo(camelQuarkusDir))
           .containsExactlyInAnyOrderEntriesOf(
