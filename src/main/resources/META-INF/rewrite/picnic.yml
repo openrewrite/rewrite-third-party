@@ -22,6 +22,7 @@ recipeList:
   - tech.picnic.errorprone.refasterrules.AssertJBigIntegerRulesRecipes
   - tech.picnic.errorprone.refasterrules.AssertJByteRulesRecipes
   - tech.picnic.errorprone.refasterrules.AssertJDoubleRulesRecipes
+  - tech.picnic.errorprone.refasterrules.AssertJFileRulesRecipes
   - tech.picnic.errorprone.refasterrules.AssertJFloatRulesRecipes
   - tech.picnic.errorprone.refasterrules.AssertJIntegerRulesRecipes
   - tech.picnic.errorprone.refasterrules.AssertJLongRulesRecipes
