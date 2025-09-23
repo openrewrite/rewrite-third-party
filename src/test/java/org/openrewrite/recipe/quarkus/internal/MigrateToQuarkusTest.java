@@ -15,13 +15,13 @@
  */
 package org.openrewrite.recipe.quarkus.internal;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junitpioneer.jupiter.ExpectedToFail;
 import org.openrewrite.test.RewriteTest;
 
 class MigrateToQuarkusTest implements RewriteTest {
 
-    @Disabled("AWS defines a broken method matcher, see https://github.com/aws/aws-sdk-java-v2/pull/6438")
+    @ExpectedToFail("AWS defines a broken method matcher, see https://github.com/aws/aws-sdk-java-v2/pull/6438")
     @Test
     void loadRecipe() {
         rewriteRun(
