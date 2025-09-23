@@ -15,10 +15,11 @@
  */
 package org.openrewrite.recipe.quarkus.internal;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIf;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -28,18 +29,25 @@ import static org.openrewrite.recipe.quarkus.internal.AggregateQuarkusUpdates.*;
 
 class AggregateQuarkusUpdatesTest {
 
-    private final AggregateQuarkusUpdates.Version v1_2 = new AggregateQuarkusUpdates.Version(1, 2, 0);
-    private final AggregateQuarkusUpdates.Version v1_2_3 = new AggregateQuarkusUpdates.Version(1, 2, 3);
-    private final AggregateQuarkusUpdates.Version v1_3 = new AggregateQuarkusUpdates.Version(1, 3, 0);
-    private final AggregateQuarkusUpdates.Version v1_3_2 = new AggregateQuarkusUpdates.Version(1, 3, 2);
-    private final AggregateQuarkusUpdates.Version v1_5_5 = new AggregateQuarkusUpdates.Version(1, 5, 5);
+    private static final AggregateQuarkusUpdates.Version v1_2 = new AggregateQuarkusUpdates.Version(1, 2, 0);
+    private static final AggregateQuarkusUpdates.Version v1_2_3 = new AggregateQuarkusUpdates.Version(1, 2, 3);
+    private static final AggregateQuarkusUpdates.Version v1_3 = new AggregateQuarkusUpdates.Version(1, 3, 0);
+    private static final AggregateQuarkusUpdates.Version v1_3_2 = new AggregateQuarkusUpdates.Version(1, 3, 2);
+    private static final AggregateQuarkusUpdates.Version v1_5_5 = new AggregateQuarkusUpdates.Version(1, 5, 5);
 
+    static boolean quarkusUpdatesPresent() {
+        return Files.isDirectory(Path.of("quarkus-updates"));
+    }
 
+    @EnabledIf("quarkusRecipesPresent")
     @Nested
-    @Disabled("Only possible to execute if quarkus submodule is present")
     class ExtractRecipeNames {
-        private final Path quarkus39 = Path.of("quarkus-updates/recipes/src/main/resources/quarkus-updates/core/3.9.alpha1.yaml");
-        private final Path mino38Recipe = Path.of("quarkus-updates/recipes/src/main/resources/quarkus-updates/io.quarkiverse.minio/quarkus-minio/3.8.yaml");
+        private static final Path quarkus39 = Path.of("quarkus-updates/recipes/src/main/resources/quarkus-updates/core/3.9.alpha1.yaml");
+        private static final Path mino38Recipe = Path.of("quarkus-updates/recipes/src/main/resources/quarkus-updates/io.quarkiverse.minio/quarkus-minio/3.8.yaml");
+
+        static boolean quarkusRecipesPresent() {
+            return Files.isReadable(quarkus39) && Files.isReadable(mino38Recipe);
+        }
 
         @Test
         void quarkus39() {
@@ -59,8 +67,8 @@ class AggregateQuarkusUpdatesTest {
         }
     }
 
+    @EnabledIf("quarkusUpdatesPresent")
     @Test
-    @Disabled("Only possible to execute if quarkus submodule is present")
     void readRecipesFromCamlQuarkusModule() throws Exception {
         Path camelQuarkusDir = Path.of("quarkus-updates/recipes/src/main/resources/quarkus-updates/org.apache.camel.quarkus");
         assertThat(recipesDefinedInQuarkusRepo(camelQuarkusDir))
