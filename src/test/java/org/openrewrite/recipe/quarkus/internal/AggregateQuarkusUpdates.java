@@ -33,7 +33,7 @@ import static java.util.stream.Collectors.toSet;
 @NullMarked
 public class AggregateQuarkusUpdates {
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws Exception {
         if (args.length < 2) {
             System.out.println("Usage: java AggregateQuarkusUpdates <path to quarkus-updates recipes> <path to consolidated recipes>");
         }

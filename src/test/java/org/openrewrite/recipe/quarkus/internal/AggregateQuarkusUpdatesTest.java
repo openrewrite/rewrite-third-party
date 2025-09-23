@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -61,7 +60,8 @@ class AggregateQuarkusUpdatesTest {
     }
 
     @Test
-    void readRecipesFromCamelQuarkusModule() throws Exception {
+    @Disabled("Only possible to execute if quarkus submodule is present")
+    void readRecipesFromCamlQuarkusModule() throws Exception {
         Path camelQuarkusDir = Path.of("quarkus-updates/recipes/src/main/resources/quarkus-updates/org.apache.camel.quarkus");
         assertThat(recipesDefinedInQuarkusRepo(camelQuarkusDir))
           .containsExactlyInAnyOrderEntriesOf(
