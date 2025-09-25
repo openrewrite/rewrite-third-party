@@ -42,5 +42,6 @@
     ]]></notes>
         <packageUrl regex="true">^pkg:maven/org\.springframework/spring-core@.*$</packageUrl>
         <cve>CVE-2025-41242</cve>
+        <cve>CVE-2025-41249</cve>
     </suppress>
 </suppressions>
