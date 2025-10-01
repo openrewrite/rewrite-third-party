@@ -172,10 +172,11 @@ public class AggregateQuarkusUpdates {
             int minor = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
 
             // handle cases like 2.13.yaml and fold to 2.13.0
-            if (parts.length < 3
-              || Objects.equals(parts[2], "yaml")
+            if (parts.length < 3 ||
+              Objects.equals(parts[2], "yaml") // fold 2.13.alphaX.yaml into 2.13
+              ||
               // fold 2.13.alphaX.yaml into 2.13
-              || parts[2].startsWith("alpha")) {
+              parts[2].startsWith("alpha")) {
                 return new Version(major, minor, 0);
             }
 
