@@ -15,7 +15,7 @@
 type: specs.openrewrite.org/v1beta/example
 recipeName: tech.picnic.errorprone.refasterrules.StringRulesRecipes
 examples:
-- description: ''
+- description: '`StringRulesRecipesTest#stringValueOf`'
   sources:
   - before: |
       import java.util.Objects;
