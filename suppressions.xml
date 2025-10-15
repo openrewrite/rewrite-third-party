@@ -3,6 +3,7 @@
     <suppress until="2025-11-01Z">
         <notes><![CDATA[
     file name: spring-web-5.3.39.jar
+    reason: Runtime dep for error-prone, we cannot upgrade due to compiling to Java 8
     ]]></notes>
         <packageUrl regex="true">^pkg:maven/org\.springframework/spring-web@.*$</packageUrl>
         <cve>CVE-2016-1000027</cve>
@@ -27,7 +28,7 @@
         <packageUrl regex="true">^pkg:maven/org\.testng/testng@.*$</packageUrl>
         <vulnerabilityName>CVE-2022-4065</vulnerabilityName>
     </suppress>
-    <suppress>
+    <suppress until="2025-11-01Z">
         <notes><![CDATA[
     file name: spring-webflux-5.3.32.jar
     reason: Should not affect us; need further investigation if we can move to newer version
