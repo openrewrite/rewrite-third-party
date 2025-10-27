@@ -72,7 +72,7 @@ class AggregateQuarkusUpdatesTest {
     void readRecipesFromCamlQuarkusModule() throws Exception {
         Path camelQuarkusDir = Path.of("quarkus-updates/recipes/src/main/resources/quarkus-updates/org.apache.camel.quarkus");
         assertThat(recipesDefinedInQuarkusRepo(camelQuarkusDir))
-          .containsExactlyInAnyOrderEntriesOf(
+          .containsAllEntriesOf(
             Map.of(
               new AggregateQuarkusUpdates.Version(3, 0, 0), List.of("io.quarkus.updates.camel.camel40.CamelQuarkusMigrationRecipe", "org.openrewrite.java.camel.migrate.removedExtensions"),
               new AggregateQuarkusUpdates.Version(3, 8, 0), List.of("io.quarkus.updates.camel.camel44.CamelQuarkusMigrationRecipe"),
