@@ -50,17 +50,26 @@ dependencies {
 
 recipeDependencies {
     // error-prone-contrib only has provided dependencies, whereas the platform needs these on the classpath at runtime
+    parserClasspath("com.fasterxml.jackson.core:jackson-core:2.+")
+    parserClasspath("com.fasterxml.jackson.core:jackson-databind:2.+")
+    parserClasspath("com.github.ben-manes.caffeine:caffeine:3.+")
+    parserClasspath("com.google.guava:guava:33.+")
+    parserClasspath("org.jspecify:jspecify:1.+")
     parserClasspath("org.junit.jupiter:junit-jupiter-api:5.+")
     parserClasspath("org.assertj:assertj-core:3.+")
-    parserClasspath("org.springframework:spring-context:5.3.39")
-    parserClasspath("org.springframework:spring-test:5.3.39")
-    parserClasspath("org.springframework:spring-web:5.3.39")
-    parserClasspath("org.springframework:spring-webflux:5.3.39")
-    parserClasspath("org.testng:testng:7.5")
+    parserClasspath("org.mockito:mockito-core:5.+")
+    parserClasspath("org.reactivestreams:reactive-streams:1.+")
+    parserClasspath("org.springframework:spring-context:6.+")
+    parserClasspath("org.springframework:spring-test:6.+")
+    parserClasspath("org.springframework:spring-web:6.+")
+    parserClasspath("org.springframework:spring-webflux:6.+")
+    parserClasspath("org.testng:testng:7.+")
+    parserClasspath("io.micrometer:micrometer-core:1.+")
     parserClasspath("io.projectreactor:reactor-core:3.+")
     parserClasspath("io.projectreactor:reactor-test:3.+")
     parserClasspath("io.projectreactor.addons:reactor-adapter:3.+")
     parserClasspath("io.projectreactor.addons:reactor-extra:3.+")
+    parserClasspath("io.reactivex.rxjava2:rxjava:2.+")
 }
 
 // ./gradlew shadowJar
