@@ -37,20 +37,6 @@ dependencies {
     runtimeOnly("software.amazon.awssdk:v2-migration:latest.release")
     runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:${rewriteVersion}:recipes")
 
-    // error-prone-contrib only has provided dependencies, whereas the platform needs these on the classpath at runtime
-    runtimeOnly("org.junit.jupiter:junit-jupiter-api:5.+")
-    runtimeOnly("org.assertj:assertj-core:latest.release")
-    runtimeOnly(platform("org.springframework:spring-framework-bom:5.3.39")) // Necessary for Java 8 compatibility
-    runtimeOnly("org.springframework:spring-context")
-    runtimeOnly("org.springframework:spring-test")
-    runtimeOnly("org.springframework:spring-web")
-    runtimeOnly("org.springframework:spring-webflux")
-    runtimeOnly("org.testng:testng:7.5")
-    runtimeOnly("io.projectreactor:reactor-core:latest.release")
-    runtimeOnly("io.projectreactor:reactor-test:latest.release")
-    runtimeOnly("io.projectreactor.addons:reactor-adapter:latest.release")
-    runtimeOnly("io.projectreactor.addons:reactor-extra:latest.release")
-
     testImplementation("org.openrewrite:rewrite-java")
     testImplementation("org.openrewrite:rewrite-test")
 
@@ -60,6 +46,30 @@ dependencies {
 
     testRuntimeOnly("org.openrewrite:rewrite-java-17")
     testRuntimeOnly("org.gradle:gradle-tooling-api:latest.release")
+}
+
+recipeDependencies {
+    // error-prone-contrib only has provided dependencies, whereas the platform needs these on the classpath at runtime
+    parserClasspath("com.fasterxml.jackson.core:jackson-core:2.+")
+    parserClasspath("com.fasterxml.jackson.core:jackson-databind:2.+")
+    parserClasspath("com.github.ben-manes.caffeine:caffeine:3.+")
+    parserClasspath("com.google.guava:guava:33.+")
+    parserClasspath("org.jspecify:jspecify:1.+")
+    parserClasspath("org.junit.jupiter:junit-jupiter-api:5.+")
+    parserClasspath("org.assertj:assertj-core:3.+")
+    parserClasspath("org.mockito:mockito-core:5.+")
+    parserClasspath("org.reactivestreams:reactive-streams:1.+")
+    parserClasspath("org.springframework:spring-context:6.+")
+    parserClasspath("org.springframework:spring-test:6.+")
+    parserClasspath("org.springframework:spring-web:6.+")
+    parserClasspath("org.springframework:spring-webflux:6.+")
+    parserClasspath("org.testng:testng:7.+")
+    parserClasspath("io.micrometer:micrometer-core:1.+")
+    parserClasspath("io.projectreactor:reactor-core:3.+")
+    parserClasspath("io.projectreactor:reactor-test:3.+")
+    parserClasspath("io.projectreactor.addons:reactor-adapter:3.+")
+    parserClasspath("io.projectreactor.addons:reactor-extra:3.+")
+    parserClasspath("io.reactivex.rxjava2:rxjava:2.+")
 }
 
 // ./gradlew shadowJar
