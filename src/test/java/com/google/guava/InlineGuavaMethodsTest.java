@@ -22,13 +22,13 @@ import org.openrewrite.test.RewriteTest;
 
 import static org.openrewrite.java.Assertions.java;
 
-class InlineMethodsTest implements RewriteTest {
+class InlineGuavaMethodsTest implements RewriteTest {
 
     @Override
     public void defaults(RecipeSpec spec) {
         spec.recipeFromResource(
           "/META-INF/rewrite/inline-guava-methods.yml",
-          "com.google.guava.InlineMethods");
+          "com.google.guava.InlineGuavaMethods");
     }
 
     @DocumentExample
