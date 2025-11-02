@@ -29,7 +29,7 @@ dependencies {
     runtimeOnly("ai.timefold.solver:timefold-solver-migration:latest.release") {
         exclude(module = "jakarta.xml.bind-api")
     }
-    runtimeOnly("com.oracle.weblogic.rewrite:rewrite-weblogic:latest.release") {isTransitive = false}
+    runtimeOnly("com.oracle.weblogic.rewrite:rewrite-weblogic:latest.release") { isTransitive = false }
     runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release") { isTransitive = false }
     runtimeOnly("org.apache.camel.upgrade:camel-upgrade-recipes:latest.release") { isTransitive = false }
     runtimeOnly("org.apache.wicket:wicket-migration:latest.release") { isTransitive = false }
@@ -70,6 +70,9 @@ recipeDependencies {
     parserClasspath("io.projectreactor.addons:reactor-adapter:3.+")
     parserClasspath("io.projectreactor.addons:reactor-extra:3.+")
     parserClasspath("io.reactivex.rxjava2:rxjava:2.+")
+
+    // `@InlineMe` methods defined in log4j-api
+    parserClasspath("org.apache.logging.log4j:log4j-api:2.+")
 }
 
 // ./gradlew shadowJar
