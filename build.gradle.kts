@@ -44,7 +44,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-engine:5.13.3")
     testImplementation("org.junit-pioneer:junit-pioneer:latest.release")
 
-    testRuntimeOnly("org.openrewrite:rewrite-java-17")
+    testRuntimeOnly("org.openrewrite:rewrite-java-21")
     testRuntimeOnly("org.gradle:gradle-tooling-api:latest.release")
 }
 
