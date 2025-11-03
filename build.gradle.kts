@@ -104,4 +104,20 @@ tasks {
         mainClass = "org.openrewrite.recipe.quarkus.internal.AggregateQuarkusUpdates"
         classpath = sourceSets.getByName("test").runtimeClasspath
     }
+    val generateInlineGuavaMethods by registering(JavaExec::class) {
+        group = "generate"
+        description = "Generate Quarkus migration aggregation Recipes."
+        mainClass = "org.openrewrite.java.internal.parser.InlineMethodCallsRecipeGenerator"
+        classpath = sourceSets.getByName("test").runtimeClasspath
+        args("guava")
+        finalizedBy("licenseFormat")
+    }
+    val generateInlineLog4jMethods by registering(JavaExec::class) {
+        group = "generate"
+        description = "Generate Quarkus migration aggregation Recipes."
+        mainClass = "org.openrewrite.java.internal.parser.InlineMethodCallsRecipeGenerator"
+        classpath = sourceSets.getByName("test").runtimeClasspath
+        args("log4j-api")
+        finalizedBy("licenseFormat")
+    }
 }

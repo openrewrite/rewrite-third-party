@@ -26,9 +26,7 @@ class InlineGuavaMethodsTest implements RewriteTest {
 
     @Override
     public void defaults(RecipeSpec spec) {
-        spec.recipeFromResource(
-          "/META-INF/rewrite/inline-guava-methods.yml",
-          "com.google.guava.InlineGuavaMethods");
+        spec.recipeFromResources("com.google.guava.InlineGuavaMethods");
     }
 
     @DocumentExample
