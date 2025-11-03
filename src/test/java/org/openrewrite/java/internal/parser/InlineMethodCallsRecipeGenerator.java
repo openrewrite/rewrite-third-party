@@ -17,48 +17,43 @@ package org.openrewrite.java.internal.parser;
 
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.InMemoryExecutionContext;
+import org.openrewrite.internal.StringUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.Year;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.groupingBy;
 
 public class InlineMethodCallsRecipeGenerator {
 
     public static void main(String[] args) {
         if (args.length < 3) {
-            System.err.println("Usage: InlineMethodCallsRecipeGenerator <input-tsv-path> <output-yaml-path> <recipe-name>");
+            System.err.println("Usage: InlineMethodCallsRecipeGenerator <input-tsv-path> <artifactId> <output-yaml-path>");
             System.exit(1);
         }
 
         Path inputPath = Paths.get(args[0]);
-        Path outputPath = Paths.get(args[1]);
-        String recipeName = args[2];
+        String artifactId = args[1];
+        Path outputPath = Paths.get(args[2]);
 
-        generate(inputPath, outputPath, recipeName);
+        generate(inputPath, artifactId, outputPath);
     }
 
-    static void generate(Path tsvFile, Path outputPath, String recipeName) {
+    static void generate(Path tsvFile, String artifactId, Path outputPath) {
         List<InlineMeMethod> inlineMethods = new ArrayList<>();
 
         TypeTable.Reader reader = new TypeTable.Reader(new InMemoryExecutionContext());
         try (InputStream is = Files.newInputStream(tsvFile); InputStream inflate = new GZIPInputStream(is)) {
-            reader.parseTsvAndProcess(inflate, TypeTable.Reader.Options.matchAll(), (gav, classes, nestedTypes) -> {
-                if (gav == null) {
-                    return;
-                }
-
+            TypeTable.Reader.Options options = TypeTable.Reader.Options.builder()
+              .artifactMatcher(artifactIdVersion -> artifactIdVersion.startsWith(artifactId + '-'))
+              .build();
+            reader.parseTsvAndProcess(inflate, options, (gav, classes, nestedTypes) -> {
                 // Process each class in this GAV
                 for (TypeTable.ClassDefinition classDef : classes.values()) {
                     // Process each member (method/constructor) in the class
@@ -76,8 +71,7 @@ public class InlineMethodCallsRecipeGenerator {
             });
 
             // Generate YAML recipes
-            generateYamlRecipes(inlineMethods, outputPath, recipeName);
-
+            generateYamlRecipes(inlineMethods, outputPath);
             System.out.println("Generated " + inlineMethods.size() + " inline recipes to " + outputPath);
 
         } catch (IOException e) {
@@ -140,7 +134,7 @@ public class InlineMethodCallsRecipeGenerator {
                       replacement,
                       imports,
                       staticImports,
-                      gav.getArtifactId() + "-" + gav.getVersion()
+                      gav.getArtifactId() + "-" + gav.getVersion().substring(0, gav.getVersion().indexOf('.'))
                     );
                 }
             }
@@ -225,63 +219,47 @@ public class InlineMethodCallsRecipeGenerator {
         };
     }
 
-    private static void generateYamlRecipes(List<InlineMeMethod> methods, Path outputPath, String recipeName) throws IOException {
-        StringBuilder yaml = new StringBuilder();
-        Path licenseHeader = Paths.get("gradle/licenseHeader.txt");
-        if (Files.isRegularFile(licenseHeader)) {
-            try (Stream<String> lines = Files.lines(licenseHeader)) {
-                lines.forEach(line -> yaml
-                  .append("# ")
-                  .append(line.replace("${year}", String.valueOf(Year.now().getValue())))
-                  .append("\n"));
-            }
-        }
+    private static void generateYamlRecipes(List<InlineMeMethod> methods, Path outputPath) throws IOException {
+        TypeTable.GroupArtifactVersion gav = methods.getFirst().gav();
+        String moduleName = StringUtils.capitalize(gav.getArtifactId());
 
+        StringBuilder yaml = new StringBuilder();
         yaml.append("#\n");
-        yaml.append("# Generated InlineMe recipes from TypeTable\n");
+        yaml.append("# Recipes generated for `@InlineMe` annotated methods in ")
+          .append(gav.getGroupId()).append(":")
+          .append(gav.getArtifactId()).append(":")
+          .append(gav.getVersion()).append("\n");
         yaml.append("#\n\n");
 
         yaml.append("type: specs.openrewrite.org/v1beta/recipe\n");
-        yaml.append(format("name: %s\n", recipeName));
-        yaml.append("displayName: Inline methods annotated with `@InlineMe`\n");
+        yaml.append("name: ").append(gav.getGroupId()).append(".Inline").append(moduleName).append("Methods").append("\n");
+        yaml.append("displayName: Inline ").append(moduleName).append(" methods annotated with `@InlineMe`\n");
         yaml.append("description: >-\n");
         yaml.append("  Automatically generated recipes to inline method calls based on `@InlineMe` annotations\n");
         yaml.append("  discovered in the type table.\n");
         yaml.append("recipeList:\n");
 
-        // Group methods by GAV for better organization
-        Map<TypeTable.GroupArtifactVersion, List<InlineMeMethod>> methodsByGav =
-          methods.stream().collect(groupingBy(m -> m.gav));
+        for (InlineMeMethod method : methods) {
+            yaml.append("  - org.openrewrite.java.InlineMethodCalls:\n");
+            yaml.append("      methodPattern: '").append(escapeYaml(method.methodPattern)).append("'\n");
+            yaml.append("      replacement: '").append(escapeYaml(method.replacement)).append("'\n");
 
-        for (Map.Entry<TypeTable.GroupArtifactVersion, List<InlineMeMethod>> entry : methodsByGav.entrySet()) {
-            TypeTable.GroupArtifactVersion gav = entry.getKey();
-            List<InlineMeMethod> gavMethods = entry.getValue();
-
-            yaml.append("\n  # From ").append(gav.getGroupId()).append(":").append(gav.getArtifactId())
-              .append(":").append(gav.getVersion()).append("\n");
-
-            for (InlineMeMethod method : gavMethods) {
-                yaml.append("  - org.openrewrite.java.InlineMethodCalls:\n");
-                yaml.append("      methodPattern: '").append(escapeYaml(method.methodPattern)).append("'\n");
-                yaml.append("      replacement: '").append(escapeYaml(method.replacement)).append("'\n");
-
-                if (!method.imports.isEmpty()) {
-                    yaml.append("      imports:\n");
-                    for (String imp : method.imports) {
-                        yaml.append("        - '").append(escapeYaml(imp)).append("'\n");
-                    }
+            if (!method.imports.isEmpty()) {
+                yaml.append("      imports:\n");
+                for (String imp : method.imports) {
+                    yaml.append("        - '").append(escapeYaml(imp)).append("'\n");
                 }
-
-                if (!method.staticImports.isEmpty()) {
-                    yaml.append("      staticImports:\n");
-                    for (String imp : method.staticImports) {
-                        yaml.append("        - '").append(escapeYaml(imp)).append("'\n");
-                    }
-                }
-
-                yaml.append("      classpathFromResources:\n");
-                yaml.append("        - '").append(escapeYaml(method.classpathResource)).append("'\n");
             }
+
+            if (!method.staticImports.isEmpty()) {
+                yaml.append("      staticImports:\n");
+                for (String imp : method.staticImports) {
+                    yaml.append("        - '").append(escapeYaml(imp)).append("'\n");
+                }
+            }
+
+            yaml.append("      classpathFromResources:\n");
+            yaml.append("        - '").append(escapeYaml(method.classpathResource)).append("'\n");
         }
 
         Files.write(outputPath, yaml.toString().getBytes());

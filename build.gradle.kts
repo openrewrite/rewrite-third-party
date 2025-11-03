@@ -111,8 +111,9 @@ tasks {
         classpath = sourceSets.getByName("test").runtimeClasspath
         args(
             "src/main/resources/META-INF/rewrite/classpath.tsv.gz",
-            "src/main/resources/META-INF/rewrite/inline-guava-methods.yml",
-            "com.google.guava.InlineGuavaMethods"
+            "guava",
+            "src/main/resources/META-INF/rewrite/inline-guava-methods.yml"
         )
+        finalizedBy("licenseFormat")
     }
 }
