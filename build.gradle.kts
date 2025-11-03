@@ -109,11 +109,7 @@ tasks {
         description = "Generate Quarkus migration aggregation Recipes."
         mainClass = "org.openrewrite.java.internal.parser.InlineMethodCallsRecipeGenerator"
         classpath = sourceSets.getByName("test").runtimeClasspath
-        args(
-            "src/main/resources/META-INF/rewrite/classpath.tsv.gz",
-            "guava",
-            "src/main/resources/META-INF/rewrite/inline-guava-methods.yml"
-        )
+        args("guava")
         finalizedBy("licenseFormat")
     }
     val generateInlineLog4jMethods by registering(JavaExec::class) {
@@ -121,11 +117,7 @@ tasks {
         description = "Generate Quarkus migration aggregation Recipes."
         mainClass = "org.openrewrite.java.internal.parser.InlineMethodCallsRecipeGenerator"
         classpath = sourceSets.getByName("test").runtimeClasspath
-        args(
-            "src/main/resources/META-INF/rewrite/classpath.tsv.gz",
-            "log4j",
-            "src/main/resources/META-INF/rewrite/inline-log4j-methods.yml"
-        )
+        args("log4j-api")
         finalizedBy("licenseFormat")
     }
 }

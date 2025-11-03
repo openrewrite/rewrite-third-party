@@ -15,7 +15,7 @@
 #
 
 #
-# Recipes generated for `@InlineMe` annotated methods in org.apache.logging.log4j:log4j-api:2.25.2
+# Recipes generated for `@InlineMe` annotated methods in `org.apache.logging.log4j:log4j-api:2.25.2`
 #
 
 type: specs.openrewrite.org/v1beta/recipe

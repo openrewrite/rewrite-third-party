@@ -35,23 +35,18 @@ import static java.util.stream.Collectors.joining;
 public class InlineMethodCallsRecipeGenerator {
 
     public static void main(String[] args) {
-        if (args.length < 3) {
-            System.err.println("Usage: InlineMethodCallsRecipeGenerator <input-tsv-path> <artifactId> <output-yaml-path>");
+        if (args.length < 1) {
+            System.err.println("Usage: InlineMethodCallsRecipeGenerator <input-tsv-path> <artifactId>");
             System.exit(1);
         }
-
-        Path inputPath = Paths.get(args[0]);
-        String artifactId = args[1];
-        Path outputPath = Paths.get(args[2]);
-
-        generate(inputPath, artifactId, outputPath);
+        generate(args[0]);
     }
 
-    static void generate(Path tsvFile, String artifactId, Path outputPath) {
+    static void generate(String artifactId) {
         List<InlineMeMethod> inlineMethods = new ArrayList<>();
 
         TypeTable.Reader reader = new TypeTable.Reader(new InMemoryExecutionContext());
-        try (InputStream is = Files.newInputStream(tsvFile); InputStream inflate = new GZIPInputStream(is)) {
+        try (InputStream is = ClassLoader.getSystemResourceAsStream(TypeTable.DEFAULT_RESOURCE_PATH); InputStream inflate = new GZIPInputStream(is)) {
             TypeTable.Reader.Options options = TypeTable.Reader.Options.builder()
               .artifactMatcher(artifactIdVersion -> artifactIdVersion.startsWith(artifactId + '-'))
               .build();
@@ -72,10 +67,7 @@ public class InlineMethodCallsRecipeGenerator {
                 }
             });
 
-            // Generate YAML recipes
-            generateYamlRecipes(inlineMethods, outputPath);
-            System.out.println("Generated " + inlineMethods.size() + " inline recipes to " + outputPath);
-
+            generateYamlRecipes(inlineMethods);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -129,15 +121,14 @@ public class InlineMethodCallsRecipeGenerator {
                 if (replacement != null) {
                     // Build the method pattern
                     String methodPattern = buildMethodPattern(classDef, member);
-
+                    String classpathResource = gav.getArtifactId() + "-" + gav.getVersion().substring(0, gav.getVersion().indexOf('.'));
                     return new InlineMeMethod(
                       gav,
                       methodPattern,
                       replacement,
                       imports,
                       staticImports,
-                      gav.getArtifactId() + "-" + gav.getVersion().substring(0, gav.getVersion().indexOf('.'))
-                    );
+                      classpathResource);
                 }
             }
         } catch (Exception e) {
@@ -221,18 +212,20 @@ public class InlineMethodCallsRecipeGenerator {
         };
     }
 
-    private static void generateYamlRecipes(List<InlineMeMethod> methods, Path outputPath) throws IOException {
-        TypeTable.GroupArtifactVersion gav = methods.getFirst().gav();
+    private static void generateYamlRecipes(List<InlineMeMethod> methods) throws IOException {
+        InlineMeMethod firstMethod = methods.getFirst();
+        TypeTable.GroupArtifactVersion gav = firstMethod.gav();
         String moduleName = Arrays.stream(gav.getArtifactId().split("-"))
           .map(StringUtils::capitalize)
           .collect(joining());
+        Path outputPath = Paths.get("src/main/resources/META-INF/rewrite/inline-%s-methods.yml".formatted(firstMethod.classpathResource));
 
         StringBuilder yaml = new StringBuilder();
         yaml.append("#\n");
-        yaml.append("# Recipes generated for `@InlineMe` annotated methods in ")
+        yaml.append("# Recipes generated for `@InlineMe` annotated methods in `")
           .append(gav.getGroupId()).append(":")
           .append(gav.getArtifactId()).append(":")
-          .append(gav.getVersion()).append("\n");
+          .append(gav.getVersion()).append("`\n");
         yaml.append("#\n\n");
 
         yaml.append("type: specs.openrewrite.org/v1beta/recipe\n");
@@ -267,6 +260,7 @@ public class InlineMethodCallsRecipeGenerator {
         }
 
         Files.write(outputPath, yaml.toString().getBytes());
+        System.out.println("Generated " + methods.size() + " inline recipes to " + outputPath);
     }
 
     private static String escapeYaml(String value) {
