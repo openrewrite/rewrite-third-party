@@ -35,7 +35,7 @@ public class InlineMethodCallsRecipeGenerator {
 
     public static void main(String[] args) {
         if (args.length < 1) {
-            System.err.println("Usage: InlineMethodCallsRecipeGenerator <input-tsv-path> <artifactId>");
+            System.err.println("Usage: InlineMethodCallsRecipeGenerator <artifactId>");
             System.exit(1);
         }
         generate(args[0]);
