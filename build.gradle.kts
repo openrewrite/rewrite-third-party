@@ -23,7 +23,7 @@ val rewriteVersion = rewriteRecipe.rewriteVersion.get()
 dependencies {
     implementation(platform("org.openrewrite:rewrite-bom:$rewriteVersion"))
 
-    runtimeOnly("org.openrewrite:rewrite-java")
+    implementation("org.openrewrite:rewrite-java")
     runtimeOnly("org.openrewrite:rewrite-templating:${rewriteVersion}")
 
     runtimeOnly("ai.timefold.solver:timefold-solver-migration:latest.release") {
@@ -103,5 +103,16 @@ tasks {
         description = "Generate Quarkus migration aggregation Recipes."
         mainClass = "org.openrewrite.recipe.quarkus.internal.AggregateQuarkusUpdates"
         classpath = sourceSets.getByName("test").runtimeClasspath
+    }
+    val generateInlineGuavaMethods by registering(JavaExec::class) {
+        group = "generate"
+        description = "Generate Quarkus migration aggregation Recipes."
+        mainClass = "org.openrewrite.java.internal.parser.InlineMethodCallsRecipeGenerator"
+        classpath = sourceSets.getByName("test").runtimeClasspath
+        args(
+            "src/main/resources/META-INF/rewrite/classpath.tsv.gz",
+            "src/main/resources/META-INF/rewrite/inline-guava-methods.yml",
+            "com.google.guava.InlineGuavaMethods"
+        )
     }
 }
