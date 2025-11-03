@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -218,7 +217,7 @@ public class InlineMethodCallsRecipeGenerator {
         String moduleName = Arrays.stream(gav.getArtifactId().split("-"))
           .map(StringUtils::capitalize)
           .collect(joining());
-        Path outputPath = Paths.get("src/main/resources/META-INF/rewrite/inline-%s-methods.yml".formatted(firstMethod.classpathResource));
+        Path outputPath = Path.of("src/main/resources/META-INF/rewrite/inline-%s-methods.yml".formatted(firstMethod.classpathResource));
 
         StringBuilder yaml = new StringBuilder();
         yaml.append("#\n");
