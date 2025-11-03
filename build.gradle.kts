@@ -23,7 +23,7 @@ val rewriteVersion = rewriteRecipe.rewriteVersion.get()
 dependencies {
     implementation(platform("org.openrewrite:rewrite-bom:$rewriteVersion"))
 
-    implementation("org.openrewrite:rewrite-java")
+    runtimeOnly("org.openrewrite:rewrite-java")
     runtimeOnly("org.openrewrite:rewrite-templating:${rewriteVersion}")
 
     runtimeOnly("ai.timefold.solver:timefold-solver-migration:latest.release") {
