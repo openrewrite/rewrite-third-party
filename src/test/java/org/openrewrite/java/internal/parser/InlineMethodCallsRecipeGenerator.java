@@ -25,10 +25,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class InlineMethodCallsRecipeGenerator {
 
@@ -221,7 +223,9 @@ public class InlineMethodCallsRecipeGenerator {
 
     private static void generateYamlRecipes(List<InlineMeMethod> methods, Path outputPath) throws IOException {
         TypeTable.GroupArtifactVersion gav = methods.getFirst().gav();
-        String moduleName = StringUtils.capitalize(gav.getArtifactId());
+        String moduleName = Arrays.stream(gav.getArtifactId().split("-"))
+          .map(StringUtils::capitalize)
+          .collect(joining());
 
         StringBuilder yaml = new StringBuilder();
         yaml.append("#\n");
@@ -233,7 +237,7 @@ public class InlineMethodCallsRecipeGenerator {
 
         yaml.append("type: specs.openrewrite.org/v1beta/recipe\n");
         yaml.append("name: ").append(gav.getGroupId()).append(".Inline").append(moduleName).append("Methods").append("\n");
-        yaml.append("displayName: Inline ").append(moduleName).append(" methods annotated with `@InlineMe`\n");
+        yaml.append("displayName: Inline `").append(gav.getArtifactId()).append("` methods annotated with `@InlineMe`\n");
         yaml.append("description: >-\n");
         yaml.append("  Automatically generated recipes to inline method calls based on `@InlineMe` annotations\n");
         yaml.append("  discovered in the type table.\n");
