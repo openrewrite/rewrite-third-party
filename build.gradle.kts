@@ -26,9 +26,6 @@ dependencies {
     runtimeOnly("org.openrewrite:rewrite-java")
     runtimeOnly("org.openrewrite:rewrite-templating:${rewriteVersion}")
 
-    runtimeOnly("ai.timefold.solver:timefold-solver-migration:latest.release") {
-        exclude(module = "jakarta.xml.bind-api")
-    }
     runtimeOnly("com.oracle.weblogic.rewrite:rewrite-weblogic:latest.release") { isTransitive = false }
     runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release") { isTransitive = false }
     runtimeOnly("org.apache.camel.upgrade:camel-upgrade-recipes:latest.release") { isTransitive = false }
@@ -79,7 +76,6 @@ recipeDependencies {
 tasks.withType<ShadowJar> {
     archiveClassifier.set("")
     dependencies {
-        include(dependency("ai.timefold.solver:timefold-solver-migration"))
         include(dependency("com.oracle.weblogic.rewrite:rewrite-weblogic"))
         include(dependency("io.quarkus:quarkus-update-recipes:.*"))
         include(dependency("org.apache.camel.upgrade:camel-upgrade-recipes"))
