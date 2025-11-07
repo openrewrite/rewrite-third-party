@@ -35,7 +35,9 @@ dependencies {
     runtimeOnly("org.apache.wicket:wicket-migration:latest.release") { isTransitive = false }
     runtimeOnly("org.axonframework:axon-migration:latest.release") { isTransitive = false }
     runtimeOnly("software.amazon.awssdk:v2-migration:latest.release")
-    runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:${rewriteVersion}:recipes")
+    runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:${rewriteVersion}:recipes") {
+        exclude(module = "refaster-support")
+    }
 
     testImplementation("org.openrewrite:rewrite-java")
     testImplementation("org.openrewrite:rewrite-test")
