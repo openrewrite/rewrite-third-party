@@ -217,7 +217,7 @@ public class InlineMethodCallsRecipeGenerator {
         String moduleName = Arrays.stream(gav.getArtifactId().split("-"))
           .map(StringUtils::capitalize)
           .collect(joining());
-        Path outputPath = Path.of("src/main/resources/META-INF/rewrite/inline-%s-methods.yml".formatted(firstMethod.classpathResource));
+        Path outputPath = Path.of("src/test/resources/META-INF/rewrite/inline-%s-methods.yml".formatted(firstMethod.classpathResource));
 
         StringBuilder yaml = new StringBuilder();
         yaml.append("#\n");

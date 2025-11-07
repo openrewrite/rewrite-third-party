@@ -71,8 +71,8 @@ recipeDependencies {
     parserClasspath("io.projectreactor.addons:reactor-extra:3.+")
     parserClasspath("io.reactivex.rxjava2:rxjava:2.+")
 
-    // `@InlineMe` methods defined in log4j-api
-    parserClasspath("org.apache.logging.log4j:log4j-api:2.+")
+    // `@InlineMe` methods defined in log4j-api, only generated here, not used directly
+    testParserClasspath("org.apache.logging.log4j:log4j-api:2.+")
 }
 
 // ./gradlew shadowJar
