@@ -10,7 +10,7 @@
         <cve>CVE-2025-41234</cve>
         <cve>CVE-2025-41249</cve>
     </suppress>
-    <suppress until="2025-11-01Z">
+    <suppress until="2025-12-01Z">
         <notes><![CDATA[
    file name: quarkus-update-recipes-1.0.19.jar
        sev: HIGH
