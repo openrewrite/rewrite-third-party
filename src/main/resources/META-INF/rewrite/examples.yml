@@ -13,26 +13,6 @@
 # limitations under the License.
 ---
 type: specs.openrewrite.org/v1beta/example
-recipeName: com.google.guava.InlineGuavaMethods
-examples:
-- description: '`InlineGuavaMethodsTest#stringsRegular`'
-  sources:
-  - before: |
-      import com.google.common.base.Strings;
-      class Regular {
-          String repeatString(String s, int n) {
-              return Strings.repeat(s, n);
-          }
-      }
-    after: |
-      class Regular {
-          String repeatString(String s, int n) {
-              return s.repeat(n);
-          }
-      }
-    language: java
----
-type: specs.openrewrite.org/v1beta/example
 recipeName: tech.picnic.errorprone.refasterrules.AssertJStringRulesRecipes
 examples:
 - description: '`AssertJStringRulesRecipesTest#assertThatStringIsEmpty`'
