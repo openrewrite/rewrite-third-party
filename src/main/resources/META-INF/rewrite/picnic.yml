@@ -64,6 +64,7 @@ recipeList:
   - tech.picnic.errorprone.refasterrules.PrimitiveRulesRecipes
   - tech.picnic.errorprone.refasterrules.RandomGeneratorRulesRecipes
   - tech.picnic.errorprone.refasterrules.RxJava2AdapterRulesRecipes
+  - tech.picnic.errorprone.refasterrules.SpringTestRulesRecipes
   - tech.picnic.errorprone.refasterrules.StreamRulesRecipes
   - tech.picnic.errorprone.refasterrules.StringRulesRecipes
   - tech.picnic.errorprone.refasterrules.SuggestedFixRulesRecipes
