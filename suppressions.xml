@@ -1,15 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
-    <suppress until="2025-11-01Z">
-        <notes><![CDATA[
-    file name: spring-web-5.3.39.jar
-    reason: Runtime dep for error-prone, we cannot upgrade due to compiling to Java 8
-    ]]></notes>
-        <packageUrl regex="true">^pkg:maven/org\.springframework/spring-web@.*$</packageUrl>
-        <cve>CVE-2016-1000027</cve>
-        <cve>CVE-2025-41234</cve>
-        <cve>CVE-2025-41249</cve>
-    </suppress>
     <suppress until="2026-01-01Z">
         <notes><![CDATA[
    file name: quarkus-update-recipes-1.0.19.jar
@@ -18,31 +8,5 @@
    ]]></notes>
         <packageUrl regex="true">^pkg:maven/io\.quarkus/quarkus-update-recipes@.*$</packageUrl>
         <cpe>cpe:/a:quarkus:quarkus</cpe>
-    </suppress>
-    <suppress until="2025-11-01Z">
-        <notes><![CDATA[
-    file name: testng-7.5.jar
-        sev: HIGH
-          reason: False positive. Reference only
-    ]]></notes>
-        <packageUrl regex="true">^pkg:maven/org\.testng/testng@.*$</packageUrl>
-        <vulnerabilityName>CVE-2022-4065</vulnerabilityName>
-    </suppress>
-    <suppress until="2025-11-01Z">
-        <notes><![CDATA[
-    file name: spring-webflux-5.3.32.jar
-    reason: Should not affect us; need further investigation if we can move to newer version
-    ]]></notes>
-        <packageUrl regex="true">^pkg:maven/org\.springframework/spring-webflux@.*$</packageUrl>
-        <vulnerabilityName>CVE-2024-38816</vulnerabilityName>
-    </suppress>
-    <suppress until="2025-11-01Z">
-        <notes><![CDATA[
-    file name: spring-core-5.3.39.jar
-    reason: We're not affected due to the nature of how we use this library.
-    ]]></notes>
-        <packageUrl regex="true">^pkg:maven/org\.springframework/spring-core@.*$</packageUrl>
-        <cve>CVE-2025-41242</cve>
-        <cve>CVE-2025-41249</cve>
     </suppress>
 </suppressions>
