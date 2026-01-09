@@ -15,7 +15,7 @@
 #
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: tech.picnic.errorprone.refasterrules.tech.picnic.errorprone.refasterrules.AllRefasterRules
+name: tech.picnic.errorprone.refasterrules.AllRefasterRules
 displayName: All Picnic Refaster rules
 description: Collection of all Refaster rules from Picnic's error-prone-contrib project.
 recipeList:
@@ -35,6 +35,7 @@ recipeList:
   - tech.picnic.errorprone.refasterrules.ClassRulesRecipes
   - tech.picnic.errorprone.refasterrules.CollectionRulesRecipes
   - tech.picnic.errorprone.refasterrules.ComparatorRulesRecipes
+  - tech.picnic.errorprone.refasterrules.DequeRulesRecipes
   - tech.picnic.errorprone.refasterrules.DoubleStreamRulesRecipes
   - tech.picnic.errorprone.refasterrules.EqualityRulesRecipes
   - tech.picnic.errorprone.refasterrules.FileRulesRecipes
