@@ -51,7 +51,8 @@ recipeList:
   - tech.picnic.errorprone.refasterrules.ImmutableSortedSetRulesRecipes
   - tech.picnic.errorprone.refasterrules.ImmutableTableRulesRecipes
   - tech.picnic.errorprone.refasterrules.IntStreamRulesRecipes
-  - tech.picnic.errorprone.refasterrules.JacksonRulesRecipes
+  - tech.picnic.errorprone.refasterrules.Jackson2RulesRecipes
+  - tech.picnic.errorprone.refasterrules.Jackson3RulesRecipes
   - tech.picnic.errorprone.refasterrules.LongStreamRulesRecipes
   - tech.picnic.errorprone.refasterrules.MapEntryRulesRecipes
   - tech.picnic.errorprone.refasterrules.MapRulesRecipes
