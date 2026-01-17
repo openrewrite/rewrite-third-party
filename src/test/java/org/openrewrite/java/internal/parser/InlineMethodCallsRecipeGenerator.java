@@ -28,6 +28,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -235,6 +236,7 @@ public class InlineMethodCallsRecipeGenerator {
         yaml.append("  discovered in the type table.\n");
         yaml.append("recipeList:\n");
 
+        methods.sort(comparing(InlineMeMethod::methodPattern));
         for (InlineMeMethod method : methods) {
             yaml.append("  - org.openrewrite.java.InlineMethodCalls:\n");
             yaml.append("      methodPattern: '").append(escapeYaml(method.methodPattern)).append("'\n");
