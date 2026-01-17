@@ -45,9 +45,15 @@ dependencies {
     testImplementation("tech.picnic.error-prone-support:error-prone-contrib:${rewriteVersion}:recipes")
     testImplementation("org.junit.jupiter:junit-jupiter-engine:5.13.3")
     testImplementation("org.junit-pioneer:junit-pioneer:latest.release")
+    testImplementation("org.jetbrains.kotlin:kotlin-metadata-jvm:2.1.0")
 
     testRuntimeOnly("org.openrewrite:rewrite-java-21")
     testRuntimeOnly("org.gradle:gradle-tooling-api:latest.release")
+
+    // Kotlin libraries for KotlinDeprecationRecipeGenerator
+    testRuntimeOnly("io.arrow-kt:arrow-core:2.+")
+    testRuntimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.+")
+    testRuntimeOnly("org.jetbrains.kotlinx:kotlinx-serialization-core:1.+")
 }
 
 recipeDependencies {
@@ -75,6 +81,11 @@ recipeDependencies {
 
     // `@InlineMe` methods defined in log4j-api, only generated here, not used directly
     testParserClasspath("org.apache.logging.log4j:log4j-api:2.+")
+
+    // Kotlin libraries with @Deprecated(replaceWith=ReplaceWith(...)) annotations
+    testParserClasspath("io.arrow-kt:arrow-core:2.+")
+    testParserClasspath("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.+")
+    testParserClasspath("org.jetbrains.kotlinx:kotlinx-serialization-core:1.+")
 }
 
 // ./gradlew shadowJar
@@ -120,6 +131,14 @@ tasks {
         mainClass = "org.openrewrite.java.internal.parser.InlineMethodCallsRecipeGenerator"
         classpath = sourceSets.getByName("test").runtimeClasspath
         args("log4j-api")
+        finalizedBy("licenseFormat")
+    }
+    val generateKotlinDeprecationRecipes by registering(JavaExec::class) {
+        group = "generate"
+        description = "Generate recipes from Kotlin @Deprecated annotations with ReplaceWith."
+        mainClass = "org.openrewrite.kotlin.internal.KotlinDeprecationRecipeGenerator"
+        classpath = sourceSets.getByName("test").runtimeClasspath
+        args("arrow-core", "kotlinx-coroutines-core", "kotlinx-serialization-core")
         finalizedBy("licenseFormat")
     }
 }
