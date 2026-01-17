@@ -105,6 +105,11 @@ tasks {
         description = "Generate Quarkus migration aggregation Recipes."
         mainClass = "org.openrewrite.recipe.quarkus.internal.AggregateQuarkusUpdates"
         classpath = sourceSets.getByName("test").runtimeClasspath
+        args(
+            "quarkus-updates/recipes/src/main/resources/quarkus-updates",
+            "src/main/resources/META-INF/rewrite/quarkus-consolidated.yml"
+        )
+        finalizedBy("licenseFormat")
     }
     val generateInlineGuavaMethods by registering(JavaExec::class) {
         group = "generate"
