@@ -12,9 +12,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
-      - name: Init submodules
-        uses: snickerbockers/submodules-init@v4
+        with:
+          submodules: true
 
       - name: Create quarkus aggregation recipes
         run: ./gradlew generateQuarkusAggregation
