@@ -79,7 +79,7 @@ class AggregateQuarkusUpdatesTest {
               new AggregateQuarkusUpdates.Version(3, 15, 0), List.of("io.quarkus.updates.camel.camel47.CamelQuarkusMigrationRecipe"),
               new AggregateQuarkusUpdates.Version(3, 17, 0), List.of("io.quarkus.updates.camel.camel49.CamelQuarkusMigrationRecipe"),
               new AggregateQuarkusUpdates.Version(3, 18, 0), List.of("io.quarkus.updates.camel.camel410.CamelQuarkusMigrationRecipe"),
-              new AggregateQuarkusUpdates.Version(3, 20, 1), List.of("io.quarkus.updates.camel.camel410.CamelQuarkusMigrationRecipe"),
+              new AggregateQuarkusUpdates.Version(3, 20, 1), List.of("io.quarkus.updates.camel.camel410_4.CamelQuarkusMigrationRecipe"),
               new AggregateQuarkusUpdates.Version(3, 22, 0), List.of("io.quarkus.updates.camel.camel411.CamelQuarkusMigrationRecipe"),
               new AggregateQuarkusUpdates.Version(3, 24, 0), List.of("io.quarkus.updates.camel.camel412.CamelQuarkusMigrationRecipe"),
               new AggregateQuarkusUpdates.Version(3, 25, 0), List.of("io.quarkus.updates.camel.camel413.CamelQuarkusMigrationRecipe"),
