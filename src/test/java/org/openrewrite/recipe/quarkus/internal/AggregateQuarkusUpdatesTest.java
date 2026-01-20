@@ -17,7 +17,6 @@ package org.openrewrite.recipe.quarkus.internal;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIf;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.openrewrite.recipe.quarkus.internal.AggregateQuarkusUpdates.*;
 
 class AggregateQuarkusUpdatesTest {
@@ -35,22 +35,14 @@ class AggregateQuarkusUpdatesTest {
     private static final AggregateQuarkusUpdates.Version v1_3_2 = new AggregateQuarkusUpdates.Version(1, 3, 2);
     private static final AggregateQuarkusUpdates.Version v1_5_5 = new AggregateQuarkusUpdates.Version(1, 5, 5);
 
-    static boolean quarkusUpdatesPresent() {
-        return Files.isDirectory(Path.of("quarkus-updates"));
-    }
+    private static final Path RECIPES_PATH = Path.of("quarkus-updates/recipes/src/main/resources/quarkus-updates");
 
-    @EnabledIf("quarkusRecipesPresent")
     @Nested
     class ExtractRecipeNames {
-        private static final Path quarkus39 = Path.of("quarkus-updates/recipes/src/main/resources/quarkus-updates/core/3.9.alpha1.yaml");
-        private static final Path mino38Recipe = Path.of("quarkus-updates/recipes/src/main/resources/quarkus-updates/io.quarkiverse.minio/quarkus-minio/3.8.yaml");
-
-        static boolean quarkusRecipesPresent() {
-            return Files.isReadable(quarkus39) && Files.isReadable(mino38Recipe);
-        }
-
         @Test
         void quarkus39() {
+            Path quarkus39 = RECIPES_PATH.resolve("core/3.9.alpha1.yaml");
+            assumeTrue(Files.isReadable(quarkus39));
             assertThat(extractRecipeNames(quarkus39))
               .containsExactlyInAnyOrder(
                 "io.quarkus.updates.core.quarkus39.RemovePanacheAnnotationProcessor",
@@ -63,14 +55,16 @@ class AggregateQuarkusUpdatesTest {
 
         @Test
         void minoSkipsUpdateProperties() {
+            Path mino38Recipe = RECIPES_PATH.resolve("io.quarkiverse.minio/quarkus-minio/3.8.yaml");
+            assumeTrue(Files.isReadable(mino38Recipe));
             assertThat(extractRecipeNames(mino38Recipe)).containsExactly("io.quarkus.updates.minio.minio38.UpdateAll");
         }
     }
 
-    @EnabledIf("quarkusUpdatesPresent")
     @Test
     void readRecipesFromCamlQuarkusModule() throws Exception {
-        Path camelQuarkusDir = Path.of("quarkus-updates/recipes/src/main/resources/quarkus-updates/org.apache.camel.quarkus");
+        assumeTrue(Files.isDirectory(RECIPES_PATH));
+        Path camelQuarkusDir = RECIPES_PATH.resolve("org.apache.camel.quarkus");
         assertThat(recipesDefinedInQuarkusRepo(camelQuarkusDir))
           .containsAllEntriesOf(
             Map.of(
