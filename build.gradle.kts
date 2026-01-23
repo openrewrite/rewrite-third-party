@@ -30,6 +30,7 @@ dependencies {
         exclude(module = "jakarta.xml.bind-api")
     }
     runtimeOnly("com.oracle.weblogic.rewrite:rewrite-weblogic:latest.release") { isTransitive = false }
+    runtimeOnly("io.liftwizard:liftwizard-rewrite:latest.release") { isTransitive = false }
     runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release") { isTransitive = false }
     runtimeOnly("org.apache.camel.upgrade:camel-upgrade-recipes:latest.release") { isTransitive = false }
     runtimeOnly("org.apache.wicket:wicket-migration:latest.release") { isTransitive = false }
@@ -66,6 +67,8 @@ recipeDependencies {
     parserClasspath("org.springframework:spring-web:6.+")
     parserClasspath("org.springframework:spring-webflux:6.+")
     parserClasspath("org.testng:testng:7.+")
+    parserClasspath("org.eclipse.collections:eclipse-collections-api:11.+")
+    parserClasspath("org.eclipse.collections:eclipse-collections:11.+")
     parserClasspath("io.micrometer:micrometer-core:1.+")
     parserClasspath("io.projectreactor:reactor-core:3.+")
     parserClasspath("io.projectreactor:reactor-test:3.+")
@@ -83,6 +86,7 @@ tasks.withType<ShadowJar> {
     dependencies {
         include(dependency("ai.timefold.solver:timefold-solver-migration"))
         include(dependency("com.oracle.weblogic.rewrite:rewrite-weblogic"))
+        include(dependency("io.liftwizard:liftwizard-rewrite"))
         include(dependency("io.quarkus:quarkus-update-recipes:.*"))
         include(dependency("org.apache.camel.upgrade:camel-upgrade-recipes"))
         include(dependency("org.apache.wicket:wicket-migration"))
@@ -90,6 +94,18 @@ tasks.withType<ShadowJar> {
         include(dependency("software.amazon.awssdk:v2-migration"))
         include(dependency("tech.picnic.error-prone-support:error-prone-contrib"))
     }
+    // Only include eclipse-collections content from liftwizard-rewrite
+    exclude {
+        it.path.startsWith("io/liftwizard/") &&
+            !it.path.startsWith("io/liftwizard/rewrite/eclipse/collections/")
+    }
+    exclude("META-INF/rewrite/assertj.yml")
+    exclude("META-INF/rewrite/bestpractices.yml")
+    exclude("META-INF/rewrite/common-static-analysis.yml")
+    exclude("META-INF/rewrite/license.yml")
+    exclude("META-INF/rewrite/logging.yml")
+    exclude("META-INF/rewrite/static-analysis.yml")
+    exclude("META-INF/rewrite/testing-frameworks.yml")
     // Redeclares existing Quarkus and OpenRewrite recipes
     exclude("**/ToLatest9.yml")
     relocate("quarkus-updates", "META-INF.rewrite")
