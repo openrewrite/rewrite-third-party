@@ -30,6 +30,7 @@ dependencies {
         exclude(module = "jakarta.xml.bind-api")
     }
     runtimeOnly("com.oracle.weblogic.rewrite:rewrite-weblogic:latest.release") { isTransitive = false }
+    runtimeOnly("io.liftwizard:liftwizard-rewrite:latest.release") { isTransitive = false }
     runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release") { isTransitive = false }
     runtimeOnly("org.apache.camel.upgrade:camel-upgrade-recipes:latest.release") { isTransitive = false }
     runtimeOnly("org.apache.wicket:wicket-migration:latest.release") { isTransitive = false }
@@ -66,6 +67,8 @@ recipeDependencies {
     parserClasspath("org.springframework:spring-web:6.+")
     parserClasspath("org.springframework:spring-webflux:6.+")
     parserClasspath("org.testng:testng:7.+")
+    parserClasspath("org.eclipse.collections:eclipse-collections-api:11.+")
+    parserClasspath("org.eclipse.collections:eclipse-collections:11.+")
     parserClasspath("io.micrometer:micrometer-core:1.+")
     parserClasspath("io.projectreactor:reactor-core:3.+")
     parserClasspath("io.projectreactor:reactor-test:3.+")
@@ -83,6 +86,7 @@ tasks.withType<ShadowJar> {
     dependencies {
         include(dependency("ai.timefold.solver:timefold-solver-migration"))
         include(dependency("com.oracle.weblogic.rewrite:rewrite-weblogic"))
+        include(dependency("io.liftwizard:liftwizard-rewrite"))
         include(dependency("io.quarkus:quarkus-update-recipes:.*"))
         include(dependency("org.apache.camel.upgrade:camel-upgrade-recipes"))
         include(dependency("org.apache.wicket:wicket-migration"))
