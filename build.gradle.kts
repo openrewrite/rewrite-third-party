@@ -94,6 +94,18 @@ tasks.withType<ShadowJar> {
         include(dependency("software.amazon.awssdk:v2-migration"))
         include(dependency("tech.picnic.error-prone-support:error-prone-contrib"))
     }
+    // Only include eclipse-collections content from liftwizard-rewrite
+    exclude {
+        it.path.startsWith("io/liftwizard/") &&
+            !it.path.startsWith("io/liftwizard/rewrite/eclipse/collections/")
+    }
+    exclude("META-INF/rewrite/assertj.yml")
+    exclude("META-INF/rewrite/bestpractices.yml")
+    exclude("META-INF/rewrite/common-static-analysis.yml")
+    exclude("META-INF/rewrite/license.yml")
+    exclude("META-INF/rewrite/logging.yml")
+    exclude("META-INF/rewrite/static-analysis.yml")
+    exclude("META-INF/rewrite/testing-frameworks.yml")
     // Redeclares existing Quarkus and OpenRewrite recipes
     exclude("**/ToLatest9.yml")
     relocate("quarkus-updates", "META-INF.rewrite")
