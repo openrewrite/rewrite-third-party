@@ -186,9 +186,11 @@ public class KotlinDeprecatedMethodScanner {
     private String inferGroupIdFromArtifact(String artifactId) {
         if (artifactId.startsWith("arrow-")) {
             return "io.arrow-kt";
-        } else if (artifactId.startsWith("kotlinx-coroutines")) {
+        }
+        if (artifactId.startsWith("kotlinx-coroutines")) {
             return "org.jetbrains.kotlinx";
-        } else if (artifactId.startsWith("kotlinx-serialization")) {
+        }
+        if (artifactId.startsWith("kotlinx-serialization")) {
             return "org.jetbrains.kotlinx";
         }
         return "unknown";
@@ -261,9 +263,8 @@ public class KotlinDeprecatedMethodScanner {
 
         if (kmFunc != null) {
             return buildMethodPatternFromKotlin(className, kmFunc);
-        } else {
-            return buildMethodPatternFromReflection(className, method);
         }
+        return buildMethodPatternFromReflection(className, method);
     }
 
     private String buildMethodPatternFromKotlin(String className, KmFunction function) {
@@ -342,8 +343,6 @@ public class KotlinDeprecatedMethodScanner {
         if (classifier instanceof KmClassifier.Class classClassifier) {
             String name = classClassifier.getName().replace('/', '.');
             return mapKotlinType(name);
-        } else if (classifier instanceof KmClassifier.TypeParameter) {
-            return "..";
         }
         return "..";
     }
