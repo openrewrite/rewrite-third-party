@@ -36,7 +36,8 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.joining;
 
 /**
  * Scans Kotlin class files for {@code @Deprecated(replaceWith=ReplaceWith(...))} annotations
@@ -143,7 +144,7 @@ public class KotlinDeprecatedMethodScanner {
                 JarEntry entry = entries.nextElement();
                 String name = entry.getName();
 
-                if (name.endsWith(".class") && !name.equals("module-info.class")) {
+                if (name.endsWith(".class") && !"module-info.class".equals(name)) {
                     String className = name.replace('/', '.').replace(".class", "");
                     try {
                         Class<?> clazz = classLoader.loadClass(className);
@@ -275,7 +276,7 @@ public class KotlinDeprecatedMethodScanner {
         if (!params.isEmpty()) {
             pattern.append(params.stream()
                     .map(p -> typeToPattern(p.getType()))
-                    .collect(Collectors.joining(", ")));
+                    .collect(joining(", ")));
         }
         pattern.append(")");
 
@@ -292,7 +293,7 @@ public class KotlinDeprecatedMethodScanner {
         if (params.length > 0) {
             pattern.append(Arrays.stream(params)
                     .map(this::classToPattern)
-                    .collect(Collectors.joining(", ")));
+                    .collect(joining(", ")));
         }
         pattern.append(")");
 
