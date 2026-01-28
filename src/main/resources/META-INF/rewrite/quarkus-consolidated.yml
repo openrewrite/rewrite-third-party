@@ -364,5 +364,8 @@ recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_30_0
   - io.quarkus.updates.core.quarkus331.CoreUpdate331
   - io.quarkus.updates.core.quarkus331.OidcClientFilterSplitPackagesFix
+  - io.quarkus.updates.core.quarkus331.JUnitRelocations
+  - io.quarkus.updates.core.quarkus331.Testcontainers2
+  - io.quarkus.updates.core.quarkus331.OpenTelemetryTracingPackageTypoFix
   - io.quarkus.updates.camel.camel417.CamelQuarkusMigrationRecipe
 
