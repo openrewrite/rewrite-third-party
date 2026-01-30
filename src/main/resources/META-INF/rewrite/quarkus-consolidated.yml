@@ -20,6 +20,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_0_0
 displayName: Quarkus Updates Aggregate 3.0.0
 description: Quarkus update recipes to upgrade your application to 3.0.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - io.quarkus.updates.camel.camel40.CamelQuarkusMigrationRecipe
   - org.openrewrite.java.camel.migrate.removedExtensions
@@ -78,6 +80,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_1_0
 displayName: Quarkus Updates Aggregate 3.1.0
 description: Quarkus update recipes to upgrade your application to 3.1.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_0_0
   - io.quarkus.updates.core.quarkus31.RemoveMockitoInline
@@ -87,6 +91,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_2_0
 displayName: Quarkus Updates Aggregate 3.2.0
 description: Quarkus update recipes to upgrade your application to 3.2.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_1_0
   - io.quarkus.updates.core.quarkus32.InjectMock
@@ -98,6 +104,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_3_0
 displayName: Quarkus Updates Aggregate 3.3.0
 description: Quarkus update recipes to upgrade your application to 3.3.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_2_0
   - io.quarkus.updates.core.quarkus33.ApplicationProperties
@@ -109,6 +117,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_5_0
 displayName: Quarkus Updates Aggregate 3.5.0
 description: Quarkus update recipes to upgrade your application to 3.5.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_3_0
   - io.quarkus.updates.core.quarkus35.MutinyUniAndGroupCombinedWith
@@ -119,6 +129,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_6_0
 displayName: Quarkus Updates Aggregate 3.6.0
 description: Quarkus update recipes to upgrade your application to 3.6.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_5_0
   - io.quarkus.updates.core.quarkus36.JaegerSmallRyeOpenTracing
@@ -128,6 +140,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_7_0
 displayName: Quarkus Updates Aggregate 3.7.0
 description: Quarkus update recipes to upgrade your application to 3.7.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_6_0
   - io.quarkus.updates.core.quarkus37.HibernateSearchOutboxPolling
@@ -150,6 +164,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_8_0
 displayName: Quarkus Updates Aggregate 3.8.0
 description: Quarkus update recipes to upgrade your application to 3.8.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_7_0
   - io.quarkus.updates.camel.camel44.CamelQuarkusMigrationRecipe
@@ -161,6 +177,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_8_3
 displayName: Quarkus Updates Aggregate 3.8.3
 description: Quarkus update recipes to upgrade your application to 3.8.3.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_8_0
   - io.quarkus.updates.core.quarkus383.GraalSDK
@@ -170,6 +188,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_9_0
 displayName: Quarkus Updates Aggregate 3.9.0
 description: Quarkus update recipes to upgrade your application to 3.9.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_8_3
   - io.quarkus.updates.core.quarkus39.RemovePanacheAnnotationProcessor
@@ -183,6 +203,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_10_0
 displayName: Quarkus Updates Aggregate 3.10.0
 description: Quarkus update recipes to upgrade your application to 3.10.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_9_0
   - io.quarkus.updates.core.quarkus310.SyncHibernateJpaModelgenVersionWithBOM
@@ -203,6 +225,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_11_0
 displayName: Quarkus Updates Aggregate 3.11.0
 description: Quarkus update recipes to upgrade your application to 3.11.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_10_0
   - io.quarkus.updates.core.quarkus311.SyncHibernateJpaModelgenVersionWithBOM
@@ -212,6 +236,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_12_0
 displayName: Quarkus Updates Aggregate 3.12.0
 description: Quarkus update recipes to upgrade your application to 3.12.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_11_0
   - io.quarkus.updates.core.quarkus312.SyncHibernateJpaModelgenVersionWithBOM
@@ -221,6 +247,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_13_0
 displayName: Quarkus Updates Aggregate 3.13.0
 description: Quarkus update recipes to upgrade your application to 3.13.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_12_0
   - io.quarkus.updates.core.quarkus313.SyncHibernateJpaModelgenVersionWithBOM
@@ -231,6 +259,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_15_0
 displayName: Quarkus Updates Aggregate 3.15.0
 description: Quarkus update recipes to upgrade your application to 3.15.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_13_0
   - io.quarkus.updates.camel.camel47.CamelQuarkusMigrationRecipe
@@ -240,6 +270,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_17_0
 displayName: Quarkus Updates Aggregate 3.17.0
 description: Quarkus update recipes to upgrade your application to 3.17.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_15_0
   - io.quarkus.updates.camel.camel49.CamelQuarkusMigrationRecipe
@@ -249,6 +281,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_18_0
 displayName: Quarkus Updates Aggregate 3.18.0
 description: Quarkus update recipes to upgrade your application to 3.18.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_17_0
   - io.quarkus.updates.core.quarkus318.RemoveFlywayCleanOnValidationError
@@ -259,6 +293,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_19_0
 displayName: Quarkus Updates Aggregate 3.19.0
 description: Quarkus update recipes to upgrade your application to 3.19.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_18_0
   - io.quarkus.updates.core.quarkus319.MoveAccessTokenAnnotationToNewPackage
@@ -270,6 +306,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_20_1
 displayName: Quarkus Updates Aggregate 3.20.1
 description: Quarkus update recipes to upgrade your application to 3.20.1.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_19_0
   - io.quarkus.updates.camel.camel410_4.CamelQuarkusMigrationRecipe
@@ -279,6 +317,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_21_0
 displayName: Quarkus Updates Aggregate 3.21.0
 description: Quarkus update recipes to upgrade your application to 3.21.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_20_1
   - io.quarkus.updates.core.quarkus321.TlsRegistrySplitPackagesFix
@@ -288,6 +328,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_22_0
 displayName: Quarkus Updates Aggregate 3.22.0
 description: Quarkus update recipes to upgrade your application to 3.22.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_21_0
   - io.quarkus.updates.camel.camel411.CamelQuarkusMigrationRecipe
@@ -297,6 +339,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_23_0
 displayName: Quarkus Updates Aggregate 3.23.0
 description: Quarkus update recipes to upgrade your application to 3.23.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_22_0
   - io.quarkus.updates.core.quarkus323.HibernateORMSchemaManagementProperties
@@ -306,6 +350,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_24_0
 displayName: Quarkus Updates Aggregate 3.24.0
 description: Quarkus update recipes to upgrade your application to 3.24.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_23_0
   - io.quarkus.updates.core.quarkus324.ReplaceOldJpaModelgenAnnotationProcessor
@@ -323,6 +369,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_25_0
 displayName: Quarkus Updates Aggregate 3.25.0
 description: Quarkus update recipes to upgrade your application to 3.25.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_24_0
   - io.quarkus.updates.camel.camel413.CamelQuarkusMigrationRecipe
@@ -332,6 +380,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_26_0
 displayName: Quarkus Updates Aggregate 3.26.0
 description: Quarkus update recipes to upgrade your application to 3.26.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_25_0
   - io.quarkus.updates.core.quarkus326.EnableEnabledConfigChanges
@@ -342,6 +392,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_29_0
 displayName: Quarkus Updates Aggregate 3.29.0
 description: Quarkus update recipes to upgrade your application to 3.29.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_26_0
   - io.quarkus.updates.camel.camel415.CamelQuarkusMigrationRecipe
@@ -351,6 +403,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_30_0
 displayName: Quarkus Updates Aggregate 3.30.0
 description: Quarkus update recipes to upgrade your application to 3.30.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_29_0
   - io.quarkus.updates.camel.camel416.CamelQuarkusMigrationRecipe
@@ -360,6 +414,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_31_0
 displayName: Quarkus Updates Aggregate 3.31.0
 description: Quarkus update recipes to upgrade your application to 3.31.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_30_0
   - io.quarkus.updates.core.quarkus331.CoreUpdate331
