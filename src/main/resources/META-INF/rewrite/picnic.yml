@@ -18,6 +18,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: tech.picnic.errorprone.refasterrules.AllRefasterRules
 displayName: All Picnic Refaster rules
 description: Collection of all Refaster rules from Picnic's error-prone-contrib project.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - tech.picnic.errorprone.refasterrules.AssertJBigIntegerRulesRecipes
   - tech.picnic.errorprone.refasterrules.AssertJByteRulesRecipes
