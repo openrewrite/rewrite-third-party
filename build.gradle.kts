@@ -80,6 +80,10 @@ recipeDependencies {
     testParserClasspath("org.apache.logging.log4j:log4j-api:2.+")
 }
 
+tasks.jar {
+    enabled = false
+}
+
 // ./gradlew shadowJar
 tasks.withType<ShadowJar> {
     archiveClassifier.set("")
