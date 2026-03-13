@@ -26,7 +26,8 @@ dependencies {
     runtimeOnly("org.openrewrite:rewrite-java")
     runtimeOnly("org.openrewrite:rewrite-templating:${rewriteVersion}")
 
-    runtimeOnly("ai.timefold.solver:timefold-solver-migration:latest.release") {
+    // Timefold 2.x requires Java 21
+    runtimeOnly("ai.timefold.solver:timefold-solver-migration:1.+") {
         exclude(module = "jakarta.xml.bind-api")
     }
     runtimeOnly("com.oracle.weblogic.rewrite:rewrite-weblogic:latest.release") { isTransitive = false }
