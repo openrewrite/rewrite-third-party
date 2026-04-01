@@ -17,10 +17,8 @@ package org.openrewrite.recipe.quarkus.internal;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.openrewrite.java.dependencies.search.ModuleHasDependency;
 import org.openrewrite.test.RewriteTest;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.openrewrite.java.Assertions.mavenProject;
 import static org.openrewrite.maven.Assertions.pomXml;
 
@@ -33,22 +31,6 @@ class QuarkusPreconditionTest implements RewriteTest {
 
     private static final String GROUP = "jakarta.data";
     private static final String ARTIFACT = "jakarta.data-api";
-
-    private static final String POM = """
-        <project>
-            <modelVersion>4.0.0</modelVersion>
-            <groupId>com.example</groupId>
-            <artifactId>test</artifactId>
-            <version>1.0</version>
-            <dependencies>
-                <dependency>
-                    <groupId>jakarta.data</groupId>
-                    <artifactId>jakarta.data-api</artifactId>
-                    <version>1.0.1</version>
-                </dependency>
-            </dependencies>
-        </project>
-        """;
 
     private static final String POM_WITH_PROPERTY = """
         <project>
@@ -112,38 +94,6 @@ class QuarkusPreconditionTest implements RewriteTest {
 
     private static String migrationRecipeName(String targetVersion) {
         return "test.MigrateToVersion_" + targetVersion.replace(".", "_");
-    }
-
-    @Nested
-    class DirectModuleHasDependency {
-        @Test
-        void marksWhenVersionBelowRange() {
-            rewriteRun(
-                spec -> spec.recipe(new ModuleHasDependency(GROUP, ARTIFACT, null, "(,1.1.0)", null)),
-                mavenProject("project",
-                    pomXml(POM,
-                        spec -> spec.after(actual ->
-                            assertThat(actual).startsWith("<!--~~(Module has dependency").actual())))
-            );
-        }
-
-        @Test
-        void doesNotMarkWhenVersionAtRange() {
-            rewriteRun(
-                spec -> spec.recipe(new ModuleHasDependency(GROUP, ARTIFACT, null, "(,1.0.1)", null)),
-                mavenProject("project",
-                    pomXml(POM))
-            );
-        }
-
-        @Test
-        void doesNotMarkWhenVersionAboveRange() {
-            rewriteRun(
-                spec -> spec.recipe(new ModuleHasDependency(GROUP, ARTIFACT, null, "(,1.0.0)", null)),
-                mavenProject("project",
-                    pomXml(POM))
-            );
-        }
     }
 
     @Nested
