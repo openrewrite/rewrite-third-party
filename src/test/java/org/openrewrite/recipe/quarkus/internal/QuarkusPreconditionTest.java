@@ -16,48 +16,53 @@
 package org.openrewrite.recipe.quarkus.internal;
 
 import org.junit.jupiter.api.Test;
-import org.openrewrite.*;
+import org.openrewrite.Recipe;
 import org.openrewrite.config.Environment;
 import org.openrewrite.config.YamlResourceLoader;
-import org.openrewrite.java.marker.JavaProject;
-import org.openrewrite.maven.MavenParser;
+import org.openrewrite.test.RecipeSpec;
+import org.openrewrite.test.RewriteTest;
 
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
-import java.util.List;
 import java.util.Properties;
 import java.util.jar.JarFile;
 
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.openrewrite.java.Assertions.mavenProject;
+import static org.openrewrite.maven.Assertions.pomXml;
 
 /**
  * Verifies that the generated Quarkus aggregation recipes from
  * {@code quarkus-consolidated.yml} do not run on projects whose
  * {@code io.quarkus:quarkus-core} version is at or above the recipe's target version.
  */
-class QuarkusPreconditionTest {
+class QuarkusPreconditionTest implements RewriteTest {
+
+    @Override
+    public void defaults(RecipeSpec spec) {
+        spec.recipe(loadConsolidatedRecipe("org.openrewrite.quarkus.MigrateToQuarkus_v3_1_0"));
+    }
 
     private static Recipe loadConsolidatedRecipe(String recipeName) {
         try {
             Environment.Builder builder = Environment.builder().scanRuntimeClasspath();
-            URL marker = QuarkusPreconditionTest.class.getClassLoader()
-                    .getResource("quarkus-updates/core/3.0.alpha1.yaml");
+            URL marker = QuarkusPreconditionTest.class.getClassLoader().getResource("quarkus-updates/core/3.0.alpha1.yaml");
             if (marker != null) {
                 String jarPath = marker.getPath().substring("file:".length(), marker.getPath().indexOf("!"));
                 try (JarFile jar = new JarFile(jarPath)) {
                     jar.stream()
-                            .filter(e -> e.getName().startsWith("quarkus-updates/") && e.getName().endsWith(".yaml"))
-                            .forEach(entry -> {
-                                try (InputStream is = jar.getInputStream(entry)) {
-                                    builder.load(new YamlResourceLoader(
-                                            is, URI.create(entry.getName()), new Properties(),
-                                            (ClassLoader) null, emptyList()));
-                                } catch (Exception e) {
-                                    throw new RuntimeException(e);
-                                }
-                            });
+                      .filter(e -> e.getName().startsWith("quarkus-updates/") && e.getName().endsWith(".yaml"))
+                      .forEach(entry -> {
+                          try (InputStream is = jar.getInputStream(entry)) {
+                              builder.load(new YamlResourceLoader(
+                                is, URI.create(entry.getName()), new Properties(),
+                                (ClassLoader) null, emptyList()));
+                          } catch (Exception e) {
+                              throw new RuntimeException(e);
+                          }
+                      });
                 }
             }
             return builder.build().activateRecipes(recipeName);
@@ -67,74 +72,65 @@ class QuarkusPreconditionTest {
     }
 
     private static String pomWithQuarkusBom(String bomVersion) {
+        //language=xml
         return """
-                <project>
-                    <modelVersion>4.0.0</modelVersion>
-                    <groupId>com.example</groupId>
-                    <artifactId>test</artifactId>
-                    <version>1.0</version>
-                    <dependencyManagement>
-                        <dependencies>
-                            <dependency>
-                                <groupId>io.quarkus.platform</groupId>
-                                <artifactId>quarkus-bom</artifactId>
-                                <version>%s</version>
-                                <type>pom</type>
-                                <scope>import</scope>
-                            </dependency>
-                        </dependencies>
-                    </dependencyManagement>
-                    <dependencies>
-                        <dependency>
-                            <groupId>io.quarkus</groupId>
-                            <artifactId>quarkus-core</artifactId>
-                        </dependency>
-                        <dependency>
-                            <groupId>javax.validation</groupId>
-                            <artifactId>validation-api</artifactId>
-                            <version>2.0.1.Final</version>
-                        </dependency>
-                    </dependencies>
-                </project>
-                """.formatted(bomVersion);
-    }
-
-    private static RecipeRun runRecipe(Recipe recipe, String pom) {
-        JavaProject javaProject = new JavaProject(Tree.randomId(), "test", null);
-        List<SourceFile> sources = MavenParser.builder().build().parse(
-                        new InMemoryExecutionContext(Throwable::printStackTrace), pom)
-                .map(s -> (SourceFile) s.withMarkers(s.getMarkers().add(javaProject)))
-                .toList();
-        return recipe.run(
-                new org.openrewrite.internal.InMemoryLargeSourceSet(sources),
-                new InMemoryExecutionContext(Throwable::printStackTrace));
+          <project>
+              <modelVersion>4.0.0</modelVersion>
+              <groupId>com.example</groupId>
+              <artifactId>test</artifactId>
+              <version>1.0</version>
+              <dependencyManagement>
+                  <dependencies>
+                      <dependency>
+                          <groupId>io.quarkus.platform</groupId>
+                          <artifactId>quarkus-bom</artifactId>
+                          <version>%s</version>
+                          <type>pom</type>
+                          <scope>import</scope>
+                      </dependency>
+                  </dependencies>
+              </dependencyManagement>
+              <dependencies>
+                  <dependency>
+                      <groupId>io.quarkus</groupId>
+                      <artifactId>quarkus-core</artifactId>
+                  </dependency>
+                  <dependency>
+                      <groupId>javax.validation</groupId>
+                      <artifactId>validation-api</artifactId>
+                      <version>2.0.1.Final</version>
+                  </dependency>
+              </dependencies>
+          </project>
+          """.formatted(bomVersion);
     }
 
     @Test
     void doesNotRunWhenQuarkusVersionIsAtTarget() {
-        Recipe recipe = loadConsolidatedRecipe("org.openrewrite.quarkus.MigrateToQuarkus_v3_0_0");
-
-        // A project on quarkus-bom 3.0.0.Final should NOT be modified,
-        // because the precondition version: (,3.0.0) excludes 3.0.0 itself.
-        // quarkus-core resolves to 3.0.0.Final via the BOM.
-        RecipeRun result = runRecipe(recipe, pomWithQuarkusBom("3.0.0.Final"));
-
-        assertThat(result.getChangeset().getAllResults())
-                .as("MigrateToQuarkus_v3_0_0 should not modify a project already on quarkus-bom 3.0.0.Final")
-                .isEmpty();
+        // A project on quarkus-bom 3.1.0.Final should NOT be modified,
+        // because the precondition version: (,3.1.0) excludes 3.1.0 itself.
+        // quarkus-core resolves to 3.1.0.Final via the BOM.
+        rewriteRun(
+          mavenProject(
+            "project",
+            pomXml(pomWithQuarkusBom("3.1.0.Final"))
+          )
+        );
     }
 
     @Test
     void runsWhenQuarkusVersionIsBelowTarget() {
-        Recipe recipe = loadConsolidatedRecipe("org.openrewrite.quarkus.MigrateToQuarkus_v3_0_0");
-
-        // A project on quarkus-bom 2.16.12.Final SHOULD be modified,
-        // because the precondition version: (,3.0.0) includes 2.x versions.
-        // The javax.validation:validation-api dependency should be migrated to jakarta.
-        RecipeRun result = runRecipe(recipe, pomWithQuarkusBom("2.16.12.Final"));
-
-        assertThat(result.getChangeset().getAllResults())
-                .as("MigrateToQuarkus_v3_0_0 should modify a project on quarkus-bom 2.16.12.Final")
-                .isNotEmpty();
+        rewriteRun(
+          mavenProject(
+            "project",
+            pomXml(
+              pomWithQuarkusBom("2.16.12.Final"),
+              after -> after.after(pom -> assertThat(pom)
+                .doesNotContain("javax")
+                .contains("jakarta")
+                .actual())
+            )
+          )
+        );
     }
 }
