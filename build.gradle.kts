@@ -42,6 +42,7 @@ dependencies {
     }
 
     testImplementation("org.openrewrite:rewrite-java")
+    testImplementation("org.openrewrite:rewrite-maven")
     testImplementation("org.openrewrite:rewrite-test")
 
     testImplementation("tech.picnic.error-prone-support:error-prone-contrib:${rewriteVersion}:recipes")

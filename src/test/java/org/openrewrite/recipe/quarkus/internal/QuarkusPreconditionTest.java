@@ -16,65 +16,102 @@
 package org.openrewrite.recipe.quarkus.internal;
 
 import org.junit.jupiter.api.Test;
+import org.openrewrite.InMemoryExecutionContext;
+import org.openrewrite.Recipe;
+import org.openrewrite.RecipeRun;
+import org.openrewrite.SourceFile;
+import org.openrewrite.config.Environment;
+import org.openrewrite.config.YamlResourceLoader;
+import org.openrewrite.maven.MavenParser;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URL;
+import java.util.List;
+import java.util.Properties;
+import java.util.jar.JarFile;
 
+import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Verifies that every recipe in {@code quarkus-consolidated.yml} has a
- * {@code ModuleHasDependency} precondition checking for
- * {@code io.quarkus.platform:quarkus-bom} with an exclusive upper-bound
- * version range, so migrations only run from the user's current version onwards.
+ * Verifies that the generated Quarkus aggregation recipes from
+ * {@code quarkus-consolidated.yml} do not run on projects whose
+ * {@code io.quarkus.platform:quarkus-bom} version is at or above
+ * the recipe's target version.
  */
 class QuarkusPreconditionTest {
 
-    private static final Path CONSOLIDATED_YML =
-            Path.of("src/main/resources/META-INF/rewrite/quarkus-consolidated.yml");
+    /**
+     * Build an Environment that includes both the consolidated recipes from
+     * {@code META-INF/rewrite/} and the individual quarkus update recipes
+     * from the {@code quarkus-updates/} path inside the quarkus-update-recipes JAR.
+     */
+    private static Recipe loadConsolidatedRecipe(String recipeName) {
+        try {
+            Environment.Builder builder = Environment.builder().scanRuntimeClasspath();
+
+            // The quarkus-update-recipes JAR stores its YAML recipes under quarkus-updates/
+            // instead of META-INF/rewrite/, so they're not picked up by scanRuntimeClasspath().
+            URL marker = QuarkusPreconditionTest.class.getClassLoader()
+                    .getResource("quarkus-updates/core/3.0.alpha1.yaml");
+            if (marker != null) {
+                String jarPath = marker.getPath().substring("file:".length(), marker.getPath().indexOf("!"));
+                try (JarFile jar = new JarFile(jarPath)) {
+                    jar.stream()
+                            .filter(e -> e.getName().startsWith("quarkus-updates/") && e.getName().endsWith(".yaml"))
+                            .forEach(entry -> {
+                                try (InputStream is = jar.getInputStream(entry)) {
+                                    builder.load(new YamlResourceLoader(
+                                            is, URI.create(entry.getName()), new Properties(),
+                                            (ClassLoader) null, emptyList()));
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+                }
+            }
+
+            return builder.build().activateRecipes(recipeName);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to load consolidated recipe: " + recipeName, e);
+        }
+    }
 
     @Test
-    void allRecipesHaveModuleHasDependencyPrecondition() throws IOException {
-        assertThat(CONSOLIDATED_YML).exists();
-        String content = Files.readString(CONSOLIDATED_YML);
+    void doesNotRunWhenQuarkusVersionIsAtTarget() {
+        Recipe recipe = loadConsolidatedRecipe("org.openrewrite.quarkus.MigrateToQuarkus_v3_17_0");
 
-        // Find all recipe blocks: each starts with "name: org.openrewrite.quarkus.MigrateToQuarkus_vX_Y_Z"
-        Pattern recipePattern = Pattern.compile(
-                "name: (org\\.openrewrite\\.quarkus\\.MigrateToQuarkus_v(\\d+_\\d+_\\d+))");
-        Matcher matcher = recipePattern.matcher(content);
+        // A project on quarkus-bom 3.17.0 should NOT be modified by MigrateToQuarkus_v3_17_0,
+        // because the precondition version: (,3.17.0) excludes 3.17.0 itself
+        List<SourceFile> sources = MavenParser.builder().build().parse(
+                new InMemoryExecutionContext(Throwable::printStackTrace),
+                """
+                        <project>
+                            <modelVersion>4.0.0</modelVersion>
+                            <groupId>com.example</groupId>
+                            <artifactId>test</artifactId>
+                            <version>1.0</version>
+                            <dependencyManagement>
+                                <dependencies>
+                                    <dependency>
+                                        <groupId>io.quarkus.platform</groupId>
+                                        <artifactId>quarkus-bom</artifactId>
+                                        <version>3.17.0</version>
+                                        <type>pom</type>
+                                        <scope>import</scope>
+                                    </dependency>
+                                </dependencies>
+                            </dependencyManagement>
+                        </project>
+                        """).toList();
 
-        int recipeCount = 0;
-        while (matcher.find()) {
-            String recipeName = matcher.group(1);
-            String expectedVersion = matcher.group(2).replace("_", ".");
+        RecipeRun result = recipe.run(
+                new org.openrewrite.internal.InMemoryLargeSourceSet(sources),
+                new InMemoryExecutionContext(Throwable::printStackTrace));
 
-            // Find the block for this recipe (from this name: to the next --- or end of file)
-            int blockStart = matcher.start();
-            int blockEnd = content.indexOf("\n---", blockStart);
-            if (blockEnd == -1) {
-                blockEnd = content.length();
-            }
-            String block = content.substring(blockStart, blockEnd);
-
-            assertThat(block)
-                    .as("Recipe %s should have ModuleHasDependency precondition", recipeName)
-                    .contains("org.openrewrite.java.dependencies.search.ModuleHasDependency:");
-            assertThat(block)
-                    .as("Recipe %s should check io.quarkus.platform group", recipeName)
-                    .contains("groupIdPattern: io.quarkus.platform");
-            assertThat(block)
-                    .as("Recipe %s should check quarkus-bom artifact", recipeName)
-                    .contains("artifactIdPattern: quarkus-bom");
-            assertThat(block)
-                    .as("Recipe %s should have version range (,%s)", recipeName, expectedVersion)
-                    .contains("version: (," + expectedVersion + ")");
-
-            recipeCount++;
-        }
-
-        assertThat(recipeCount).as("Should have found multiple recipes in consolidated YAML").isGreaterThan(1);
+        assertThat(result.getChangeset().getAllResults())
+                .as("MigrateToQuarkus_v3_17_0 should not modify a project already on quarkus-bom 3.17.0")
+                .isEmpty();
     }
 }
