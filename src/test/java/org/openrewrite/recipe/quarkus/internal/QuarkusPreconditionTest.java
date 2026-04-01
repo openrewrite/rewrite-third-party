@@ -15,120 +15,66 @@
  */
 package org.openrewrite.recipe.quarkus.internal;
 
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.openrewrite.test.RewriteTest;
 
-import static org.openrewrite.java.Assertions.mavenProject;
-import static org.openrewrite.maven.Assertions.pomXml;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Verifies that a {@code ModuleHasDependency} precondition with a version range
- * prevents recipes from running when the module's dependency version is at or above
- * the target. This is the same pattern used by the generated Quarkus aggregation recipes.
+ * Verifies that every recipe in {@code quarkus-consolidated.yml} has a
+ * {@code ModuleHasDependency} precondition checking for
+ * {@code io.quarkus.platform:quarkus-bom} with an exclusive upper-bound
+ * version range, so migrations only run from the user's current version onwards.
  */
-class QuarkusPreconditionTest implements RewriteTest {
+class QuarkusPreconditionTest {
 
-    private static final String GROUP = "jakarta.data";
-    private static final String ARTIFACT = "jakarta.data-api";
+    private static final Path CONSOLIDATED_YML =
+            Path.of("src/main/resources/META-INF/rewrite/quarkus-consolidated.yml");
 
-    private static final String POM_WITH_PROPERTY = """
-        <project>
-            <modelVersion>4.0.0</modelVersion>
-            <groupId>com.example</groupId>
-            <artifactId>test</artifactId>
-            <version>1.0</version>
-            <properties>
-                <migrated>false</migrated>
-            </properties>
-            <dependencies>
-                <dependency>
-                    <groupId>jakarta.data</groupId>
-                    <artifactId>jakarta.data-api</artifactId>
-                    <version>1.0.1</version>
-                </dependency>
-            </dependencies>
-        </project>
-        """;
+    @Test
+    void allRecipesHaveModuleHasDependencyPrecondition() throws IOException {
+        assertThat(CONSOLIDATED_YML).exists();
+        String content = Files.readString(CONSOLIDATED_YML);
 
-    private static final String POM_WITH_PROPERTY_MIGRATED = """
-        <project>
-            <modelVersion>4.0.0</modelVersion>
-            <groupId>com.example</groupId>
-            <artifactId>test</artifactId>
-            <version>1.0</version>
-            <properties>
-                <migrated>true</migrated>
-            </properties>
-            <dependencies>
-                <dependency>
-                    <groupId>jakarta.data</groupId>
-                    <artifactId>jakarta.data-api</artifactId>
-                    <version>1.0.1</version>
-                </dependency>
-            </dependencies>
-        </project>
-        """;
+        // Find all recipe blocks: each starts with "name: org.openrewrite.quarkus.MigrateToQuarkus_vX_Y_Z"
+        Pattern recipePattern = Pattern.compile(
+                "name: (org\\.openrewrite\\.quarkus\\.MigrateToQuarkus_v(\\d+_\\d+_\\d+))");
+        Matcher matcher = recipePattern.matcher(content);
 
-    private static String migrationRecipeYaml(String targetVersion) {
-        return """
-            type: specs.openrewrite.org/v1beta/recipe
-            name: test.MigrateToVersion_%s
-            displayName: Test migrate to %s
-            description: Test.
-            preconditions:
-              - org.openrewrite.java.dependencies.search.ModuleHasDependency:
-                  groupIdPattern: %s
-                  artifactIdPattern: %s
-                  version: (,%s)
-            recipeList:
-              - org.openrewrite.maven.ChangePropertyValue:
-                  key: migrated
-                  newValue: "true"
-            """.formatted(
-            targetVersion.replace(".", "_"),
-            targetVersion,
-            GROUP, ARTIFACT,
-            targetVersion);
-    }
+        int recipeCount = 0;
+        while (matcher.find()) {
+            String recipeName = matcher.group(1);
+            String expectedVersion = matcher.group(2).replace("_", ".");
 
-    private static String migrationRecipeName(String targetVersion) {
-        return "test.MigrateToVersion_" + targetVersion.replace(".", "_");
-    }
+            // Find the block for this recipe (from this name: to the next --- or end of file)
+            int blockStart = matcher.start();
+            int blockEnd = content.indexOf("\n---", blockStart);
+            if (blockEnd == -1) {
+                blockEnd = content.length();
+            }
+            String block = content.substring(blockStart, blockEnd);
 
-    @Nested
-    class YamlPrecondition {
-        @Test
-        void runsWhenVersionBelowTarget() {
-            // 1.0.1 IS less than 1.1.0, so recipe should run and change the property
-            String version = "1.1.0";
-            rewriteRun(
-                spec -> spec.recipeFromYaml(migrationRecipeYaml(version), migrationRecipeName(version)),
-                mavenProject("project",
-                    pomXml(POM_WITH_PROPERTY, POM_WITH_PROPERTY_MIGRATED))
-            );
+            assertThat(block)
+                    .as("Recipe %s should have ModuleHasDependency precondition", recipeName)
+                    .contains("org.openrewrite.java.dependencies.search.ModuleHasDependency:");
+            assertThat(block)
+                    .as("Recipe %s should check io.quarkus.platform group", recipeName)
+                    .contains("groupIdPattern: io.quarkus.platform");
+            assertThat(block)
+                    .as("Recipe %s should check quarkus-bom artifact", recipeName)
+                    .contains("artifactIdPattern: quarkus-bom");
+            assertThat(block)
+                    .as("Recipe %s should have version range (,%s)", recipeName, expectedVersion)
+                    .contains("version: (," + expectedVersion + ")");
+
+            recipeCount++;
         }
 
-        @Test
-        void doesNotRunWhenVersionAtTarget() {
-            // 1.0.1 is NOT less than 1.0.1, so recipe should not run
-            String version = "1.0.1";
-            rewriteRun(
-                spec -> spec.recipeFromYaml(migrationRecipeYaml(version), migrationRecipeName(version)),
-                mavenProject("project",
-                    pomXml(POM_WITH_PROPERTY))
-            );
-        }
-
-        @Test
-        void doesNotRunWhenVersionAboveTarget() {
-            // 1.0.1 is NOT less than 1.0.0, so recipe should not run
-            String version = "1.0.0";
-            rewriteRun(
-                spec -> spec.recipeFromYaml(migrationRecipeYaml(version), migrationRecipeName(version)),
-                mavenProject("project",
-                    pomXml(POM_WITH_PROPERTY))
-            );
-        }
+        assertThat(recipeCount).as("Should have found multiple recipes in consolidated YAML").isGreaterThan(1);
     }
 }

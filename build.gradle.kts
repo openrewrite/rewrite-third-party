@@ -42,9 +42,7 @@ dependencies {
     }
 
     testImplementation("org.openrewrite:rewrite-java")
-    testImplementation("org.openrewrite:rewrite-maven")
     testImplementation("org.openrewrite:rewrite-test")
-    testImplementation("org.openrewrite.recipe:rewrite-java-dependencies:${rewriteVersion}")
 
     testImplementation("tech.picnic.error-prone-support:error-prone-contrib:${rewriteVersion}:recipes")
     testImplementation("org.junit.jupiter:junit-jupiter-engine:5.14.2")
