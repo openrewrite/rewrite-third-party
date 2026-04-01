@@ -113,8 +113,8 @@ public class AggregateQuarkusUpdates {
             description: Quarkus update recipes to upgrade your application to %s.
             preconditions:
               - org.openrewrite.java.dependencies.search.ModuleHasDependency:
-                  groupIdPattern: io.quarkus.platform
-                  artifactIdPattern: quarkus-bom
+                  groupIdPattern: io.quarkus
+                  artifactIdPattern: quarkus-core
                   version: (,%s)
             recipeList:%s
               - %s

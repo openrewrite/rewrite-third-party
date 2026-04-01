@@ -95,8 +95,8 @@ class AggregateQuarkusUpdatesTest {
                 description: Quarkus update recipes to upgrade your application to 1.2.3.
                 preconditions:
                   - org.openrewrite.java.dependencies.search.ModuleHasDependency:
-                      groupIdPattern: io.quarkus.platform
-                      artifactIdPattern: quarkus-bom
+                      groupIdPattern: io.quarkus
+                      artifactIdPattern: quarkus-core
                       version: (,1.2.3)
                 recipeList:
                   - org.openrewrite.quarkus.MigrateToQuarkus_v1_2_0
@@ -120,8 +120,8 @@ class AggregateQuarkusUpdatesTest {
                 description: Quarkus update recipes to upgrade your application to 1.2.3.
                 preconditions:
                   - org.openrewrite.java.dependencies.search.ModuleHasDependency:
-                      groupIdPattern: io.quarkus.platform
-                      artifactIdPattern: quarkus-bom
+                      groupIdPattern: io.quarkus
+                      artifactIdPattern: quarkus-core
                       version: (,1.2.3)
                 recipeList:
                   - org.test.r1

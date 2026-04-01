@@ -16,12 +16,10 @@
 package org.openrewrite.recipe.quarkus.internal;
 
 import org.junit.jupiter.api.Test;
-import org.openrewrite.InMemoryExecutionContext;
-import org.openrewrite.Recipe;
-import org.openrewrite.RecipeRun;
-import org.openrewrite.SourceFile;
+import org.openrewrite.*;
 import org.openrewrite.config.Environment;
 import org.openrewrite.config.YamlResourceLoader;
+import org.openrewrite.java.marker.JavaProject;
 import org.openrewrite.maven.MavenParser;
 
 import java.io.InputStream;
@@ -37,22 +35,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Verifies that the generated Quarkus aggregation recipes from
  * {@code quarkus-consolidated.yml} do not run on projects whose
- * {@code io.quarkus.platform:quarkus-bom} version is at or above
- * the recipe's target version.
+ * {@code io.quarkus:quarkus-core} version is at or above the recipe's target version.
  */
 class QuarkusPreconditionTest {
 
-    /**
-     * Build an Environment that includes both the consolidated recipes from
-     * {@code META-INF/rewrite/} and the individual quarkus update recipes
-     * from the {@code quarkus-updates/} path inside the quarkus-update-recipes JAR.
-     */
     private static Recipe loadConsolidatedRecipe(String recipeName) {
         try {
             Environment.Builder builder = Environment.builder().scanRuntimeClasspath();
-
-            // The quarkus-update-recipes JAR stores its YAML recipes under quarkus-updates/
-            // instead of META-INF/rewrite/, so they're not picked up by scanRuntimeClasspath().
             URL marker = QuarkusPreconditionTest.class.getClassLoader()
                     .getResource("quarkus-updates/core/3.0.alpha1.yaml");
             if (marker != null) {
@@ -71,47 +60,81 @@ class QuarkusPreconditionTest {
                             });
                 }
             }
-
             return builder.build().activateRecipes(recipeName);
         } catch (Exception e) {
             throw new RuntimeException("Failed to load consolidated recipe: " + recipeName, e);
         }
     }
 
-    @Test
-    void doesNotRunWhenQuarkusVersionIsAtTarget() {
-        Recipe recipe = loadConsolidatedRecipe("org.openrewrite.quarkus.MigrateToQuarkus_v3_17_0");
+    private static String pomWithQuarkusBom(String bomVersion) {
+        return """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>com.example</groupId>
+                    <artifactId>test</artifactId>
+                    <version>1.0</version>
+                    <dependencyManagement>
+                        <dependencies>
+                            <dependency>
+                                <groupId>io.quarkus.platform</groupId>
+                                <artifactId>quarkus-bom</artifactId>
+                                <version>%s</version>
+                                <type>pom</type>
+                                <scope>import</scope>
+                            </dependency>
+                        </dependencies>
+                    </dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>io.quarkus</groupId>
+                            <artifactId>quarkus-core</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>javax.validation</groupId>
+                            <artifactId>validation-api</artifactId>
+                            <version>2.0.1.Final</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """.formatted(bomVersion);
+    }
 
-        // A project on quarkus-bom 3.17.0 should NOT be modified by MigrateToQuarkus_v3_17_0,
-        // because the precondition version: (,3.17.0) excludes 3.17.0 itself
+    private static RecipeRun runRecipe(Recipe recipe, String pom) {
+        JavaProject javaProject = new JavaProject(Tree.randomId(), "test", null);
         List<SourceFile> sources = MavenParser.builder().build().parse(
-                new InMemoryExecutionContext(Throwable::printStackTrace),
-                """
-                        <project>
-                            <modelVersion>4.0.0</modelVersion>
-                            <groupId>com.example</groupId>
-                            <artifactId>test</artifactId>
-                            <version>1.0</version>
-                            <dependencyManagement>
-                                <dependencies>
-                                    <dependency>
-                                        <groupId>io.quarkus.platform</groupId>
-                                        <artifactId>quarkus-bom</artifactId>
-                                        <version>3.17.0</version>
-                                        <type>pom</type>
-                                        <scope>import</scope>
-                                    </dependency>
-                                </dependencies>
-                            </dependencyManagement>
-                        </project>
-                        """).toList();
-
-        RecipeRun result = recipe.run(
+                        new InMemoryExecutionContext(Throwable::printStackTrace), pom)
+                .map(s -> (SourceFile) s.withMarkers(s.getMarkers().add(javaProject)))
+                .toList();
+        return recipe.run(
                 new org.openrewrite.internal.InMemoryLargeSourceSet(sources),
                 new InMemoryExecutionContext(Throwable::printStackTrace));
+    }
+
+    @Test
+    void doesNotRunWhenQuarkusVersionIsAtTarget() {
+        Recipe recipe = loadConsolidatedRecipe("org.openrewrite.quarkus.MigrateToQuarkus_v3_0_0");
+
+        // A project on quarkus-bom 3.0.0.Final should NOT be modified,
+        // because the precondition version: (,3.0.0) excludes 3.0.0 itself.
+        // quarkus-core resolves to 3.0.0.Final via the BOM.
+        RecipeRun result = runRecipe(recipe, pomWithQuarkusBom("3.0.0.Final"));
 
         assertThat(result.getChangeset().getAllResults())
-                .as("MigrateToQuarkus_v3_17_0 should not modify a project already on quarkus-bom 3.17.0")
+                .as("MigrateToQuarkus_v3_0_0 should not modify a project already on quarkus-bom 3.0.0.Final")
                 .isEmpty();
+    }
+
+    @Test
+    void runsWhenQuarkusVersionIsBelowTarget() {
+        Recipe recipe = loadConsolidatedRecipe("org.openrewrite.quarkus.MigrateToQuarkus_v3_0_0");
+
+        // A project on quarkus-bom 2.16.12.Final SHOULD be modified,
+        // because the precondition version: (,3.0.0) includes 2.x versions.
+        // The javax.validation:validation-api dependency should be migrated to jakarta.
+        RecipeRun result = runRecipe(recipe, pomWithQuarkusBom("2.16.12.Final"));
+
+        assertThat(result.getChangeset().getAllResults())
+                .as("MigrateToQuarkus_v3_0_0 should modify a project on quarkus-bom 2.16.12.Final")
+                .isNotEmpty();
     }
 }
