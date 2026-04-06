@@ -51,7 +51,7 @@ class QuarkusPreconditionTest implements RewriteTest {
             URL marker = QuarkusPreconditionTest.class.getClassLoader().getResource("quarkus-updates/core/3.0.alpha1.yaml");
             if (marker != null) {
                 String jarPath = marker.getPath().substring("file:".length(), marker.getPath().indexOf("!"));
-                try (JarFile jar = new JarFile(jarPath)) {
+                try (var jar = new JarFile(jarPath)) {
                     jar.stream()
                       .filter(e -> e.getName().startsWith("quarkus-updates/") && e.getName().endsWith(".yaml"))
                       .forEach(entry -> {
