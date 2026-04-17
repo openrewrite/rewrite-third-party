@@ -1,0 +1,36 @@
+name: Generate Picnic aggregation recipes
+
+on:
+  schedule:
+    - cron: 0 11 * * MON
+  workflow_dispatch: {}
+
+jobs:
+  update-picnic:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule' || github.repository_owner == 'openrewrite'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Create picnic aggregation recipe
+        run: ./gradlew generatePicnicAggregation
+
+      - name: Timestamp
+        run: echo "NOW=$(date +'%Y-%m-%dT%H%M')" >> $GITHUB_ENV
+      - name: Create Pull Request
+        id: cpr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          base: main
+          branch: picnic/${{ env.NOW }}
+          title: "[Auto] Picnic Refaster rules aggregation as of ${{ env.NOW }}"
+          body: |
+            [Auto] Picnic Refaster rules aggregation as of ${{ env.NOW }}.
+          commit-message: "[Auto] Picnic Refaster rules aggregation as of ${{ env.NOW }}"
+          labels: enhancement
+      - name: Check outputs
+        if: ${{ steps.cpr.outputs.pull-request-number }}
+        run: |
+          echo "Pull Request Number - ${{ steps.cpr.outputs.pull-request-number }}"
+          echo "Pull Request URL - ${{ steps.cpr.outputs.pull-request-url }}"
