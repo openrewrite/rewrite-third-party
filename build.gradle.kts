@@ -140,6 +140,7 @@ tasks {
         mainClass = "org.openrewrite.recipe.picnic.internal.GeneratePicnicAggregation"
         classpath = sourceSets.getByName("test").runtimeClasspath
         args("src/main/resources/META-INF/rewrite/picnic.yml")
+        finalizedBy("licenseFormat")
     }
     val generateInlineGuavaMethods by registering(JavaExec::class) {
         group = "generate"

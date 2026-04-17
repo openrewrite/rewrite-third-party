@@ -35,8 +35,12 @@ class GeneratePicnicAggregationTest {
           .isNotEmpty();
 
         String expected = GeneratePicnicAggregation.renderYaml(recipes);
-        String actual = Files.readString(PICNIC_YML);
-        assertThat(actual)
+        String fileContent = Files.readString(PICNIC_YML);
+        int generatedStart = fileContent.indexOf(GeneratePicnicAggregation.GENERATED_MARKER);
+        assertThat(generatedStart)
+          .as("%s is missing the generator marker; run `./gradlew generatePicnicAggregation` to regenerate.", PICNIC_YML)
+          .isNotNegative();
+        assertThat(fileContent.substring(generatedStart))
           .as("%s is out of sync with the Picnic error-prone-contrib jar; run `./gradlew generatePicnicAggregation` to regenerate.", PICNIC_YML)
           .isEqualTo(expected);
     }
