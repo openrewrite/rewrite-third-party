@@ -134,6 +134,14 @@ tasks {
         )
         finalizedBy("licenseFormat")
     }
+    val generatePicnicAggregation by registering(JavaExec::class) {
+        group = "generate"
+        description = "Generate Picnic Refaster rules aggregation recipe from the error-prone-contrib jar."
+        mainClass = "org.openrewrite.recipe.picnic.internal.GeneratePicnicAggregation"
+        classpath = sourceSets.getByName("test").runtimeClasspath
+        args("src/main/resources/META-INF/rewrite/picnic.yml")
+        finalizedBy("licenseFormat")
+    }
     val generateInlineGuavaMethods by registering(JavaExec::class) {
         group = "generate"
         description = "Generate Quarkus migration aggregation Recipes."
