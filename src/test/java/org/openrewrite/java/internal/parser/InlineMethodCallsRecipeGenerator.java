@@ -50,7 +50,7 @@ public class InlineMethodCallsRecipeGenerator {
             TypeTable.Reader.Options options = TypeTable.Reader.Options.builder()
               .artifactMatcher(artifactIdVersion -> artifactIdVersion.startsWith(artifactId + '-'))
               .build();
-            reader.parseTsvAndProcess(inflate, options, (gav, classes, nestedTypes) -> {
+            reader.parseTsvAndProcess(inflate, options, (gav, classes, nestedTypes, classBytes) -> {
                 // Process each class in this GAV
                 for (TypeTable.ClassDefinition classDef : classes.values()) {
                     // Process each member (method/constructor) in the class
