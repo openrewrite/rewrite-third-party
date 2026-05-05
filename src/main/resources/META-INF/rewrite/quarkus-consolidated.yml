@@ -431,6 +431,11 @@ recipeList:
   - io.quarkus.updates.core.quarkus324.MigrateFromHibernateOrmSessionMethodsRemovedIn7
   - io.quarkus.updates.core.quarkus324.MigrateFromHibernateOrmVariousRemovedIn7
   - io.quarkus.updates.core.quarkus324.LogConsoleAsyncEnable
+  - io.quarkus.updates.core.quarkus324.MigrateFromHibernateOrmQueryHints
+  - io.quarkus.updates.core.quarkus324.MigrateFromHibernateOrmEmptyInterceptor
+  - io.quarkus.updates.core.quarkus324.MigrateFromHibernateValidatorNotBlank
+  - io.quarkus.updates.core.quarkus324.MigrateFromIndexColumn
+  - io.quarkus.updates.core.quarkus324.MigrateFromDefaultUniqueDelegate
   - io.quarkus.updates.camel.camel412.CamelQuarkusMigrationRecipe
 
 ---
