@@ -23,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.jar.JarFile;
+import java.util.zip.ZipEntry;
 
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
@@ -57,7 +58,7 @@ public class GeneratePicnicAggregation {
             }
             try (JarFile jar = new JarFile(entry)) {
                 List<String> classes = jar.stream()
-                  .map(e -> e.getName())
+                  .map(ZipEntry::getName)
                   .filter(n -> n.startsWith(PACKAGE_PATH) && n.endsWith(RECIPES_SUFFIX) && !n.contains("$"))
                   .map(n -> n.substring(0, n.length() - ".class".length()).replace('/', '.'))
                   .sorted()

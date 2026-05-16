@@ -25,10 +25,10 @@ import org.openrewrite.test.RewriteTest;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
+import java.util.List;
 import java.util.Properties;
 import java.util.jar.JarFile;
 
-import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.openrewrite.java.Assertions.mavenProject;
 import static org.openrewrite.maven.Assertions.pomXml;
@@ -58,7 +58,7 @@ class QuarkusPreconditionTest implements RewriteTest {
                           try (InputStream is = jar.getInputStream(entry)) {
                               builder.load(new YamlResourceLoader(
                                 is, URI.create(entry.getName()), new Properties(),
-                                (ClassLoader) null, emptyList()));
+                                (ClassLoader) null, List.of()));
                           } catch (Exception e) {
                               throw new RuntimeException(e);
                           }
