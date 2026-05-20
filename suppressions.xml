@@ -9,4 +9,14 @@
         <packageUrl regex="true">^pkg:maven/io\.quarkus/quarkus-update-recipes@.*$</packageUrl>
         <cpe>cpe:/a:quarkus:quarkus</cpe>
     </suppress>
+    <suppress until="2026-07-01Z">
+        <notes><![CDATA[
+            False positive. CVE-2026-42582 is for io.netty:netty-codec-http3 (QPACK literal
+            unbounded allocation in HTTP/3 header decoding). The core Netty 4.1.x modules
+            (netty-buffer, netty-codec, netty-handler, etc.) do not include HTTP/3 support.
+            Added: 2026-05-20
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/io\.netty/netty-(?!codec-http3).*@.*$</packageUrl>
+        <cve>CVE-2026-42582</cve>
+    </suppress>
 </suppressions>
