@@ -47,7 +47,6 @@ dependencies {
     testImplementation("org.openrewrite:rewrite-maven")
 
     testImplementation("tech.picnic.error-prone-support:error-prone-contrib:${rewriteVersion}:recipes")
-    testImplementation("org.junit.jupiter:junit-jupiter-engine:5.14.2")
     testImplementation("org.junit-pioneer:junit-pioneer:latest.release")
 
     testRuntimeOnly("org.openrewrite:rewrite-java-21")
