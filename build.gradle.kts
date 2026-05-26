@@ -25,6 +25,7 @@ dependencies {
 
     runtimeOnly("org.openrewrite:rewrite-java")
     runtimeOnly("org.openrewrite:rewrite-templating:${rewriteVersion}")
+    runtimeOnly("org.openrewrite.recipe:rewrite-migrate-java:${rewriteVersion}")
 
     // Timefold 2.x requires Java 21
     runtimeOnly("ai.timefold.solver:timefold-solver-migration:1.+") {
