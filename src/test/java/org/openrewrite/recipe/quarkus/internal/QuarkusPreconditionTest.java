@@ -72,6 +72,10 @@ class QuarkusPreconditionTest implements RewriteTest {
     }
 
     private static String pomWithQuarkusBom(String bomVersion) {
+        // The ModuleHasDependency precondition only honors its version range when quarkus-core
+        // carries an explicit version; for a purely BOM-managed (version-less) dependency it marks
+        // the module regardless of the resolved version. Pin quarkus-core to the platform version so
+        // the precondition boundary (version: (,target)) is actually exercised.
         //language=xml
         return """
           <project>
@@ -84,7 +88,7 @@ class QuarkusPreconditionTest implements RewriteTest {
                       <dependency>
                           <groupId>io.quarkus.platform</groupId>
                           <artifactId>quarkus-bom</artifactId>
-                          <version>%s</version>
+                          <version>%1$s</version>
                           <type>pom</type>
                           <scope>import</scope>
                       </dependency>
@@ -94,6 +98,7 @@ class QuarkusPreconditionTest implements RewriteTest {
                   <dependency>
                       <groupId>io.quarkus</groupId>
                       <artifactId>quarkus-core</artifactId>
+                      <version>%1$s</version>
                   </dependency>
                   <dependency>
                       <groupId>javax.validation</groupId>
@@ -107,9 +112,8 @@ class QuarkusPreconditionTest implements RewriteTest {
 
     @Test
     void doesNotRunWhenQuarkusVersionIsAtTarget() {
-        // A project on quarkus-bom 3.1.0.Final should NOT be modified,
+        // A project on Quarkus 3.1.0.Final should NOT be modified,
         // because the precondition version: (,3.1.0) excludes 3.1.0 itself.
-        // quarkus-core resolves to 3.1.0.Final via the BOM.
         rewriteRun(
           mavenProject(
             "project",
