@@ -36,7 +36,8 @@ dependencies {
     runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release") { isTransitive = false }
     runtimeOnly("org.apache.camel.upgrade:camel-upgrade-recipes:latest.release") { isTransitive = false }
     runtimeOnly("org.apache.wicket:wicket-migration:latest.release") { isTransitive = false }
-    runtimeOnly("org.axonframework:axon-migration:latest.release") { isTransitive = false }
+    // Pinned to 4.x: axon-migration 5.x ships classes compiled for Java 21 (class file v65)
+    runtimeOnly("org.axonframework:axon-migration:4.+") { isTransitive = false }
     runtimeOnly("software.amazon.awssdk:v2-migration:latest.release")
     runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:${rewriteVersion}:recipes") {
         exclude(module = "refaster-support")
