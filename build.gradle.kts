@@ -27,19 +27,22 @@ dependencies {
     runtimeOnly("org.openrewrite:rewrite-templating:${rewriteVersion}")
     runtimeOnly("org.openrewrite.recipe:rewrite-migrate-java:${rewriteVersion}")
 
+    // Shaded into the fat jar below. Declared as `provided` (not `runtimeOnly`) so they are
+    // published with `<scope>provided</scope>`: bundled here, but not re-resolved as a second
+    // standalone copy on a consumer's classpath (which would duplicate their category descriptors).
     // Timefold 2.x requires Java 21
-    runtimeOnly("ai.timefold.solver:timefold-solver-migration:1.+") {
+    "provided"("ai.timefold.solver:timefold-solver-migration:1.+") {
         exclude(module = "jakarta.xml.bind-api")
     }
-    runtimeOnly("com.oracle.weblogic.rewrite:rewrite-weblogic:latest.release") { isTransitive = false }
-//    runtimeOnly("io.liftwizard:liftwizard-rewrite:latest.release") { isTransitive = false }
-    runtimeOnly("io.quarkus:quarkus-update-recipes:latest.release") { isTransitive = false }
-    runtimeOnly("org.apache.camel.upgrade:camel-upgrade-recipes:latest.release") { isTransitive = false }
-    runtimeOnly("org.apache.wicket:wicket-migration:latest.release") { isTransitive = false }
+    "provided"("com.oracle.weblogic.rewrite:rewrite-weblogic:latest.release") { isTransitive = false }
+//    "provided"("io.liftwizard:liftwizard-rewrite:latest.release") { isTransitive = false }
+    "provided"("io.quarkus:quarkus-update-recipes:latest.release") { isTransitive = false }
+    "provided"("org.apache.camel.upgrade:camel-upgrade-recipes:latest.release") { isTransitive = false }
+    "provided"("org.apache.wicket:wicket-migration:latest.release") { isTransitive = false }
     // Pinned to 4.x: axon-migration 5.x ships classes compiled for Java 21 (class file v65)
-    runtimeOnly("org.axonframework:axon-migration:4.+") { isTransitive = false }
-    runtimeOnly("software.amazon.awssdk:v2-migration:latest.release")
-    runtimeOnly("tech.picnic.error-prone-support:error-prone-contrib:${rewriteVersion}:recipes") {
+    "provided"("org.axonframework:axon-migration:4.+") { isTransitive = false }
+    "provided"("software.amazon.awssdk:v2-migration:latest.release")
+    "provided"("tech.picnic.error-prone-support:error-prone-contrib:${rewriteVersion}:recipes") {
         exclude(module = "refaster-support")
     }
 
@@ -91,6 +94,8 @@ tasks.jar {
 // ./gradlew shadowJar
 tasks.withType<ShadowJar> {
     archiveClassifier.set("")
+    // The shaded recipe libraries are `provided`, so they sit on compileClasspath (not runtimeClasspath).
+    configurations = listOf(project.configurations.getByName("compileClasspath"))
     dependencies {
         include(dependency("ai.timefold.solver:timefold-solver-migration"))
         include(dependency("com.oracle.weblogic.rewrite:rewrite-weblogic"))
