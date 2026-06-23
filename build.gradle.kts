@@ -104,7 +104,10 @@ tasks.withType<ShadowJar> {
         include(dependency("org.apache.camel.upgrade:camel-upgrade-recipes"))
         include(dependency("org.apache.wicket:wicket-migration"))
         include(dependency("org.axonframework:axon-migration"))
-        include(dependency("software.amazon.awssdk:v2-migration"))
+        // v2-migration's recipe classes reference its supporting modules (utils, sdk-core, auth,
+        // aws-core, http-client-spi, regions). Since these deps are `provided` (not runtimeOnly),
+        // they no longer reach consumers transitively, so they must be shaded in too.
+        include(dependency("software.amazon.awssdk:.*"))
         include(dependency("tech.picnic.error-prone-support:error-prone-contrib"))
     }
     // Only include eclipse-collections content from liftwizard-rewrite
