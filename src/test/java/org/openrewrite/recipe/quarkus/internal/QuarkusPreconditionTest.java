@@ -33,11 +33,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.openrewrite.java.Assertions.mavenProject;
 import static org.openrewrite.maven.Assertions.pomXml;
 
-/**
- * Verifies that the generated Quarkus aggregation recipes from
- * {@code quarkus-consolidated.yml} do not run on projects whose
- * {@code io.quarkus:quarkus-core} version is at or above the recipe's target version.
- */
+/// Verifies that the generated Quarkus aggregation recipes from
+/// `quarkus-consolidated.yml` do not run on projects whose
+/// `io.quarkus:quarkus-core` version is at or above the recipe's target version.
 class QuarkusPreconditionTest implements RewriteTest {
 
     @Override
