@@ -58,6 +58,19 @@ dependencies {
     testRuntimeOnly("org.gradle:gradle-tooling-api:latest.release")
 }
 
+configurations.configureEach {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "com.fasterxml.jackson.core" && requested.name == "jackson-databind") {
+            useVersion("2.21.4")
+            because(
+                "CVE-2026-54512 / CVE-2026-54513 (HIGH) — align the jackson-databind 2.17.3 pulled " +
+                    "transitively by timefold-solver-migration and awssdk v2-migration up to the 2.21.4 " +
+                    "already resolved across the project",
+            )
+        }
+    }
+}
+
 recipeDependencies {
     // error-prone-contrib only has provided dependencies, whereas the platform needs these on the classpath at runtime
     parserClasspath("com.fasterxml.jackson.core:jackson-core:2.+")
