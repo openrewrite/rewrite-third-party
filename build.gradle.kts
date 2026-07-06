@@ -68,6 +68,14 @@ configurations.configureEach {
                     "already resolved across the project",
             )
         }
+        if (requested.group == "org.apache.httpcomponents.core5") {
+            useVersion("5.4.3")
+            because(
+                "CVE-2026-54399 (HIGH) — HTTP/1.1 message-parser memory-exhaustion DoS in Apache " +
+                    "HttpComponents Core <= 5.4.2. httpcore5-h2 5.4 is pulled transitively by awssdk " +
+                    "v2-migration; align the whole core5 group on the fixed 5.4.3",
+            )
+        }
     }
 }
 
