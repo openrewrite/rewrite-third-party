@@ -584,9 +584,5 @@ preconditions:
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_37_0
   - io.quarkus.updates.core.quarkus338.ElasticsearchRestClientMigration
-  - io.quarkus.updates.core.quarkus338.ReplaceHibernateProcessorAnnotationProcessor
-  - io.quarkus.updates.core.quarkus338.ReplaceNewJpaModelgenAnnotationProcessor
-  - io.quarkus.updates.core.quarkus338.ReplaceOldJpaModelgenAnnotationProcessor
-  - io.quarkus.updates.core.quarkus338.QuarkusDataHibernateRenames
   - io.quarkus.updates.camel.camel421.CamelQuarkusMigrationRecipe
 
