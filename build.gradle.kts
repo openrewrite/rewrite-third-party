@@ -58,30 +58,25 @@ dependencies {
     testRuntimeOnly("org.gradle:gradle-tooling-api:latest.release")
 }
 
-// Security floors for vulnerable versions pulled in transitively. These use `require`, which raises
-// a lower requested version but never caps a higher one, so a newer BOM or upstream release still
-// wins; `useVersion`/`force` would pin exactly and silently downgrade later fixes.
+// Security floors for vulnerable versions pulled in transitively. A constraint's version is `require`,
+// which raises a lower requested version but never caps a higher one, so a newer BOM or upstream release
+// still wins; `useVersion`/`force` would pin exactly and silently downgrade later fixes.
 dependencies {
-    listOf("implementation", "cliCompatImplementation").forEach { configurationName ->
-        constraints.add(configurationName, "com.fasterxml.jackson.core:jackson-databind") {
-            version { require("2.21.5") }
-            because(
-                "CVE-2026-54512 / CVE-2026-54513 (HIGH), CVE-2026-54515 and GHSA-mhm7-754m-9p8w — raise " +
-                    "the jackson-databind 2.17.3 pulled transitively by timefold-solver-migration and " +
-                    "awssdk v2-migration to 2.21.5, matching the jackson-bom the rest of the project " +
-                    "resolves",
-            )
-        }
-        listOf("httpcore5", "httpcore5-h2").forEach { artifact ->
-            constraints.add(configurationName, "org.apache.httpcomponents.core5:$artifact") {
-                version { require("5.4.3") }
-                because(
-                    "CVE-2026-54399 (HIGH) — HTTP/1.1 message-parser memory-exhaustion DoS in Apache " +
-                        "HttpComponents Core <= 5.4.2. httpcore5-h2 5.4 is pulled transitively by awssdk " +
-                        "v2-migration; raise the core5 artifacts to the fixed 5.4.3",
-                )
-            }
-        }
+    val jacksonFloor =
+        "CVE-2026-54512 / CVE-2026-54513 (HIGH), CVE-2026-54515 and GHSA-mhm7-754m-9p8w — jackson-databind " +
+            "2.17.3 is pulled transitively by timefold-solver-migration and awssdk v2-migration; 2.21.5 " +
+            "matches the jackson-bom the rest of the project resolves"
+    val httpcore5Floor =
+        "CVE-2026-54399 (HIGH) — HTTP/1.1 message-parser memory-exhaustion DoS in Apache HttpComponents " +
+            "Core <= 5.4.2; httpcore5-h2 5.4 is pulled transitively by awssdk v2-migration"
+    // Repeated for `provided`, which extends nothing and so inherits no `implementation` constraints.
+    constraints {
+        implementation("com.fasterxml.jackson.core:jackson-databind:2.21.5") { because(jacksonFloor) }
+        implementation("org.apache.httpcomponents.core5:httpcore5:5.4.3") { because(httpcore5Floor) }
+        implementation("org.apache.httpcomponents.core5:httpcore5-h2:5.4.3") { because(httpcore5Floor) }
+        "provided"("com.fasterxml.jackson.core:jackson-databind:2.21.5") { because(jacksonFloor) }
+        "provided"("org.apache.httpcomponents.core5:httpcore5:5.4.3") { because(httpcore5Floor) }
+        "provided"("org.apache.httpcomponents.core5:httpcore5-h2:5.4.3") { because(httpcore5Floor) }
     }
 }
 
