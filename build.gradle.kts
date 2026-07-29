@@ -61,11 +61,12 @@ dependencies {
 configurations.configureEach {
     resolutionStrategy.eachDependency {
         if (requested.group == "com.fasterxml.jackson.core" && requested.name == "jackson-databind") {
-            useVersion("2.21.4")
+            useVersion("2.21.5")
             because(
-                "CVE-2026-54512 / CVE-2026-54513 (HIGH) — align the jackson-databind 2.17.3 pulled " +
-                    "transitively by timefold-solver-migration and awssdk v2-migration up to the 2.21.4 " +
-                    "already resolved across the project",
+                "CVE-2026-54512 / CVE-2026-54513 (HIGH), CVE-2026-54515 and GHSA-mhm7-754m-9p8w — align " +
+                    "the jackson-databind 2.17.3 pulled transitively by timefold-solver-migration and " +
+                    "awssdk v2-migration up to 2.21.5, which also matches the jackson-bom the rest of " +
+                    "the project resolves",
             )
         }
         if (requested.group == "org.apache.httpcomponents.core5") {
