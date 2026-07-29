@@ -58,25 +58,25 @@ dependencies {
     testRuntimeOnly("org.gradle:gradle-tooling-api:latest.release")
 }
 
-configurations.configureEach {
-    resolutionStrategy.eachDependency {
-        if (requested.group == "com.fasterxml.jackson.core" && requested.name == "jackson-databind") {
-            useVersion("2.21.5")
-            because(
-                "CVE-2026-54512 / CVE-2026-54513 (HIGH), CVE-2026-54515 and GHSA-mhm7-754m-9p8w — align " +
-                    "the jackson-databind 2.17.3 pulled transitively by timefold-solver-migration and " +
-                    "awssdk v2-migration up to 2.21.5, which also matches the jackson-bom the rest of " +
-                    "the project resolves",
-            )
-        }
-        if (requested.group == "org.apache.httpcomponents.core5") {
-            useVersion("5.4.3")
-            because(
-                "CVE-2026-54399 (HIGH) — HTTP/1.1 message-parser memory-exhaustion DoS in Apache " +
-                    "HttpComponents Core <= 5.4.2. httpcore5-h2 5.4 is pulled transitively by awssdk " +
-                    "v2-migration; align the whole core5 group on the fixed 5.4.3",
-            )
-        }
+// Security floors for vulnerable versions pulled in transitively. A constraint's version is `require`,
+// which raises a lower requested version but never caps a higher one, so a newer BOM or upstream release
+// still wins; `useVersion`/`force` would pin exactly and silently downgrade later fixes.
+dependencies {
+    val jacksonFloor =
+        "CVE-2026-54512 / CVE-2026-54513 (HIGH), CVE-2026-54515 and GHSA-mhm7-754m-9p8w — jackson-databind " +
+            "2.17.3 is pulled transitively by timefold-solver-migration and awssdk v2-migration; 2.21.5 " +
+            "matches the jackson-bom the rest of the project resolves"
+    val httpcore5Floor =
+        "CVE-2026-54399 (HIGH) — HTTP/1.1 message-parser memory-exhaustion DoS in Apache HttpComponents " +
+            "Core <= 5.4.2; httpcore5-h2 5.4 is pulled transitively by awssdk v2-migration"
+    // Repeated for `provided`, which extends nothing and so inherits no `implementation` constraints.
+    constraints {
+        implementation("com.fasterxml.jackson.core:jackson-databind:2.21.5") { because(jacksonFloor) }
+        implementation("org.apache.httpcomponents.core5:httpcore5:5.4.3") { because(httpcore5Floor) }
+        implementation("org.apache.httpcomponents.core5:httpcore5-h2:5.4.3") { because(httpcore5Floor) }
+        "provided"("com.fasterxml.jackson.core:jackson-databind:2.21.5") { because(jacksonFloor) }
+        "provided"("org.apache.httpcomponents.core5:httpcore5:5.4.3") { because(httpcore5Floor) }
+        "provided"("org.apache.httpcomponents.core5:httpcore5-h2:5.4.3") { because(httpcore5Floor) }
     }
 }
 
