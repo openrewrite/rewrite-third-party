@@ -1,22 +1,79 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
-    <suppress until="2026-08-01Z">
+    <suppress>
         <notes><![CDATA[
    file name: quarkus-update-recipes-1.0.19.jar
        sev: HIGH
-         reason: False positive. Reference only
+         reason: False positive. Reference only. io.quarkus:quarkus-update-recipes is an
+         OpenRewrite recipe JAR (versioned 1.x) shipping YAML migration recipes for Quarkus
+         apps; it does not contain or use the Quarkus runtime. Its version numbering makes the
+         cpe:/a:quarkus:quarkus CPE numerically over-match it, flooding the scan with Quarkus
+         runtime CVEs the artifact does not ship. Cross-product CPE overclassifier — nothing
+         for us to remediate, so suppressed indefinitely, mirroring the
+         org.apache.camel.upgrade:camel-upgrade-recipes reference-only suppression.
    ]]></notes>
         <packageUrl regex="true">^pkg:maven/io\.quarkus/quarkus-update-recipes@.*$</packageUrl>
         <cpe>cpe:/a:quarkus:quarkus</cpe>
     </suppress>
-    <suppress until="2026-08-01Z">
+    <suppress>
         <notes><![CDATA[
             False positive. CVE-2026-42582 is for io.netty:netty-codec-http3 (QPACK literal
             unbounded allocation in HTTP/3 header decoding). The core Netty 4.1.x modules
             (netty-buffer, netty-codec, netty-handler, etc.) do not include HTTP/3 support.
+            Same-vendor cross-module over-match, pinned to the CVE and suppressed indefinitely:
+            the advisory is permanently scoped to netty-codec-http3, so the core modules can
+            never become a true positive for it.
             Added: 2026-05-20
         ]]></notes>
         <packageUrl regex="true">^pkg:maven/io\.netty/netty-(?!codec-http3).*@.*$</packageUrl>
         <cve>CVE-2026-42582</cve>
+    </suppress>
+    <suppress>
+        <notes><![CDATA[
+            False positive. CVE-2026-56816 (GHSA-hpcc-26xq-25fv, HIGH) is memory exhaustion via
+            HTTP/3 reserved frame types, scoped to io.netty:netty-codec-http3 < 4.2.16.Final.
+            netty-codec-http3 is not on any classpath here: the flagged jars are the core Netty
+            4.1.136.Final modules (netty-buffer, netty-codec, netty-codec-http, netty-codec-http2,
+            netty-common, netty-handler, netty-resolver, netty-transport,
+            netty-transport-classes-epoll, netty-transport-native-unix-common), which arrive
+            transitively via software.amazon.awssdk:v2-migration -> netty-nio-client on the
+            compileClasspath / provided configurations and do not include HTTP/3 support.
+            Same-vendor cross-module over-match, identical in shape to CVE-2026-42582 above;
+            pinned to the CVE and suppressed indefinitely (permanently http3-scoped, so the core
+            4.1.x modules can never become a true positive for this CVE).
+            Added: 2026-08-03
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/io\.netty/netty-(?!codec-http3).*@.*$</packageUrl>
+        <cve>CVE-2026-56816</cve>
+    </suppress>
+    <suppress>
+        <notes><![CDATA[
+            False positive. CVE-2009-2475, CVE-2009-2476, CVE-2009-2676, CVE-2009-2689,
+            CVE-2009-2690, CVE-2009-2716, CVE-2009-2717, CVE-2009-2719 and CVE-2009-2720 are
+            2009 advisories against Sun Java SE 5.0 / 6 and OpenJDK (cpe:/a:sun:java_se,
+            cpe:/a:sun:openjdk, cpe:/a:sun:jdk) — the JDK itself, covering non-final statics,
+            JMX, JDK13Services, the applet plugin, AWT, Java Web Start and
+            javax.swing.plaf.synth. They have nothing to do with net.java.dev.jna:jna /
+            jna-platform, a JNI binding library. Dependency-check mines "sun"/"java" vendor
+            evidence from the net.java.dev.jna coordinates and manifest and produces a
+            LOW-confidence match against the JDK CPEs. Here jna arrives transitively via
+            org.openrewrite:rewrite-java-test / rewrite-bom on runtimeClasspath, and via the
+            recipe jars ai.timefold.solver:timefold-solver-migration and
+            software.amazon.awssdk:v2-migration on the provided configuration.
+            Cross-product CPE overclassifier — these advisories are permanently scoped to the
+            Sun/Oracle JDK, so jna can never become a true positive for them; suppressed
+            indefinitely.
+            Added: 2026-08-03
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/net\.java\.dev\.jna/jna(-platform)?@.*$</packageUrl>
+        <cve>CVE-2009-2475</cve>
+        <cve>CVE-2009-2476</cve>
+        <cve>CVE-2009-2676</cve>
+        <cve>CVE-2009-2689</cve>
+        <cve>CVE-2009-2690</cve>
+        <cve>CVE-2009-2716</cve>
+        <cve>CVE-2009-2717</cve>
+        <cve>CVE-2009-2719</cve>
+        <cve>CVE-2009-2720</cve>
     </suppress>
 </suppressions>
