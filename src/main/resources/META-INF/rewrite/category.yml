@@ -1,0 +1,435 @@
+#
+# Copyright 2026 the original author or authors.
+# <p>
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# <p>
+# https://www.apache.org/licenses/LICENSE-2.0
+# <p>
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# The Quarkus and Camel recipes are shaded in from jars this repository does not
+# own, and neither upstream project ships category descriptors. Without these the
+# marketplace falls back to capitalizing the last package segment, which is how
+# `Quarkus30` and `Camel418_3` were reaching users.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus
+packageName: io.quarkus
+description: Recipes published by the [Quarkus](https://quarkus.io/) team for upgrading Quarkus applications and their extensions.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus updates
+packageName: io.quarkus.updates
+description: Version-to-version update recipes maintained alongside [Quarkus](https://quarkus.io/) itself.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus core
+packageName: io.quarkus.updates.core
+description: Recipes for moving a [Quarkus](https://quarkus.io/) application from one platform release to the next.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.0
+packageName: io.quarkus.updates.core.quarkus30
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.0.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.1
+packageName: io.quarkus.updates.core.quarkus31
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.1.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.2
+packageName: io.quarkus.updates.core.quarkus32
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.2.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.3
+packageName: io.quarkus.updates.core.quarkus33
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.3.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.5
+packageName: io.quarkus.updates.core.quarkus35
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.5.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.6
+packageName: io.quarkus.updates.core.quarkus36
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.6.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.7
+packageName: io.quarkus.updates.core.quarkus37
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.7.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.8
+packageName: io.quarkus.updates.core.quarkus38
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.8.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.8.3
+packageName: io.quarkus.updates.core.quarkus383
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.8.3.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.9
+packageName: io.quarkus.updates.core.quarkus39
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.9.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.10
+packageName: io.quarkus.updates.core.quarkus310
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.10.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.11
+packageName: io.quarkus.updates.core.quarkus311
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.11.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.12
+packageName: io.quarkus.updates.core.quarkus312
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.12.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.13
+packageName: io.quarkus.updates.core.quarkus313
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.13.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.18
+packageName: io.quarkus.updates.core.quarkus318
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.18.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.19
+packageName: io.quarkus.updates.core.quarkus319
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.19.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.21
+packageName: io.quarkus.updates.core.quarkus321
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.21.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.23
+packageName: io.quarkus.updates.core.quarkus323
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.23.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.24
+packageName: io.quarkus.updates.core.quarkus324
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.24.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.26
+packageName: io.quarkus.updates.core.quarkus326
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.26.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.30
+packageName: io.quarkus.updates.core.quarkus330
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.30.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.31
+packageName: io.quarkus.updates.core.quarkus331
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.31.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.37
+packageName: io.quarkus.updates.core.quarkus337
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.37.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkus 3.38
+packageName: io.quarkus.updates.core.quarkus338
+description: Recipes for migrating a [Quarkus](https://quarkus.io/) application to 3.38.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel Quarkus
+packageName: io.quarkus.updates.camel
+description: Recipes for upgrading the [Camel Quarkus](https://camel.apache.org/camel-quarkus/) extensions used by a Quarkus application.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.0
+packageName: io.quarkus.updates.camel.camel40
+description: Recipes for migrating a [Camel Quarkus](https://camel.apache.org/camel-quarkus/) application to Apache Camel 4.0.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.4
+packageName: io.quarkus.updates.camel.camel44
+description: Recipes for migrating a [Camel Quarkus](https://camel.apache.org/camel-quarkus/) application to Apache Camel 4.4.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.7
+packageName: io.quarkus.updates.camel.camel47
+description: Recipes for migrating a [Camel Quarkus](https://camel.apache.org/camel-quarkus/) application to Apache Camel 4.7.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.9
+packageName: io.quarkus.updates.camel.camel49
+description: Recipes for migrating a [Camel Quarkus](https://camel.apache.org/camel-quarkus/) application to Apache Camel 4.9.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.10
+packageName: io.quarkus.updates.camel.camel410
+description: Recipes for migrating a [Camel Quarkus](https://camel.apache.org/camel-quarkus/) application to Apache Camel 4.10.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.10.4
+packageName: io.quarkus.updates.camel.camel410_4
+description: Recipes for migrating a [Camel Quarkus](https://camel.apache.org/camel-quarkus/) application to Apache Camel 4.10.4.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.11
+packageName: io.quarkus.updates.camel.camel411
+description: Recipes for migrating a [Camel Quarkus](https://camel.apache.org/camel-quarkus/) application to Apache Camel 4.11.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.12
+packageName: io.quarkus.updates.camel.camel412
+description: Recipes for migrating a [Camel Quarkus](https://camel.apache.org/camel-quarkus/) application to Apache Camel 4.12.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.13
+packageName: io.quarkus.updates.camel.camel413
+description: Recipes for migrating a [Camel Quarkus](https://camel.apache.org/camel-quarkus/) application to Apache Camel 4.13.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.14
+packageName: io.quarkus.updates.camel.camel414
+description: Recipes for migrating a [Camel Quarkus](https://camel.apache.org/camel-quarkus/) application to Apache Camel 4.14.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.15
+packageName: io.quarkus.updates.camel.camel415
+description: Recipes for migrating a [Camel Quarkus](https://camel.apache.org/camel-quarkus/) application to Apache Camel 4.15.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.16
+packageName: io.quarkus.updates.camel.camel416
+description: Recipes for migrating a [Camel Quarkus](https://camel.apache.org/camel-quarkus/) application to Apache Camel 4.16.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.17
+packageName: io.quarkus.updates.camel.camel417
+description: Recipes for migrating a [Camel Quarkus](https://camel.apache.org/camel-quarkus/) application to Apache Camel 4.17.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.18
+packageName: io.quarkus.updates.camel.camel418
+description: Recipes for migrating a [Camel Quarkus](https://camel.apache.org/camel-quarkus/) application to Apache Camel 4.18.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.18.3
+packageName: io.quarkus.updates.camel.camel418_3
+description: Recipes for migrating a [Camel Quarkus](https://camel.apache.org/camel-quarkus/) application to Apache Camel 4.18.3.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.20
+packageName: io.quarkus.updates.camel.camel420
+description: Recipes for migrating a [Camel Quarkus](https://camel.apache.org/camel-quarkus/) application to Apache Camel 4.20.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.21
+packageName: io.quarkus.updates.camel.camel421
+description: Recipes for migrating a [Camel Quarkus](https://camel.apache.org/camel-quarkus/) application to Apache Camel 4.21.
+---
+type: specs.openrewrite.org/v1beta/category
+name: MinIO
+packageName: io.quarkus.updates.minio
+description: Recipes for the [Quarkus MinIO](https://docs.quarkiverse.io/quarkus-minio/dev/) extension.
+---
+type: specs.openrewrite.org/v1beta/category
+name: MinIO 3.8
+packageName: io.quarkus.updates.minio.minio38
+description: Recipes for migrating to version 3.8 of the [Quarkus MinIO](https://docs.quarkiverse.io/quarkus-minio/dev/) extension.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Quarkiverse
+packageName: io.quarkus.updates.quarkiverse
+description: Recipes for [Quarkiverse](https://github.com/quarkiverse) extensions, the community extension ecosystem for Quarkus.
+---
+type: specs.openrewrite.org/v1beta/category
+name: MinIO
+packageName: io.quarkus.updates.quarkiverse.minio
+description: Recipes for the [Quarkus MinIO](https://docs.quarkiverse.io/quarkus-minio/dev/) extension.
+---
+type: specs.openrewrite.org/v1beta/category
+name: MinIO 3.8
+packageName: io.quarkus.updates.quarkiverse.minio.minio38
+description: Recipes for migrating to version 3.8 of the [Quarkus MinIO](https://docs.quarkiverse.io/quarkus-minio/dev/) extension, such as the `quarkus.minio.url` to `quarkus.minio.host` property rename.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Apache
+packageName: org.apache
+description: Recipes published by [The Apache Software Foundation](https://apache.org/) for its own projects.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Apache Camel
+packageName: org.apache.camel
+description: Recipes published by the [Apache Camel](https://camel.apache.org/) team for upgrading Camel applications.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel version upgrades
+packageName: org.apache.camel.upgrade
+description: Recipes for moving a [Apache Camel](https://camel.apache.org/) application from one release to the next.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.0
+packageName: org.apache.camel.upgrade.camel40
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.0.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.1
+packageName: org.apache.camel.upgrade.camel41
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.1.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.2
+packageName: org.apache.camel.upgrade.camel42
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.2.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.3
+packageName: org.apache.camel.upgrade.camel43
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.3.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.4
+packageName: org.apache.camel.upgrade.camel44
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.4.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.5
+packageName: org.apache.camel.upgrade.camel45
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.5.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.6
+packageName: org.apache.camel.upgrade.camel46
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.6.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.7
+packageName: org.apache.camel.upgrade.camel47
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.7.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.9
+packageName: org.apache.camel.upgrade.camel49
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.9.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.10
+packageName: org.apache.camel.upgrade.camel410
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.10.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.10.4
+packageName: org.apache.camel.upgrade.camel410_4
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.10.4.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.11
+packageName: org.apache.camel.upgrade.camel411
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.11.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.12
+packageName: org.apache.camel.upgrade.camel412
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.12.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.13
+packageName: org.apache.camel.upgrade.camel413
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.13.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.14
+packageName: org.apache.camel.upgrade.camel414
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.14.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.15
+packageName: org.apache.camel.upgrade.camel415
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.15.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.16
+packageName: org.apache.camel.upgrade.camel416
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.16.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.17
+packageName: org.apache.camel.upgrade.camel417
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.17.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.18
+packageName: org.apache.camel.upgrade.camel418
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.18.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.18.1
+packageName: org.apache.camel.upgrade.camel418_1
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.18.1.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.18.3
+packageName: org.apache.camel.upgrade.camel418_3
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.18.3.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.19
+packageName: org.apache.camel.upgrade.camel419
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.19.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.20
+packageName: org.apache.camel.upgrade.camel420
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.20.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Camel 4.21
+packageName: org.apache.camel.upgrade.camel421
+description: Recipes for migrating an [Apache Camel](https://camel.apache.org/) application to 4.21.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Java DSL
+packageName: org.apache.camel.upgrade.camel40.java
+description: Recipes for Camel 4.0 changes that affect routes written in the Java DSL.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Properties
+packageName: org.apache.camel.upgrade.camel40.properties
+description: Recipes for Camel 4.0 changes to `application.properties` keys and values.
+---
+type: specs.openrewrite.org/v1beta/category
+name: XML DSL
+packageName: org.apache.camel.upgrade.camel40.xml
+description: Recipes for Camel 4.0 changes that affect routes written in the XML DSL.
+---
+type: specs.openrewrite.org/v1beta/category
+name: YAML DSL
+packageName: org.apache.camel.upgrade.camel40.yaml
+description: Recipes for Camel 4.0 changes that affect routes written in the YAML DSL.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Shared recipes
+packageName: org.apache.camel.upgrade.customRecipes
+description: Reusable building blocks the [Apache Camel](https://camel.apache.org/) upgrade recipes compose, rather than recipes to run directly.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Internal
+packageName: org.apache.camel.upgrade.customRecipes.internal
+description: Implementation details of the shared Camel upgrade recipes.
