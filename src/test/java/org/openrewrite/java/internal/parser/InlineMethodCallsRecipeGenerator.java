@@ -34,6 +34,12 @@ import static java.util.stream.Collectors.joining;
 
 public class InlineMethodCallsRecipeGenerator {
 
+    /**
+     * ASM is shaded inside `rewrite-java`, so `Opcodes` is not available on the compile classpath.
+     */
+    private static final int ACC_BRIDGE = 0x0040;
+    private static final int ACC_SYNTHETIC = 0x1000;
+
     public static void main(String[] args) {
         if (args.length < 1) {
             System.err.println("Usage: InlineMethodCallsRecipeGenerator <artifactId>");
@@ -46,27 +52,45 @@ public class InlineMethodCallsRecipeGenerator {
         List<InlineMeMethod> inlineMethods = new ArrayList<>();
 
         TypeTable.Reader reader = new TypeTable.Reader(new InMemoryExecutionContext());
-        try (InputStream is = ClassLoader.getSystemResourceAsStream(TypeTable.DEFAULT_RESOURCE_PATH); InputStream inflate = new GZIPInputStream(is)) {
-            TypeTable.Reader.Options options = TypeTable.Reader.Options.builder()
-              .artifactMatcher(artifactIdVersion -> artifactIdVersion.startsWith(artifactId + '-'))
-              .build();
-            reader.parseTsvAndProcess(inflate, options, (gav, classes, nestedTypes, classBytes) -> {
-                // Process each class in this GAV
-                for (TypeTable.ClassDefinition classDef : classes.values()) {
-                    // Process each member (method/constructor) in the class
-                    for (TypeTable.Member member : classDef.getMembers()) {
-                        // Check if member has @InlineMe annotation
-                        String annotations = member.getAnnotations();
-                        if (annotations != null && annotations.contains("InlineMe")) {
-                            InlineMeMethod inlineMethod = extractInlineMeMethod(gav, classDef, member);
-                            if (inlineMethod != null) {
-                                inlineMethods.add(inlineMethod);
+        TypeTable.Reader.Options options = TypeTable.Reader.Options.builder()
+          .artifactMatcher(artifactIdVersion -> artifactIdVersion.startsWith(artifactId + '-'))
+          .build();
+        try {
+            // Read the type tables of this project only; dependencies ship their own for other versions
+            for (String sourceSet : new String[]{"main", "test"}) {
+                Path typeTable = Path.of("src", sourceSet, "resources").resolve(TypeTable.DEFAULT_RESOURCE_PATH);
+                if (!Files.exists(typeTable)) {
+                    continue;
+                }
+                try (InputStream is = Files.newInputStream(typeTable); InputStream inflate = new GZIPInputStream(is)) {
+                    reader.parseTsvAndProcess(inflate, options, (gav, classes, nestedTypes, classBytes) -> {
+                        // Process each class in this GAV
+                        for (TypeTable.ClassDefinition classDef : classes.values()) {
+                            // Process each member (method/constructor) in the class
+                            for (TypeTable.Member member : classDef.getMembers()) {
+                                // Bridge methods carry a copy of the annotation of the method they delegate to
+                                if ((member.getAccess() & (ACC_BRIDGE | ACC_SYNTHETIC)) != 0) {
+                                    continue;
+                                }
+
+                                // Check if member has @InlineMe annotation
+                                String annotations = member.getAnnotations();
+                                if (annotations != null && annotations.contains("InlineMe")) {
+                                    InlineMeMethod inlineMethod = extractInlineMeMethod(gav, classDef, member);
+                                    if (inlineMethod != null) {
+                                        inlineMethods.add(inlineMethod);
+                                    }
+                                }
                             }
                         }
-                    }
+                    });
                 }
-            });
+            }
 
+            if (inlineMethods.isEmpty()) {
+                throw new IllegalStateException("No `@InlineMe` annotated methods found for " + artifactId +
+                  "; is it listed as a `parserClasspath` or `testParserClasspath` dependency, and is the type table up to date?");
+            }
             generateYamlRecipes(inlineMethods);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -147,30 +171,87 @@ public class InlineMethodCallsRecipeGenerator {
             methodName = className.substring(className.lastIndexOf('.') + 1);
         }
 
-        // Parse method descriptor to extract parameter types
-        String descriptor = member.getDescriptor();
-        String paramPattern = parseMethodParameters(descriptor);
+        List<String> paramTypes = parseMethodParameters(member.getDescriptor());
 
-        return className + " " + methodName + paramPattern;
+        // The erasure of a type variable can never match, as call sites resolve it to the argument type
+        List<String> signatureParams = parseSignatureParameters(member.getSignature());
+        if (signatureParams != null && signatureParams.size() == paramTypes.size()) {
+            for (int i = 0; i < signatureParams.size(); i++) {
+                String typeVariable = signatureParams.get(i);
+                if (typeVariable != null) {
+                    paramTypes.set(i, typeVariable);
+                }
+            }
+        }
+
+        return className + " " + methodName + "(" + String.join(", ", paramTypes) + ")";
     }
 
-    private static String parseMethodParameters(String descriptor) {
+    private static List<String> parseMethodParameters(String descriptor) {
+        List<String> paramTypes = new ArrayList<>();
         if (!descriptor.startsWith("(")) {
-            return "()";
+            return paramTypes;
+        }
+
+        int i = 1; // Skip opening '('
+        while (i < descriptor.length() && descriptor.charAt(i) != ')') {
+            paramTypes.add(parseType(descriptor, i));
+            i += getTypeLength(descriptor, i);
+        }
+        return paramTypes;
+    }
+
+    /**
+     * Parse the parameters out of a JVMS 4.7.9.1 generic method signature, returning {@code *} for
+     * each parameter that is a type variable, and {@code null} for any other parameter.
+     */
+    private static @Nullable List<String> parseSignatureParameters(@Nullable String signature) {
+        if (signature == null) {
+            return null;
+        }
+        int open = signature.indexOf('('); // Skip any formal type parameters
+        if (open == -1) {
+            return null;
         }
 
         List<String> paramTypes = new ArrayList<>();
-        int i = 1; // Skip opening '('
-        while (i < descriptor.length() && descriptor.charAt(i) != ')') {
-            String type = parseType(descriptor, i);
-            paramTypes.add(type);
-            i += getTypeLength(descriptor, i);
+        int i = open + 1;
+        while (i < signature.length() && signature.charAt(i) != ')') {
+            int dimensions = 0;
+            while (signature.charAt(i) == '[') {
+                dimensions++;
+                i++;
+            }
+            boolean typeVariable = signature.charAt(i) == 'T';
+            paramTypes.add(typeVariable ? "*" + "[]".repeat(dimensions) : null);
+            i = endOfSignatureType(signature, i);
         }
+        return paramTypes;
+    }
 
-        if (paramTypes.isEmpty()) {
-            return "()";
+    private static int endOfSignatureType(String signature, int start) {
+        char c = signature.charAt(start);
+        if (c != 'L' && c != 'T') {
+            return start + 1; // Primitive
         }
-        return "(" + String.join(", ", paramTypes) + ")";
+        // Scan past any nested type arguments to the terminating semicolon
+        int depth = 0;
+        for (int i = start; i < signature.length(); i++) {
+            switch (signature.charAt(i)) {
+                case '<':
+                    depth++;
+                    break;
+                case '>':
+                    depth--;
+                    break;
+                case ';':
+                    if (depth == 0) {
+                        return i + 1;
+                    }
+                    break;
+            }
+        }
+        throw new IllegalArgumentException("Unterminated type at index " + start + " in signature " + signature);
     }
 
     private static String parseType(String descriptor, int start) {
@@ -218,7 +299,9 @@ public class InlineMethodCallsRecipeGenerator {
         String moduleName = Arrays.stream(gav.getArtifactId().split("-"))
           .map(StringUtils::capitalize)
           .collect(joining());
-        Path outputPath = Path.of("src/test/resources/META-INF/rewrite/inline-%s-methods.yml".formatted(firstMethod.classpathResource));
+        // The generated recipes are not shipped from here, but copied into rewrite-migrate-java
+        Path outputPath = Path.of("build/generated/META-INF/rewrite/inline-%s-methods.yml".formatted(firstMethod.classpathResource));
+        Files.createDirectories(outputPath.getParent());
 
         StringBuilder yaml = new StringBuilder();
         yaml.append("#\n");
