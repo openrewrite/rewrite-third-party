@@ -41,14 +41,14 @@ public class InlineMethodCallsRecipeGenerator {
     private static final int ACC_SYNTHETIC = 0x1000;
 
     public static void main(String[] args) {
-        if (args.length < 1) {
-            System.err.println("Usage: InlineMethodCallsRecipeGenerator <artifactId>");
+        if (args.length < 2) {
+            System.err.println("Usage: InlineMethodCallsRecipeGenerator <artifactId> <outputDirectory>");
             System.exit(1);
         }
-        generate(args[0]);
+        generate(args[0], Path.of(args[1]));
     }
 
-    static void generate(String artifactId) {
+    static void generate(String artifactId, Path outputDirectory) {
         List<InlineMeMethod> inlineMethods = new ArrayList<>();
 
         TypeTable.Reader reader = new TypeTable.Reader(new InMemoryExecutionContext());
@@ -91,7 +91,7 @@ public class InlineMethodCallsRecipeGenerator {
                 throw new IllegalStateException("No `@InlineMe` annotated methods found for " + artifactId +
                   "; is it listed as a `parserClasspath` or `testParserClasspath` dependency, and is the type table up to date?");
             }
-            generateYamlRecipes(inlineMethods);
+            generateYamlRecipes(inlineMethods, outputDirectory);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -293,15 +293,14 @@ public class InlineMethodCallsRecipeGenerator {
         };
     }
 
-    private static void generateYamlRecipes(List<InlineMeMethod> methods) throws IOException {
+    private static void generateYamlRecipes(List<InlineMeMethod> methods, Path outputDirectory) throws IOException {
         InlineMeMethod firstMethod = methods.getFirst();
         TypeTable.GroupArtifactVersion gav = firstMethod.gav();
         String moduleName = Arrays.stream(gav.getArtifactId().split("-"))
           .map(StringUtils::capitalize)
           .collect(joining());
-        // The generated recipes are not shipped from here, but copied into rewrite-migrate-java
-        Path outputPath = Path.of("build/generated/META-INF/rewrite/inline-%s-methods.yml".formatted(firstMethod.classpathResource));
-        Files.createDirectories(outputPath.getParent());
+        Path outputPath = outputDirectory.resolve("inline-%s-methods.yml".formatted(firstMethod.classpathResource));
+        Files.createDirectories(outputDirectory);
 
         StringBuilder yaml = new StringBuilder();
         yaml.append("#\n");
