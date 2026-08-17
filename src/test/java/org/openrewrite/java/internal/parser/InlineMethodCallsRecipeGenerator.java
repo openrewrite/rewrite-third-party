@@ -171,9 +171,9 @@ public class InlineMethodCallsRecipeGenerator {
         String className = classDef.getName().replace('/', '.');
         String methodName = member.getName();
 
-        // For constructors, use the class name
+        // `MethodMatcher` matches constructors on the `<constructor>` name, not on the simple class name
         if ("<init>".equals(methodName)) {
-            methodName = className.substring(className.lastIndexOf('.') + 1);
+            methodName = "<constructor>";
         }
 
         List<String> paramTypes = parseMethodParameters(member.getDescriptor());
