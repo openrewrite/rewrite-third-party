@@ -26,6 +26,29 @@
 This project implements a [Rewrite module](https://github.com/openrewrite/rewrite) that bundles OpenRewrite recipes maintained by third parties.
 These recipes are not maintained by the OpenRewrite team, but are still useful for migrating codebases.
 
+## Updating the `@InlineMe` recipes in rewrite-migrate-java
+
+`InlineMethodCallsRecipeGenerator` turns the `@InlineMe` annotations found in the type tables into an `InlineMethodCalls` recipe list.
+The generated YAML is not shipped from here, but copied into the module that owns those recipes, such as [rewrite-migrate-java](https://github.com/openrewrite/rewrite-migrate-java) for Guava.
+
+1. Refresh the type tables, such that the `+` versions in `recipeDependencies` resolve to the latest releases.
+   ```bash
+   ./gradlew createTypeTable createTestTypeTable --refresh-dependencies
+   ```
+   Commit both `src/main/resources/META-INF/rewrite/classpath.tsv.gz` and `src/test/resources/META-INF/rewrite/classpath.tsv.gz`; `parserClasspath` artifacts land in the first, `testParserClasspath` artifacts in the second.
+2. Generate the recipes, which prints how many were found for each artifact.
+   ```bash
+   ./gradlew generateInlineGuavaMethods generateInlineLog4jMethods
+   ```
+   Each task writes `build/generated/META-INF/rewrite/inline-<artifact>-<major>-methods.yml`, with a header naming the exact version the method patterns were generated from, and pointing back here.
+3. Copy the generated file into the target repository.
+   ```bash
+   cp build/generated/META-INF/rewrite/inline-guava-33-methods.yml \
+     ../rewrite-migrate-java/src/main/resources/META-INF/rewrite/
+   ```
+4. There, pin `parserClasspath` to the version named in the header of the generated file, and run `./gradlew createTypeTable --refresh-dependencies`, such that the `classpathFromResources` entries resolve against the version the method patterns were generated from.
+5. Finish with `./gradlew licenseFormat` to add the license header the generated file lacks, and `./gradlew recipeCsvGenerate` to update the recipe count in `recipes.csv`.
+
 ## Contributing
 
 We appreciate all types of contributions. See the [contributing guide](https://github.com/openrewrite/.github/blob/main/CONTRIBUTING.md) for detailed instructions on how to get started.
