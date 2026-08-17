@@ -313,6 +313,7 @@ public class InlineMethodCallsRecipeGenerator {
           .append(gav.getGroupId()).append(":")
           .append(gav.getArtifactId()).append(":")
           .append(gav.getVersion()).append("`\n");
+        yaml.append("# by `InlineMethodCallsRecipeGenerator` in https://github.com/openrewrite/rewrite-third-party\n");
         yaml.append("#\n\n");
 
         yaml.append("type: specs.openrewrite.org/v1beta/recipe\n");

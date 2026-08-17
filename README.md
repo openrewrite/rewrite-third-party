@@ -40,7 +40,7 @@ The generated YAML is not shipped from here, but copied into the module that own
    ```bash
    ./gradlew generateInlineGuavaMethods generateInlineLog4jMethods
    ```
-   Each task writes `build/generated/META-INF/rewrite/inline-<artifact>-<major>-methods.yml`.
+   Each task writes `build/generated/META-INF/rewrite/inline-<artifact>-<major>-methods.yml`, with a header naming the exact version the method patterns were generated from, and pointing back here.
 3. Copy the generated file into the target repository.
    ```bash
    cp build/generated/META-INF/rewrite/inline-guava-33-methods.yml \
