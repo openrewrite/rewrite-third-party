@@ -174,18 +174,19 @@ tasks {
         finalizedBy("licenseFormat")
     }
     // The generated recipes are not shipped from here, but copied into rewrite-migrate-java
+    val inlineMethodsOutputDir = "build/generated/META-INF/rewrite"
     val generateInlineGuavaMethods by registering(JavaExec::class) {
         group = "generate"
         description = "Generate `InlineMethodCalls` recipes for `@InlineMe` methods in Guava."
         mainClass = "org.openrewrite.java.internal.parser.InlineMethodCallsRecipeGenerator"
         classpath = sourceSets.getByName("test").runtimeClasspath
-        args("guava", "build/generated/META-INF/rewrite")
+        args("guava", inlineMethodsOutputDir)
     }
     val generateInlineLog4jMethods by registering(JavaExec::class) {
         group = "generate"
         description = "Generate `InlineMethodCalls` recipes for `@InlineMe` methods in Log4j API."
         mainClass = "org.openrewrite.java.internal.parser.InlineMethodCallsRecipeGenerator"
         classpath = sourceSets.getByName("test").runtimeClasspath
-        args("log4j-api", "build/generated/META-INF/rewrite")
+        args("log4j-api", inlineMethodsOutputDir)
     }
 }

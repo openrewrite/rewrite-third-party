@@ -25,9 +25,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
+import static java.util.Collections.emptyList;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -35,7 +37,7 @@ import static java.util.stream.Collectors.joining;
 public class InlineMethodCallsRecipeGenerator {
 
     /**
-     * ASM is shaded inside `rewrite-java`, so `Opcodes` is not available on the compile classpath.
+     * ASM is a `runtime` scoped dependency of `rewrite-java`, so `Opcodes` is not on the compile classpath.
      */
     private static final int ACC_BRIDGE = 0x0040;
     private static final int ACC_SYNTHETIC = 0x1000;
@@ -57,33 +59,14 @@ public class InlineMethodCallsRecipeGenerator {
           .build();
         try {
             // Read the type tables of this project only; dependencies ship their own for other versions
-            for (String sourceSet : new String[]{"main", "test"}) {
+            for (String sourceSet : List.of("main", "test")) {
                 Path typeTable = Path.of("src", sourceSet, "resources").resolve(TypeTable.DEFAULT_RESOURCE_PATH);
                 if (!Files.exists(typeTable)) {
                     continue;
                 }
                 try (InputStream is = Files.newInputStream(typeTable); InputStream inflate = new GZIPInputStream(is)) {
-                    reader.parseTsvAndProcess(inflate, options, (gav, classes, nestedTypes, classBytes) -> {
-                        // Process each class in this GAV
-                        for (TypeTable.ClassDefinition classDef : classes.values()) {
-                            // Process each member (method/constructor) in the class
-                            for (TypeTable.Member member : classDef.getMembers()) {
-                                // Bridge methods carry a copy of the annotation of the method they delegate to
-                                if ((member.getAccess() & (ACC_BRIDGE | ACC_SYNTHETIC)) != 0) {
-                                    continue;
-                                }
-
-                                // Check if member has @InlineMe annotation
-                                String annotations = member.getAnnotations();
-                                if (annotations != null && annotations.contains("InlineMe")) {
-                                    InlineMeMethod inlineMethod = extractInlineMeMethod(gav, classDef, member);
-                                    if (inlineMethod != null) {
-                                        inlineMethods.add(inlineMethod);
-                                    }
-                                }
-                            }
-                        }
-                    });
+                    reader.parseTsvAndProcess(inflate, options, (gav, classes, nestedTypes, classBytes) ->
+                      collectInlineMeMethods(gav, classes.values(), inlineMethods));
                 }
             }
 
@@ -94,6 +77,28 @@ public class InlineMethodCallsRecipeGenerator {
             generateYamlRecipes(inlineMethods, outputDirectory);
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private static void collectInlineMeMethods(
+      TypeTable.GroupArtifactVersion gav,
+      Collection<TypeTable.ClassDefinition> classes,
+      List<InlineMeMethod> inlineMethods) {
+        for (TypeTable.ClassDefinition classDef : classes) {
+            for (TypeTable.Member member : classDef.getMembers()) {
+                // Bridge methods carry a copy of the annotation of the method they delegate to
+                if ((member.getAccess() & (ACC_BRIDGE | ACC_SYNTHETIC)) != 0) {
+                    continue;
+                }
+
+                String annotations = member.getAnnotations();
+                if (annotations != null && annotations.contains("InlineMe")) {
+                    InlineMeMethod inlineMethod = extractInlineMeMethod(gav, classDef, member);
+                    if (inlineMethod != null) {
+                        inlineMethods.add(inlineMethod);
+                    }
+                }
+            }
         }
     }
 
@@ -175,7 +180,7 @@ public class InlineMethodCallsRecipeGenerator {
 
         // The erasure of a type variable can never match, as call sites resolve it to the argument type
         List<String> signatureParams = parseSignatureParameters(member.getSignature());
-        if (signatureParams != null && signatureParams.size() == paramTypes.size()) {
+        if (signatureParams.size() == paramTypes.size()) {
             for (int i = 0; i < signatureParams.size(); i++) {
                 String typeVariable = signatureParams.get(i);
                 if (typeVariable != null) {
@@ -205,13 +210,13 @@ public class InlineMethodCallsRecipeGenerator {
      * Parse the parameters out of a JVMS 4.7.9.1 generic method signature, returning {@code *} for
      * each parameter that is a type variable, and {@code null} for any other parameter.
      */
-    private static @Nullable List<String> parseSignatureParameters(@Nullable String signature) {
+    private static List<String> parseSignatureParameters(@Nullable String signature) {
         if (signature == null) {
-            return null;
+            return emptyList();
         }
         int open = signature.indexOf('('); // Skip any formal type parameters
         if (open == -1) {
-            return null;
+            return emptyList();
         }
 
         List<String> paramTypes = new ArrayList<>();
@@ -342,7 +347,7 @@ public class InlineMethodCallsRecipeGenerator {
             yaml.append("        - '").append(escapeYaml(method.classpathResource)).append("'\n");
         }
 
-        Files.write(outputPath, yaml.toString().getBytes());
+        Files.writeString(outputPath, yaml);
         System.out.println("Generated " + methods.size() + " inline recipes to " + outputPath);
     }
 
