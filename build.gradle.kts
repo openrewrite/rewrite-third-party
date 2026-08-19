@@ -53,6 +53,7 @@ dependencies {
     "provided"("org.apache.wicket:wicket-migration:latest.release") { isTransitive = false }
     // Pinned to 4.x: axon-migration 5.x ships classes compiled for Java 21 (class file v65)
     "provided"("org.axonframework:axon-migration:4.+") { isTransitive = false }
+    "provided"("sh.stubborn:stubborn-contract-migration:latest.release") { isTransitive = false }
     "provided"("software.amazon.awssdk:v2-migration:latest.release")
     "provided"("tech.picnic.error-prone-support:error-prone-contrib:${rewriteVersion}:recipes") {
         exclude(module = "refaster-support")
@@ -62,6 +63,7 @@ dependencies {
     testImplementation("org.openrewrite:rewrite-test")
 
     testImplementation("org.openrewrite:rewrite-maven")
+    testImplementation("org.openrewrite:rewrite-properties")
 
     testImplementation("tech.picnic.error-prone-support:error-prone-contrib:${rewriteVersion}:recipes")
     testImplementation("org.junit-pioneer:junit-pioneer:latest.release")
@@ -138,6 +140,7 @@ tasks.withType<ShadowJar> {
         include(dependency("org.apache.camel.upgrade:camel-upgrade-recipes"))
         include(dependency("org.apache.wicket:wicket-migration"))
         include(dependency("org.axonframework:axon-migration"))
+        include(dependency("sh.stubborn:stubborn-contract-migration"))
         // v2-migration's recipe classes reference its supporting modules (utils, sdk-core, auth,
         // aws-core, http-client-spi, regions). Since these deps are `provided` (not runtimeOnly),
         // they no longer reach consumers transitively, so they must be shaded in too.

@@ -14,10 +14,10 @@
 # limitations under the License.
 #
 
-# The Quarkus and Camel recipes are shaded in from jars this repository does not
-# own, and neither upstream project ships category descriptors. Without these the
-# marketplace falls back to capitalizing the last package segment, which is how
-# `Quarkus30` and `Camel418_3` were reaching users.
+# The Quarkus, Camel and Stubborn Contract recipes are shaded in from jars this
+# repository does not own, and none of those upstream projects ship category
+# descriptors. Without these the marketplace falls back to capitalizing the last
+# package segment, which is how `Quarkus30` and `Camel418_3` were reaching users.
 ---
 type: specs.openrewrite.org/v1beta/category
 name: Quarkus
@@ -433,3 +433,18 @@ type: specs.openrewrite.org/v1beta/category
 name: Internal
 packageName: org.apache.camel.upgrade.customRecipes.internal
 description: Implementation details of the shared Camel upgrade recipes.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Stubborn
+packageName: sh.stubborn
+description: Recipes published by the [Stubborn](https://stubborn.sh/) team for their own projects.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Stubborn Contract
+packageName: sh.stubborn.contract
+description: Recipes published by the [Stubborn Contract](https://docs.stubborn.sh/contract/) team, the continuation of Spring Cloud Contract.
+---
+type: specs.openrewrite.org/v1beta/category
+name: Migration
+packageName: sh.stubborn.contract.migration
+description: Recipes for migrating from [Spring Cloud Contract](https://spring.io/projects/spring-cloud-contract) to [Stubborn Contract](https://docs.stubborn.sh/contract/).
