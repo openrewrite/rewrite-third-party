@@ -19,6 +19,15 @@ dependencyCheck {
 group = "org.openrewrite.recipe"
 description = "Third-party maintained OpenRewrite recipes"
 
+// Allow older versions from central given that third party libraries are slower to adopt CGP
+repositories {
+    maven {
+        name = "centralOpenRewrite"
+        url = uri("https://repo.maven.apache.org/maven2")
+        content { includeGroupAndSubgroups("org.openrewrite") }
+    }
+}
+
 val rewriteVersion = rewriteRecipe.rewriteVersion.get()
 dependencies {
     implementation(platform("org.openrewrite:rewrite-bom:$rewriteVersion"))
