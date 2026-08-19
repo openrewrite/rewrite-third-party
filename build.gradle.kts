@@ -24,7 +24,10 @@ repositories {
     maven {
         name = "centralOpenRewrite"
         url = uri("https://repo.maven.apache.org/maven2")
-        content { includeGroupAndSubgroups("org.openrewrite") }
+        content {
+            includeGroupAndSubgroups("org.openrewrite")
+            includeGroupAndSubgroups("io.moderne")
+        }
     }
 }
 
