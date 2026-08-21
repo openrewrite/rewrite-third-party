@@ -16,6 +16,7 @@
 package sh.stubborn.contract.migration;
 
 import org.junit.jupiter.api.Test;
+import org.openrewrite.DocumentExample;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
@@ -30,6 +31,7 @@ class MigrateFromSpringCloudContractTest implements RewriteTest {
         spec.recipeFromResources("sh.stubborn.contract.migration.MigrateFromSpringCloudContract");
     }
 
+    @DocumentExample
     @Test
     void migrateMavenPlugin() {
         rewriteRun(
