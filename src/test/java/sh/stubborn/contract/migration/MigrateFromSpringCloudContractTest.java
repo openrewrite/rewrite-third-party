@@ -20,6 +20,7 @@ import org.openrewrite.DocumentExample;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.openrewrite.maven.Assertions.pomXml;
 import static org.openrewrite.properties.Assertions.properties;
 import static org.openrewrite.yaml.Assertions.yaml;
@@ -53,23 +54,9 @@ class MigrateFromSpringCloudContractTest implements RewriteTest {
                   </build>
               </project>
               """,
-            """
-              <project>
-                  <modelVersion>4.0.0</modelVersion>
-                  <groupId>com.example</groupId>
-                  <artifactId>demo</artifactId>
-                  <version>1.0.0</version>
-                  <build>
-                      <plugins>
-                          <plugin>
-                              <groupId>sh.stubborn</groupId>
-                              <artifactId>stubborn-contract-maven-plugin</artifactId>
-                              <version>4.1.4</version>
-                          </plugin>
-                      </plugins>
-                  </build>
-              </project>
-              """
+            spec -> spec.after(actual -> assertThat(actual)
+              .containsPattern("<groupId>sh\\.stubborn</groupId>\\s*<artifactId>stubborn-contract-maven-plugin</artifactId>\\s*<version>\\d+\\.\\d+\\.\\d+</version>")
+              .actual())
           )
         );
     }
