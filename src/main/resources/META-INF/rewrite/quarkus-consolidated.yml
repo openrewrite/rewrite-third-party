@@ -192,9 +192,10 @@ preconditions:
       version: (,3.8.0)
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_7_0
+  - io.quarkus.updates.cxf.cxf38.UpdateAll
+  - io.quarkus.updates.core.quarkus38.SyncHibernateJpaModelgenVersionWithBOM
   - io.quarkus.updates.camel.camel44.CamelQuarkusMigrationRecipe
   - io.quarkus.updates.minio.minio38.UpdateAll
-  - io.quarkus.updates.core.quarkus38.SyncHibernateJpaModelgenVersionWithBOM
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
@@ -266,6 +267,7 @@ preconditions:
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_10_0
   - io.quarkus.updates.core.quarkus311.SyncHibernateJpaModelgenVersionWithBOM
+  - io.quarkus.updates.core.quarkus311.WebDependencyLocatorRelocations
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
@@ -312,6 +314,20 @@ recipeList:
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_16_0
+displayName: Quarkus Updates Aggregate 3.16.0
+description: Quarkus update recipes to upgrade your application to 3.16.0.
+preconditions:
+  - org.openrewrite.java.dependencies.search.ModuleHasDependency:
+      groupIdPattern: io.quarkus
+      artifactIdPattern: quarkus-core
+      version: (,3.16.0)
+recipeList:
+  - org.openrewrite.quarkus.MigrateToQuarkus_v3_15_0
+  - io.quarkus.updates.cxf.cxf316.UpdateAll
+
+---
+type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_17_0
 displayName: Quarkus Updates Aggregate 3.17.0
 description: Quarkus update recipes to upgrade your application to 3.17.0.
@@ -321,7 +337,7 @@ preconditions:
       artifactIdPattern: quarkus-core
       version: (,3.17.0)
 recipeList:
-  - org.openrewrite.quarkus.MigrateToQuarkus_v3_15_0
+  - org.openrewrite.quarkus.MigrateToQuarkus_v3_16_0
   - io.quarkus.updates.camel.camel49.CamelQuarkusMigrationRecipe
 
 ---
@@ -357,6 +373,20 @@ recipeList:
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_20_0
+displayName: Quarkus Updates Aggregate 3.20.0
+description: Quarkus update recipes to upgrade your application to 3.20.0.
+preconditions:
+  - org.openrewrite.java.dependencies.search.ModuleHasDependency:
+      groupIdPattern: io.quarkus
+      artifactIdPattern: quarkus-core
+      version: (,3.20.0)
+recipeList:
+  - org.openrewrite.quarkus.MigrateToQuarkus_v3_19_0
+  - io.quarkus.updates.cxf.cxf320.UpdateAll
+
+---
+type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_20_1
 displayName: Quarkus Updates Aggregate 3.20.1
 description: Quarkus update recipes to upgrade your application to 3.20.1.
@@ -366,7 +396,7 @@ preconditions:
       artifactIdPattern: quarkus-core
       version: (,3.20.1)
 recipeList:
-  - org.openrewrite.quarkus.MigrateToQuarkus_v3_19_0
+  - org.openrewrite.quarkus.MigrateToQuarkus_v3_20_0
   - io.quarkus.updates.camel.camel410_4.CamelQuarkusMigrationRecipe
 
 ---
@@ -395,6 +425,7 @@ preconditions:
       version: (,3.22.0)
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_21_0
+  - io.quarkus.updates.cxf.cxf322.UpdateAll
   - io.quarkus.updates.camel.camel411.CamelQuarkusMigrationRecipe
 
 ---
@@ -450,6 +481,7 @@ preconditions:
       version: (,3.25.0)
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_24_0
+  - io.quarkus.updates.core.quarkus325.DevUiSpiRelocations
   - io.quarkus.updates.camel.camel413.CamelQuarkusMigrationRecipe
 
 ---
@@ -508,6 +540,7 @@ preconditions:
       version: (,3.31.0)
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_30_0
+  - io.quarkus.updates.cxf.cxf331.UpdateAll
   - io.quarkus.updates.core.quarkus331.CoreUpdate331
   - io.quarkus.updates.core.quarkus331.OidcClientFilterSplitPackagesFix
   - io.quarkus.updates.core.quarkus331.JUnitRelocations
@@ -583,8 +616,8 @@ preconditions:
       version: (,3.38.0)
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_37_0
-  - io.quarkus.updates.core.quarkus338.ElasticsearchRestClientMigration
   - io.quarkus.updates.camel.camel421.CamelQuarkusMigrationRecipe
+  - io.quarkus.updates.core.quarkus338.ElasticsearchRestClientMigration
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
@@ -598,6 +631,9 @@ preconditions:
       version: (,3.39.0)
 recipeList:
   - org.openrewrite.quarkus.MigrateToQuarkus_v3_38_0
+  - io.quarkus.updates.camel.camel422.CamelQuarkusMigrationRecipe
+  - io.quarkus.updates.cxf.cxf339.UpdateAll
+  - io.quarkus.updates.cxf.cxf339.AddQuarkusJacksonIfUsed
   - io.quarkus.updates.core.quarkus339.ReplaceHibernateProcessorAnnotationProcessor
   - io.quarkus.updates.core.quarkus339.ReplaceNewJpaModelgenAnnotationProcessor
   - io.quarkus.updates.core.quarkus339.ReplaceOldJpaModelgenAnnotationProcessor
