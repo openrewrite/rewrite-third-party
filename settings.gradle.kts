@@ -3,16 +3,20 @@ rootProject.name = "rewrite-third-party"
 pluginManagement {
     repositories {
         mavenLocal()
-        maven {
-            name = "codegenome"
-            url = uri("https://artifacts.codegenomeproject.org/maven")
-            credentials {
-                username = providers.gradleProperty("codegenomeUsername").orNull ?: System.getenv("CODEGENOME_USERNAME")
-                password = providers.gradleProperty("codegenomePassword").orNull ?: System.getenv("CODEGENOME_TOKEN")
-            }
-            content {
-                includeGroupAndSubgroups("org.openrewrite")
-                includeGroupAndSubgroups("io.moderne")
+        val codegenomeUsername = providers.gradleProperty("codegenomeUsername").orNull ?: System.getenv("CODEGENOME_USERNAME")
+        val codegenomePassword = providers.gradleProperty("codegenomePassword").orNull ?: System.getenv("CODEGENOME_TOKEN")
+        if (!codegenomeUsername.isNullOrBlank() && !codegenomePassword.isNullOrBlank()) {
+            maven {
+                name = "codegenome"
+                url = uri("https://artifacts.codegenomeproject.org/maven")
+                credentials {
+                    username = codegenomeUsername
+                    password = codegenomePassword
+                }
+                content {
+                    includeGroupAndSubgroups("org.openrewrite")
+                    includeGroupAndSubgroups("io.moderne")
+                }
             }
         }
         gradlePluginPortal()
