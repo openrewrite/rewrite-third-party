@@ -20,6 +20,9 @@ jobs:
 
       - name: Create quarkus aggregation recipes
         run: ./gradlew generateQuarkusAggregation
+        env:
+          ORG_GRADLE_PROJECT_codegenomeUsername: ${{ secrets.CODEGENOME_USERNAME }}
+          ORG_GRADLE_PROJECT_codegenomePassword: ${{ secrets.CODEGENOME_TOKEN }}
 
       # Create pull request
       - name: Timestamp
