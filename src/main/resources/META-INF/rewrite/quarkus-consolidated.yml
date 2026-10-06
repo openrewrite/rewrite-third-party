@@ -639,3 +639,31 @@ recipeList:
   - io.quarkus.updates.core.quarkus339.ReplaceOldJpaModelgenAnnotationProcessor
   - io.quarkus.updates.core.quarkus339.QuarkusDataHibernateRenames
 
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.MigrateToQuarkus_v4_0_0
+displayName: Quarkus Updates Aggregate 4.0.0
+description: Quarkus update recipes to upgrade your application to 4.0.0.
+preconditions:
+  - org.openrewrite.java.dependencies.search.ModuleHasDependency:
+      groupIdPattern: io.quarkus
+      artifactIdPattern: quarkus-core
+      version: (,4.0.0)
+recipeList:
+  - org.openrewrite.quarkus.MigrateToQuarkus_v3_39_0
+  - io.quarkus.updates.core.quarkus40.UpgradeToJava21
+  - io.quarkus.updates.core.quarkus40.JavaVersion21
+  - io.quarkus.updates.core.quarkus40.Jackson3Migration
+  - io.quarkus.updates.core.quarkus40.HibernateORMConfigProperties
+  - io.quarkus.updates.core.quarkus40.OidcConfigProperties
+  - io.quarkus.updates.core.quarkus40.RestClientConfigProperties
+  - io.quarkus.updates.core.quarkus40.InfinispanConfigProperties
+  - io.quarkus.updates.core.quarkus40.MailerConfigProperties
+  - io.quarkus.updates.core.quarkus40.MicrometerConfigProperties
+  - io.quarkus.updates.core.quarkus40.RedisCacheConfigProperties
+  - io.quarkus.updates.core.quarkus40.SmallRyeConfigProperties
+  - io.quarkus.updates.core.quarkus40.KubernetesConfigProperties
+  - io.quarkus.updates.core.quarkus40.HttpSslConfigProperties
+  - io.quarkus.updates.core.quarkus40.KeycloakPolicyEnforcerConfigProperties
+  - io.quarkus.updates.core.quarkus40.MiscConfigProperties
+
