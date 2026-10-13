@@ -38,6 +38,9 @@ dependencies {
     runtimeOnly("org.openrewrite:rewrite-java")
     runtimeOnly("org.openrewrite:rewrite-templating:${rewriteVersion}")
     runtimeOnly("org.openrewrite.recipe:rewrite-migrate-java:${rewriteVersion}")
+    // Required by the shaded quarkus-update-recipes, which is not resolved transitively
+    runtimeOnly("org.openrewrite.recipe:rewrite-jackson:${rewriteVersion}")
+    runtimeOnly("org.openrewrite.recipe:rewrite-quarkus:${rewriteVersion}")
 
     // Shaded into the fat jar below. Declared as `provided` (not `runtimeOnly`) so they are
     // published with `<scope>provided</scope>`: bundled here, but not re-resolved as a second
