@@ -13,6 +13,30 @@
 # limitations under the License.
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: sh.stubborn.contract.migration.MigrateFromSpringCloudContract
+examples:
+- description: '`MigrateFromSpringCloudContractTest#migrateMavenPlugin`'
+  sources:
+  - before: |
+      <project>
+          <modelVersion>4.0.0</modelVersion>
+          <groupId>com.example</groupId>
+          <artifactId>demo</artifactId>
+          <version>1.0.0</version>
+          <build>
+              <plugins>
+                  <plugin>
+                      <groupId>org.springframework.cloud</groupId>
+                      <artifactId>spring-cloud-contract-maven-plugin</artifactId>
+                      <version>4.1.4</version>
+                  </plugin>
+              </plugins>
+          </build>
+      </project>
+    path: pom.xml
+    language: xml
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: tech.picnic.errorprone.refasterrules.AssertJStringRulesRecipes
 examples:
 - description: '`AssertJStringRulesRecipesTest#assertThatStringIsEmpty`'
