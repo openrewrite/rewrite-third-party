@@ -666,4 +666,6 @@ recipeList:
   - io.quarkus.updates.core.quarkus40.HttpSslConfigProperties
   - io.quarkus.updates.core.quarkus40.KeycloakPolicyEnforcerConfigProperties
   - io.quarkus.updates.core.quarkus40.MiscConfigProperties
+  - io.quarkus.updates.core.quarkus40.ArcDefaultBeanToReserve
+  - io.quarkus.updates.core.quarkus40.DroppedRelocations
 
