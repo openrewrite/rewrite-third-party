@@ -172,7 +172,7 @@ tasks.withType<ShadowJar> {
 }
 
 tasks {
-    val generateQuarkusAggregation by registering(JavaExec::class) {
+    val generateQuarkusAggregation = register<JavaExec>("generateQuarkusAggregation") {
         group = "generate"
         description = "Generate Quarkus migration aggregation Recipes."
         mainClass = "org.openrewrite.recipe.quarkus.internal.AggregateQuarkusUpdates"
@@ -183,7 +183,7 @@ tasks {
         )
         finalizedBy("licenseFormat")
     }
-    val generatePicnicAggregation by registering(JavaExec::class) {
+    val generatePicnicAggregation = register<JavaExec>("generatePicnicAggregation") {
         group = "generate"
         description = "Generate Picnic Refaster rules aggregation recipe from the error-prone-contrib jar."
         mainClass = "org.openrewrite.recipe.picnic.internal.GeneratePicnicAggregation"
@@ -193,14 +193,14 @@ tasks {
     }
     // The generated recipes are not shipped from here, but copied into rewrite-migrate-java
     val inlineMethodsOutputDir = "build/generated/META-INF/rewrite"
-    val generateInlineGuavaMethods by registering(JavaExec::class) {
+    val generateInlineGuavaMethods = register<JavaExec>("generateInlineGuavaMethods") {
         group = "generate"
         description = "Generate `InlineMethodCalls` recipes for `@InlineMe` methods in Guava."
         mainClass = "org.openrewrite.java.internal.parser.InlineMethodCallsRecipeGenerator"
         classpath = sourceSets.getByName("test").runtimeClasspath
         args("guava", inlineMethodsOutputDir)
     }
-    val generateInlineLog4jMethods by registering(JavaExec::class) {
+    val generateInlineLog4jMethods = register<JavaExec>("generateInlineLog4jMethods") {
         group = "generate"
         description = "Generate `InlineMethodCalls` recipes for `@InlineMe` methods in Log4j API."
         mainClass = "org.openrewrite.java.internal.parser.InlineMethodCallsRecipeGenerator"
