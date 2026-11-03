@@ -349,7 +349,7 @@ public class InlineMethodCallsRecipeGenerator {
         }
 
         Files.writeString(outputPath, yaml);
-        System.out.println("Generated " + methods.size() + " inline recipes to " + outputPath);
+        IO.println("Generated " + methods.size() + " inline recipes to " + outputPath);
     }
 
     private static String escapeYaml(String value) {
