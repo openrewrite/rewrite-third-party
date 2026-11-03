@@ -35,7 +35,7 @@ public class AggregateQuarkusUpdates {
 
     public static void main(String[] args) throws Exception {
         if (args.length < 2) {
-            System.out.println("Usage: java AggregateQuarkusUpdates <path to quarkus-updates recipes> <path to consolidated recipes>");
+            IO.println("Usage: java AggregateQuarkusUpdates <path to quarkus-updates recipes> <path to consolidated recipes>");
         }
 
         Path quarkusRecipesDirectory = Path.of(args[0]);
