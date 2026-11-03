@@ -88,6 +88,9 @@ dependencies {
             "Core <= 5.4.2; httpcore5-h2 5.4 is pulled transitively by awssdk v2-migration"
     // Repeated for `provided`, which extends nothing and so inherits no `implementation` constraints.
     constraints {
+        runtimeOnly("com.google.guava:guava:33.8.0-jre") {
+            because("CVE-2026-102554, fixed in Guava 33.7.2")
+        }
         implementation("com.fasterxml.jackson.core:jackson-databind:2.21.5") { because(jacksonFloor) }
         implementation("org.apache.httpcomponents.core5:httpcore5:5.4.3") { because(httpcore5Floor) }
         implementation("org.apache.httpcomponents.core5:httpcore5-h2:5.4.3") { because(httpcore5Floor) }
