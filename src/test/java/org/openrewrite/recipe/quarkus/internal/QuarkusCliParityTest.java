@@ -83,10 +83,7 @@ class QuarkusCliParityTest implements RewriteTest {
             "app",
             pomXml(
               POM_ON_QUARKUS_3_6,
-              spec -> spec.after(printed -> {
-                  // Upgrading the platform first, as `quarkus update` does, leaves the not yet renamed artifacts unmanaged
-                  // for a moment, which the test prints as markers, but which do not end up in the changed file
-                  String pom = printed.replaceAll("<!--~~\\(.*?\\)~~>-->", "");
+              spec -> spec.after(pom -> {
                   assertThat(pom)
                     .containsPattern(Pattern.compile("<quarkus.platform.version>3\\.39\\.\\d+(\\.\\d+)?</quarkus.platform.version>"))
                     .contains("<artifactId>quarkus-rest-jackson</artifactId>")
@@ -95,7 +92,7 @@ class QuarkusCliParityTest implements RewriteTest {
                     .doesNotContain("<artifactId>quarkus-jackson</artifactId>");
                   // renamed artifacts are managed by the upgraded platform, so get no version of their own
                   assertThat(pom.substring(pom.lastIndexOf("<dependencies>"), pom.lastIndexOf("</dependencies>"))).doesNotContain("<version>");
-                  return printed;
+                  return pom;
               })
             )
           )

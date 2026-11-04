@@ -117,26 +117,7 @@ class AggregateQuarkusUpdatesTest {
                       artifactIdPattern: quarkus-core
                       version: (,1.2.3)
                 recipeList:
-                  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
-                      groupId: io.quarkus.platform
-                      artifactId: quarkus-bom
-                      newVersion: 1.2.x
-                  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
-                      groupId: io.quarkus
-                      artifactId: quarkus-bom
-                      newVersion: 1.2.x
-                  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
-                      groupId: io.quarkus
-                      artifactId: quarkus-universe-bom
-                      newVersion: 1.2.x
-                  - org.openrewrite.maven.UpgradePluginVersion:
-                      groupId: io.quarkus*
-                      artifactId: quarkus-maven-plugin
-                      newVersion: 1.2.x
-                  - org.openrewrite.gradle.plugins.UpgradePluginVersion:
-                      pluginIdPattern: io.quarkus
-                      newVersion: 1.2.x
-                  - org.openrewrite.quarkus.UpgradeQuarkusGradleProperties:
+                  - org.openrewrite.quarkus.UpgradeQuarkusVersion:
                       newVersion: 1.2.x
                   - org.openrewrite.quarkus.QuarkusUpdates_v1_2_3
 
@@ -176,26 +157,7 @@ class AggregateQuarkusUpdatesTest {
                       artifactIdPattern: quarkus-core
                       version: (,1.2.3)
                 recipeList:
-                  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
-                      groupId: io.quarkus.platform
-                      artifactId: quarkus-bom
-                      newVersion: 1.2.x
-                  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
-                      groupId: io.quarkus
-                      artifactId: quarkus-bom
-                      newVersion: 1.2.x
-                  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
-                      groupId: io.quarkus
-                      artifactId: quarkus-universe-bom
-                      newVersion: 1.2.x
-                  - org.openrewrite.maven.UpgradePluginVersion:
-                      groupId: io.quarkus*
-                      artifactId: quarkus-maven-plugin
-                      newVersion: 1.2.x
-                  - org.openrewrite.gradle.plugins.UpgradePluginVersion:
-                      pluginIdPattern: io.quarkus
-                      newVersion: 1.2.x
-                  - org.openrewrite.quarkus.UpgradeQuarkusGradleProperties:
+                  - org.openrewrite.quarkus.UpgradeQuarkusVersion:
                       newVersion: 1.2.x
                   - org.openrewrite.quarkus.QuarkusUpdates_v1_2_3
 
@@ -236,26 +198,7 @@ class AggregateQuarkusUpdatesTest {
                       artifactIdPattern: quarkus-core
                       version: (,1.2.3)
                 recipeList:
-                  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
-                      groupId: io.quarkus.platform
-                      artifactId: quarkus-bom
-                      newVersion: 1.2.x
-                  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
-                      groupId: io.quarkus
-                      artifactId: quarkus-bom
-                      newVersion: 1.2.x
-                  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
-                      groupId: io.quarkus
-                      artifactId: quarkus-universe-bom
-                      newVersion: 1.2.x
-                  - org.openrewrite.maven.UpgradePluginVersion:
-                      groupId: io.quarkus*
-                      artifactId: quarkus-maven-plugin
-                      newVersion: 1.2.x
-                  - org.openrewrite.gradle.plugins.UpgradePluginVersion:
-                      pluginIdPattern: io.quarkus
-                      newVersion: 1.2.x
-                  - org.openrewrite.quarkus.UpgradeQuarkusGradleProperties:
+                  - org.openrewrite.quarkus.UpgradeQuarkusVersion:
                       newVersion: 1.2.x
                   - org.openrewrite.quarkus.QuarkusUpdates_v1_2_3
 

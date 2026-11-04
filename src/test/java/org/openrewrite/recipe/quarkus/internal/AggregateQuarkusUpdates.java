@@ -156,26 +156,7 @@ public class AggregateQuarkusUpdates {
                   artifactIdPattern: quarkus-core
                   version: (,%2$s)
             recipeList:
-              - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
-                  groupId: io.quarkus.platform
-                  artifactId: quarkus-bom
-                  newVersion: %3$s
-              - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
-                  groupId: io.quarkus
-                  artifactId: quarkus-bom
-                  newVersion: %3$s
-              - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
-                  groupId: io.quarkus
-                  artifactId: quarkus-universe-bom
-                  newVersion: %3$s
-              - org.openrewrite.maven.UpgradePluginVersion:
-                  groupId: io.quarkus*
-                  artifactId: quarkus-maven-plugin
-                  newVersion: %3$s
-              - org.openrewrite.gradle.plugins.UpgradePluginVersion:
-                  pluginIdPattern: io.quarkus
-                  newVersion: %3$s
-              - org.openrewrite.quarkus.UpgradeQuarkusGradleProperties:
+              - org.openrewrite.quarkus.UpgradeQuarkusVersion:
                   newVersion: %3$s
               - %4$s
 
