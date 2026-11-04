@@ -125,6 +125,10 @@ class AggregateQuarkusUpdatesTest {
                       groupId: io.quarkus
                       artifactId: quarkus-bom
                       newVersion: 1.2.x
+                  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+                      groupId: io.quarkus
+                      artifactId: quarkus-universe-bom
+                      newVersion: 1.2.x
                   - org.openrewrite.maven.UpgradePluginVersion:
                       groupId: io.quarkus*
                       artifactId: quarkus-maven-plugin
@@ -179,6 +183,10 @@ class AggregateQuarkusUpdatesTest {
                   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
                       groupId: io.quarkus
                       artifactId: quarkus-bom
+                      newVersion: 1.2.x
+                  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+                      groupId: io.quarkus
+                      artifactId: quarkus-universe-bom
                       newVersion: 1.2.x
                   - org.openrewrite.maven.UpgradePluginVersion:
                       groupId: io.quarkus*
@@ -235,6 +243,10 @@ class AggregateQuarkusUpdatesTest {
                   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
                       groupId: io.quarkus
                       artifactId: quarkus-bom
+                      newVersion: 1.2.x
+                  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+                      groupId: io.quarkus
+                      artifactId: quarkus-universe-bom
                       newVersion: 1.2.x
                   - org.openrewrite.maven.UpgradePluginVersion:
                       groupId: io.quarkus*

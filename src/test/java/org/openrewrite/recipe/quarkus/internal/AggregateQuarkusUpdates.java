@@ -164,6 +164,10 @@ public class AggregateQuarkusUpdates {
                   groupId: io.quarkus
                   artifactId: quarkus-bom
                   newVersion: %3$s
+              - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+                  groupId: io.quarkus
+                  artifactId: quarkus-universe-bom
+                  newVersion: %3$s
               - org.openrewrite.maven.UpgradePluginVersion:
                   groupId: io.quarkus*
                   artifactId: quarkus-maven-plugin

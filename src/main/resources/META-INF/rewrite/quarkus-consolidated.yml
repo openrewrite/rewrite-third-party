@@ -34,6 +34,10 @@ recipeList:
       groupId: io.quarkus
       artifactId: quarkus-bom
       newVersion: 3.0.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
+      newVersion: 3.0.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
       artifactId: quarkus-maven-plugin
@@ -140,6 +144,10 @@ recipeList:
       groupId: io.quarkus
       artifactId: quarkus-bom
       newVersion: 3.1.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
+      newVersion: 3.1.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
       artifactId: quarkus-maven-plugin
@@ -183,6 +191,10 @@ recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: io.quarkus
       artifactId: quarkus-bom
+      newVersion: 3.2.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
       newVersion: 3.2.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
@@ -230,6 +242,10 @@ recipeList:
       groupId: io.quarkus
       artifactId: quarkus-bom
       newVersion: 3.3.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
+      newVersion: 3.3.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
       artifactId: quarkus-maven-plugin
@@ -276,6 +292,10 @@ recipeList:
       groupId: io.quarkus
       artifactId: quarkus-bom
       newVersion: 3.5.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
+      newVersion: 3.5.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
       artifactId: quarkus-maven-plugin
@@ -321,6 +341,10 @@ recipeList:
       groupId: io.quarkus
       artifactId: quarkus-bom
       newVersion: 3.6.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
+      newVersion: 3.6.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
       artifactId: quarkus-maven-plugin
@@ -364,6 +388,10 @@ recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: io.quarkus
       artifactId: quarkus-bom
+      newVersion: 3.7.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
       newVersion: 3.7.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
@@ -421,6 +449,10 @@ recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: io.quarkus
       artifactId: quarkus-bom
+      newVersion: 3.8.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
       newVersion: 3.8.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
@@ -508,6 +540,10 @@ recipeList:
       groupId: io.quarkus
       artifactId: quarkus-bom
       newVersion: 3.8.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
+      newVersion: 3.8.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
       artifactId: quarkus-maven-plugin
@@ -551,6 +587,10 @@ recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: io.quarkus
       artifactId: quarkus-bom
+      newVersion: 3.9.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
       newVersion: 3.9.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
@@ -599,6 +639,10 @@ recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: io.quarkus
       artifactId: quarkus-bom
+      newVersion: 3.10.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
       newVersion: 3.10.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
@@ -655,6 +699,10 @@ recipeList:
       groupId: io.quarkus
       artifactId: quarkus-bom
       newVersion: 3.11.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
+      newVersion: 3.11.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
       artifactId: quarkus-maven-plugin
@@ -700,6 +748,10 @@ recipeList:
       groupId: io.quarkus
       artifactId: quarkus-bom
       newVersion: 3.12.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
+      newVersion: 3.12.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
       artifactId: quarkus-maven-plugin
@@ -743,6 +795,10 @@ recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: io.quarkus
       artifactId: quarkus-bom
+      newVersion: 3.13.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
       newVersion: 3.13.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
@@ -788,6 +844,10 @@ recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: io.quarkus
       artifactId: quarkus-bom
+      newVersion: 3.15.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
       newVersion: 3.15.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
@@ -846,6 +906,10 @@ recipeList:
       groupId: io.quarkus
       artifactId: quarkus-bom
       newVersion: 3.16.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
+      newVersion: 3.16.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
       artifactId: quarkus-maven-plugin
@@ -903,6 +967,10 @@ recipeList:
       groupId: io.quarkus
       artifactId: quarkus-bom
       newVersion: 3.17.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
+      newVersion: 3.17.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
       artifactId: quarkus-maven-plugin
@@ -959,6 +1027,10 @@ recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: io.quarkus
       artifactId: quarkus-bom
+      newVersion: 3.18.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
       newVersion: 3.18.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
@@ -1018,6 +1090,10 @@ recipeList:
       groupId: io.quarkus
       artifactId: quarkus-bom
       newVersion: 3.19.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
+      newVersion: 3.19.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
       artifactId: quarkus-maven-plugin
@@ -1063,6 +1139,10 @@ recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: io.quarkus
       artifactId: quarkus-bom
+      newVersion: 3.20.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
       newVersion: 3.20.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
@@ -1121,6 +1201,10 @@ recipeList:
       groupId: io.quarkus
       artifactId: quarkus-bom
       newVersion: 3.20.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
+      newVersion: 3.20.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
       artifactId: quarkus-maven-plugin
@@ -1178,6 +1262,10 @@ recipeList:
       groupId: io.quarkus
       artifactId: quarkus-bom
       newVersion: 3.21.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
+      newVersion: 3.21.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
       artifactId: quarkus-maven-plugin
@@ -1221,6 +1309,10 @@ recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: io.quarkus
       artifactId: quarkus-bom
+      newVersion: 3.22.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
       newVersion: 3.22.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
@@ -1293,6 +1385,10 @@ recipeList:
       groupId: io.quarkus
       artifactId: quarkus-bom
       newVersion: 3.23.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
+      newVersion: 3.23.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
       artifactId: quarkus-maven-plugin
@@ -1336,6 +1432,10 @@ recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: io.quarkus
       artifactId: quarkus-bom
+      newVersion: 3.24.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
       newVersion: 3.24.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
@@ -1407,6 +1507,10 @@ recipeList:
       groupId: io.quarkus
       artifactId: quarkus-bom
       newVersion: 3.25.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
+      newVersion: 3.25.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
       artifactId: quarkus-maven-plugin
@@ -1464,6 +1568,10 @@ recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: io.quarkus
       artifactId: quarkus-bom
+      newVersion: 3.26.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
       newVersion: 3.26.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
@@ -1523,6 +1631,10 @@ recipeList:
       groupId: io.quarkus
       artifactId: quarkus-bom
       newVersion: 3.29.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
+      newVersion: 3.29.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
       artifactId: quarkus-maven-plugin
@@ -1579,6 +1691,10 @@ recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: io.quarkus
       artifactId: quarkus-bom
+      newVersion: 3.30.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
       newVersion: 3.30.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
@@ -1637,6 +1753,10 @@ recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: io.quarkus
       artifactId: quarkus-bom
+      newVersion: 3.31.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
       newVersion: 3.31.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
@@ -1714,6 +1834,10 @@ recipeList:
       groupId: io.quarkus
       artifactId: quarkus-bom
       newVersion: 3.32.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
+      newVersion: 3.32.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
       artifactId: quarkus-maven-plugin
@@ -1770,6 +1894,10 @@ recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: io.quarkus
       artifactId: quarkus-bom
+      newVersion: 3.33.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
       newVersion: 3.33.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
@@ -1828,6 +1956,10 @@ recipeList:
       groupId: io.quarkus
       artifactId: quarkus-bom
       newVersion: 3.33.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
+      newVersion: 3.33.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
       artifactId: quarkus-maven-plugin
@@ -1885,6 +2017,10 @@ recipeList:
       groupId: io.quarkus
       artifactId: quarkus-bom
       newVersion: 3.37.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
+      newVersion: 3.37.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
       artifactId: quarkus-maven-plugin
@@ -1928,6 +2064,10 @@ recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: io.quarkus
       artifactId: quarkus-bom
+      newVersion: 3.38.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
       newVersion: 3.38.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
@@ -1986,6 +2126,10 @@ recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: io.quarkus
       artifactId: quarkus-bom
+      newVersion: 3.39.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
       newVersion: 3.39.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
@@ -2062,6 +2206,10 @@ recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: io.quarkus
       artifactId: quarkus-bom
+      newVersion: 4.0.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.quarkus
+      artifactId: quarkus-universe-bom
       newVersion: 4.0.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: io.quarkus*
