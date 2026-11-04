@@ -43,7 +43,7 @@ class QuarkusPreconditionTest implements RewriteTest {
         spec.recipe(loadConsolidatedRecipe("org.openrewrite.quarkus.MigrateToQuarkus_v3_1_0"));
     }
 
-    private static Recipe loadConsolidatedRecipe(String recipeName) {
+    static Recipe loadConsolidatedRecipe(String recipeName) {
         try {
             Environment.Builder builder = Environment.builder().scanRuntimeClasspath();
             URL marker = QuarkusPreconditionTest.class.getClassLoader().getResource("quarkus-updates/core/3.0.alpha1.yaml");
