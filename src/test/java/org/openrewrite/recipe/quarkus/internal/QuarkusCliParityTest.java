@@ -108,10 +108,9 @@ class QuarkusCliParityTest implements RewriteTest {
           spec -> spec.recipe(loadConsolidatedRecipe("org.openrewrite.quarkus.MigrateToQuarkus_v3_7_0")),
           mavenProject(
             "app",
-            pomXml(POM_ON_QUARKUS_3_6, spec -> spec.after(pom -> {
-                assertThat(pom).contains("<maven.compiler.source>17</maven.compiler.source>");
-                return pom;
-            }))
+            pomXml(POM_ON_QUARKUS_3_6, spec -> spec.after(pom -> assertThat(pom)
+              .contains("<maven.compiler.source>17</maven.compiler.source>")
+              .actual()))
           ),
           //language=yaml
           yaml(
