@@ -1541,7 +1541,6 @@ recipeList:
   - io.quarkus.updates.core.quarkus40.MailerConfigProperties
   - io.quarkus.updates.core.quarkus40.MicrometerConfigProperties
   - io.quarkus.updates.core.quarkus40.RedisCacheConfigProperties
-  - io.quarkus.updates.core.quarkus40.SmallRyeConfigProperties
   - io.quarkus.updates.core.quarkus40.KubernetesConfigProperties
   - io.quarkus.updates.core.quarkus40.HttpSslConfigProperties
   - io.quarkus.updates.core.quarkus40.KeycloakPolicyEnforcerConfigProperties
