@@ -1,0 +1,621 @@
+__PACKAGE__import software.amazon.awssdk.imds.Ec2MetadataClient;
+
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+/**
+ * AWS SDK v1's {@code EC2MetadataUtils} on SDK v2's {@code Ec2MetadataClient}. As in v1, simple values are cached, a failed
+ * lookup is logged and returns null, and the structured documents are read into the same classes and fields.
+ */
+public final class Ec2MetadataUtils {
+
+    public static final String SECURITY_CREDENTIALS_RESOURCE = "/latest/meta-data/iam/security-credentials/";
+
+    private static final String EC2_METADATA_ROOT = "/latest/meta-data";
+    private static final String EC2_USERDATA_ROOT = "/latest/user-data/";
+    private static final String EC2_DYNAMICDATA_ROOT = "/latest/dynamic/";
+    private static final String EC2_METADATA_SERVICE_URL = "http://169.254.169.254";
+    private static final Logger LOG = Logger.getLogger(Ec2MetadataUtils.class.getName());
+    private static final Map<String, String> CACHE = new ConcurrentHashMap<>();
+
+    private Ec2MetadataUtils() {
+    }
+
+    public static String getAmiId() {
+        return fetchData(EC2_METADATA_ROOT + "/ami-id");
+    }
+
+    public static String getAmiLaunchIndex() {
+        return fetchData(EC2_METADATA_ROOT + "/ami-launch-index");
+    }
+
+    public static String getAmiManifestPath() {
+        return fetchData(EC2_METADATA_ROOT + "/ami-manifest-path");
+    }
+
+    public static List<String> getAncestorAmiIds() {
+        return getItems(EC2_METADATA_ROOT + "/ancestor-ami-ids");
+    }
+
+    public static String getInstanceAction() {
+        return fetchData(EC2_METADATA_ROOT + "/instance-action");
+    }
+
+    public static String getInstanceId() {
+        return fetchData(EC2_METADATA_ROOT + "/instance-id");
+    }
+
+    public static String getInstanceType() {
+        return fetchData(EC2_METADATA_ROOT + "/instance-type");
+    }
+
+    public static String getLocalHostName() {
+        return fetchData(EC2_METADATA_ROOT + "/local-hostname");
+    }
+
+    public static String getMacAddress() {
+        return fetchData(EC2_METADATA_ROOT + "/mac");
+    }
+
+    public static String getPrivateIpAddress() {
+        return fetchData(EC2_METADATA_ROOT + "/local-ipv4");
+    }
+
+    public static String getAvailabilityZone() {
+        return fetchData(EC2_METADATA_ROOT + "/placement/availability-zone");
+    }
+
+    public static List<String> getProductCodes() {
+        return getItems(EC2_METADATA_ROOT + "/product-codes");
+    }
+
+    public static String getPublicKey() {
+        return fetchData(EC2_METADATA_ROOT + "/public-keys/0/openssh-key");
+    }
+
+    public static String getRamdiskId() {
+        return fetchData(EC2_METADATA_ROOT + "/ramdisk-id");
+    }
+
+    public static String getReservationId() {
+        return fetchData(EC2_METADATA_ROOT + "/reservation-id");
+    }
+
+    public static List<String> getSecurityGroups() {
+        return getItems(EC2_METADATA_ROOT + "/security-groups");
+    }
+
+    public static IAMInfo getIAMInstanceProfileInfo() {
+        String json = getData(EC2_METADATA_ROOT + "/iam/info");
+        if (json == null) {
+            return null;
+        }
+        try {
+            Map<String, Object> doc = Json.parseObject(json);
+            IAMInfo info = new IAMInfo();
+            info.code = Json.string(doc, "Code");
+            info.message = Json.string(doc, "Message");
+            info.lastUpdated = Json.string(doc, "LastUpdated");
+            info.instanceProfileArn = Json.string(doc, "InstanceProfileArn");
+            info.instanceProfileId = Json.string(doc, "InstanceProfileId");
+            return info;
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, "Unable to parse IAM Instance profile info (" + json + "): " + e.getMessage(), e);
+            return null;
+        }
+    }
+
+    public static InstanceInfo getInstanceInfo() {
+        return doGetInstanceInfo(getData(EC2_DYNAMICDATA_ROOT + "instance-identity/document"));
+    }
+
+    public static String getInstanceSignature() {
+        return fetchData(EC2_DYNAMICDATA_ROOT + "instance-identity/signature");
+    }
+
+    public static String getEC2InstanceRegion() {
+        String json = getData(EC2_DYNAMICDATA_ROOT + "instance-identity/document");
+        if (json == null) {
+            return null;
+        }
+        try {
+            return Json.string(Json.parseObject(json), "region");
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, "Unable to parse EC2 instance info (" + json + ") : " + e.getMessage(), e);
+            return null;
+        }
+    }
+
+    public static Map<String, IAMSecurityCredential> getIAMSecurityCredentials() {
+        Map<String, IAMSecurityCredential> credentialsInfoMap = new HashMap<>();
+        List<String> credentials = getItems(EC2_METADATA_ROOT + "/iam/security-credentials");
+        if (credentials != null) {
+            for (String credential : credentials) {
+                String json = getData(EC2_METADATA_ROOT + "/iam/security-credentials/" + credential);
+                try {
+                    Map<String, Object> doc = Json.parseObject(json);
+                    IAMSecurityCredential info = new IAMSecurityCredential();
+                    info.code = Json.string(doc, "Code");
+                    info.message = Json.string(doc, "Message");
+                    info.lastUpdated = Json.string(doc, "LastUpdated");
+                    info.type = Json.string(doc, "Type");
+                    info.accessKeyId = Json.string(doc, "AccessKeyId");
+                    info.secretAccessKey = Json.string(doc, "SecretAccessKey");
+                    info.token = Json.string(doc, "Token");
+                    info.expiration = Json.string(doc, "Expiration");
+                    credentialsInfoMap.put(credential, info);
+                } catch (RuntimeException e) {
+                    LOG.log(Level.WARNING, "Unable to process the credential (" + credential + "). " + e.getMessage(), e);
+                }
+            }
+        }
+        return credentialsInfoMap;
+    }
+
+    public static Map<String, String> getBlockDeviceMapping() {
+        Map<String, String> blockDeviceMapping = new HashMap<>();
+        List<String> devices = getItems(EC2_METADATA_ROOT + "/block-device-mapping");
+        if (devices != null) {
+            for (String device : devices) {
+                blockDeviceMapping.put(device, getData(EC2_METADATA_ROOT + "/block-device-mapping/" + device));
+            }
+        }
+        return blockDeviceMapping;
+    }
+
+    public static List<NetworkInterface> getNetworkInterfaces() {
+        List<NetworkInterface> networkInterfaces = new LinkedList<>();
+        List<String> macs = getItems(EC2_METADATA_ROOT + "/network/interfaces/macs/");
+        if (macs != null) {
+            for (String mac : macs) {
+                String key = mac.trim();
+                if (key.endsWith("/")) {
+                    key = key.substring(0, key.length() - 1);
+                }
+                networkInterfaces.add(new NetworkInterface(key));
+            }
+        }
+        return networkInterfaces;
+    }
+
+    public static String getUserData() {
+        return getData(EC2_USERDATA_ROOT);
+    }
+
+    public static String getData(String path) {
+        return read(path);
+    }
+
+    // v2's client retries on its own, so the attempt count is not used
+    public static String getData(String path, int tries) {
+        return read(path);
+    }
+
+    public static List<String> getItems(String path) {
+        String response = read(path);
+        return response == null ? null : Arrays.asList(response.split("\n"));
+    }
+
+    public static List<String> getItems(String path, int tries) {
+        return getItems(path);
+    }
+
+    public static String getHostAddressForEC2MetadataService() {
+        String host = System.getProperty("com.amazonaws.sdk.ec2MetadataServiceEndpointOverride");
+        if (host == null) {
+            host = System.getenv("AWS_EC2_METADATA_SERVICE_ENDPOINT");
+        }
+        return host != null ? host : EC2_METADATA_SERVICE_URL;
+    }
+
+    static InstanceInfo doGetInstanceInfo(String json) {
+        if (json == null) {
+            return null;
+        }
+        try {
+            Map<String, Object> doc = Json.parseObject(json);
+            for (String required : new String[]{"pendingTime", "instanceType", "imageId", "instanceId", "architecture", "accountId",
+                    "kernelId", "region", "version", "availabilityZone", "privateIp"}) {
+                if (!doc.containsKey(required)) {
+                    throw new IllegalArgumentException("Missing required property '" + required + "'");
+                }
+            }
+            return new InstanceInfo(Json.string(doc, "pendingTime"), Json.string(doc, "instanceType"), Json.string(doc, "imageId"),
+                    Json.string(doc, "instanceId"), Json.strings(doc, "billingProducts"), Json.string(doc, "architecture"),
+                    Json.string(doc, "accountId"), Json.string(doc, "kernelId"), Json.string(doc, "ramdiskId"),
+                    Json.string(doc, "region"), Json.string(doc, "version"), Json.string(doc, "availabilityZone"),
+                    Json.string(doc, "privateIp"), Json.strings(doc, "devpayProductCodes"));
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, "Unable to parse dynamic EC2 instance info (" + json + ") : " + e.getMessage(), e);
+            return null;
+        }
+    }
+
+    private static String read(String path) {
+        String host = System.getProperty("com.amazonaws.sdk.ec2MetadataServiceEndpointOverride");
+        try (Ec2MetadataClient client = host == null ? Ec2MetadataClient.create() :
+                Ec2MetadataClient.builder().endpoint(URI.create(host)).build()) {
+            return client.get(path).asString();
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "Unable to retrieve the requested metadata (" + path + "). " + e.getMessage(), e);
+            return null;
+        }
+    }
+
+    // A null result is not cached, so a failed lookup is retried on the next call
+    private static String fetchData(String path) {
+        String cached = CACHE.get(path);
+        if (cached != null) {
+            return cached;
+        }
+        String value = getData(path);
+        if (value != null) {
+            CACHE.put(path, value);
+        }
+        return value;
+    }
+
+    public static class IAMInfo {
+        public String code;
+        public String message;
+        public String lastUpdated;
+        public String instanceProfileArn;
+        public String instanceProfileId;
+    }
+
+    public static class IAMSecurityCredential {
+        public String code;
+        public String message;
+        public String lastUpdated;
+        public String type;
+        public String accessKeyId;
+        public String secretAccessKey;
+        public String token;
+        public String expiration;
+
+        @Deprecated
+        public String secretAcessKey;
+    }
+
+    public static class InstanceInfo {
+        private final String pendingTime;
+        private final String instanceType;
+        private final String imageId;
+        private final String instanceId;
+        private final String[] billingProducts;
+        private final String architecture;
+        private final String accountId;
+        private final String kernelId;
+        private final String ramdiskId;
+        private final String region;
+        private final String version;
+        private final String availabilityZone;
+        private final String privateIp;
+        private final String[] devpayProductCodes;
+
+        public InstanceInfo(String pendingTime, String instanceType, String imageId, String instanceId, String[] billingProducts,
+                            String architecture, String accountId, String kernelId, String ramdiskId, String region, String version,
+                            String availabilityZone, String privateIp, String[] devpayProductCodes) {
+            this.pendingTime = pendingTime;
+            this.instanceType = instanceType;
+            this.imageId = imageId;
+            this.instanceId = instanceId;
+            this.billingProducts = billingProducts == null ? null : billingProducts.clone();
+            this.architecture = architecture;
+            this.accountId = accountId;
+            this.kernelId = kernelId;
+            this.ramdiskId = ramdiskId;
+            this.region = region;
+            this.version = version;
+            this.availabilityZone = availabilityZone;
+            this.privateIp = privateIp;
+            this.devpayProductCodes = devpayProductCodes == null ? null : devpayProductCodes.clone();
+        }
+
+        public String getPendingTime() {
+            return pendingTime;
+        }
+
+        public String getInstanceType() {
+            return instanceType;
+        }
+
+        public String getImageId() {
+            return imageId;
+        }
+
+        public String getInstanceId() {
+            return instanceId;
+        }
+
+        public String[] getBillingProducts() {
+            return billingProducts == null ? null : billingProducts.clone();
+        }
+
+        public String getArchitecture() {
+            return architecture;
+        }
+
+        public String getAccountId() {
+            return accountId;
+        }
+
+        public String getKernelId() {
+            return kernelId;
+        }
+
+        public String getRamdiskId() {
+            return ramdiskId;
+        }
+
+        public String getRegion() {
+            return region;
+        }
+
+        public String getVersion() {
+            return version;
+        }
+
+        public String getAvailabilityZone() {
+            return availabilityZone;
+        }
+
+        public String getPrivateIp() {
+            return privateIp;
+        }
+
+        public String[] getDevpayProductCodes() {
+            return devpayProductCodes == null ? null : devpayProductCodes.clone();
+        }
+    }
+
+    public static class NetworkInterface {
+        private final String path;
+        private final String mac;
+        private List<String> availableKeys;
+        private final Map<String, String> data = new HashMap<>();
+
+        public NetworkInterface(String macAddress) {
+            mac = macAddress;
+            path = "/network/interfaces/macs/" + mac + "/";
+        }
+
+        public String getMacAddress() {
+            return mac;
+        }
+
+        public String getOwnerId() {
+            return getData("owner-id");
+        }
+
+        public String getProfile() {
+            return getData("profile");
+        }
+
+        public String getHostname() {
+            return getData("local-hostname");
+        }
+
+        public List<String> getLocalIPv4s() {
+            return getItems("local-ipv4s");
+        }
+
+        public String getPublicHostname() {
+            return getData("public-hostname");
+        }
+
+        public List<String> getPublicIPv4s() {
+            return getItems("public-ipv4s");
+        }
+
+        public List<String> getSecurityGroups() {
+            return getItems("security-groups");
+        }
+
+        public List<String> getSecurityGroupIds() {
+            return getItems("security-group-ids");
+        }
+
+        public String getSubnetIPv4CidrBlock() {
+            return getData("subnet-ipv4-cidr-block");
+        }
+
+        public String getSubnetId() {
+            return getData("subnet-id");
+        }
+
+        public String getVpcIPv4CidrBlock() {
+            return getData("vpc-ipv4-cidr-block");
+        }
+
+        public String getVpcId() {
+            return getData("vpc-id");
+        }
+
+        public List<String> getIPv4Association(String publicIp) {
+            return Ec2MetadataUtils.getItems(EC2_METADATA_ROOT + path + "ipv4-associations/" + publicIp);
+        }
+
+        private String getData(String key) {
+            if (data.containsKey(key)) {
+                return data.get(key);
+            }
+            if (availableKeys == null) {
+                availableKeys = Ec2MetadataUtils.getItems(EC2_METADATA_ROOT + path);
+            }
+            if (availableKeys != null && availableKeys.contains(key)) {
+                data.put(key, Ec2MetadataUtils.getData(EC2_METADATA_ROOT + path + key));
+                return data.get(key);
+            }
+            return null;
+        }
+
+        private List<String> getItems(String key) {
+            if (availableKeys == null) {
+                availableKeys = Ec2MetadataUtils.getItems(EC2_METADATA_ROOT + path);
+            }
+            if (availableKeys != null && availableKeys.contains(key)) {
+                return Ec2MetadataUtils.getItems(EC2_METADATA_ROOT + path + key);
+            }
+            return new LinkedList<>();
+        }
+    }
+
+    // The metadata documents are flat JSON objects, so a small reader avoids depending on a JSON library
+    private static final class Json {
+        private final String s;
+        private int i;
+
+        private Json(String s) {
+            this.s = s;
+        }
+
+        static Map<String, Object> parseObject(String json) {
+            if (json == null) {
+                throw new IllegalArgumentException("No document");
+            }
+            Json reader = new Json(json);
+            Object value = reader.value();
+            if (!(value instanceof Map)) {
+                throw new IllegalArgumentException("Not a JSON object");
+            }
+            @SuppressWarnings("unchecked") Map<String, Object> map = (Map<String, Object>) value;
+            return map;
+        }
+
+        static String string(Map<String, Object> doc, String key) {
+            Object value = doc.get(key);
+            return value == null || value instanceof Map || value instanceof List ? null : value.toString();
+        }
+
+        static String[] strings(Map<String, Object> doc, String key) {
+            Object value = doc.get(key);
+            if (!(value instanceof List)) {
+                return null;
+            }
+            List<String> values = new ArrayList<>();
+            for (Object v : (List<?>) value) {
+                values.add(v == null ? null : v.toString());
+            }
+            return values.toArray(new String[0]);
+        }
+
+        private Object value() {
+            skipWhitespace();
+            char c = s.charAt(i);
+            if (c == '{') {
+                Map<String, Object> map = new LinkedHashMap<>();
+                i++;
+                skipWhitespace();
+                if (s.charAt(i) == '}') {
+                    i++;
+                    return map;
+                }
+                while (true) {
+                    skipWhitespace();
+                    String key = string();
+                    skipWhitespace();
+                    expect(':');
+                    map.put(key, value());
+                    skipWhitespace();
+                    if (s.charAt(i) == ',') {
+                        i++;
+                    } else {
+                        expect('}');
+                        return map;
+                    }
+                }
+            }
+            if (c == '[') {
+                List<Object> list = new ArrayList<>();
+                i++;
+                skipWhitespace();
+                if (s.charAt(i) == ']') {
+                    i++;
+                    return list;
+                }
+                while (true) {
+                    list.add(value());
+                    skipWhitespace();
+                    if (s.charAt(i) == ',') {
+                        i++;
+                    } else {
+                        expect(']');
+                        return Collections.unmodifiableList(list);
+                    }
+                }
+            }
+            if (c == '"') {
+                return string();
+            }
+            int start = i;
+            while (i < s.length() && ",}] \t\r\n".indexOf(s.charAt(i)) < 0) {
+                i++;
+            }
+            String literal = s.substring(start, i);
+            return "null".equals(literal) ? null : literal;
+        }
+
+        private String string() {
+            expect('"');
+            StringBuilder out = new StringBuilder();
+            while (true) {
+                char c = s.charAt(i++);
+                if (c == '"') {
+                    return out.toString();
+                }
+                if (c == '\\') {
+                    char e = s.charAt(i++);
+                    switch (e) {
+                        case 'n':
+                            out.append('\n');
+                            break;
+                        case 't':
+                            out.append('\t');
+                            break;
+                        case 'r':
+                            out.append('\r');
+                            break;
+                        case 'b':
+                            out.append('\b');
+                            break;
+                        case 'f':
+                            out.append('\f');
+                            break;
+                        case 'u':
+                            out.append((char) Integer.parseInt(s.substring(i, i + 4), 16));
+                            i += 4;
+                            break;
+                        default:
+                            out.append(e);
+                    }
+                } else {
+                    out.append(c);
+                }
+            }
+        }
+
+        private void expect(char c) {
+            if (s.charAt(i) != c) {
+                throw new IllegalArgumentException("Expected '" + c + "' at " + i);
+            }
+            i++;
+        }
+
+        private void skipWhitespace() {
+            while (i < s.length() && Character.isWhitespace(s.charAt(i))) {
+                i++;
+            }
+        }
+    }
+}

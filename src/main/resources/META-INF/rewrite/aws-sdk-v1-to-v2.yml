@@ -1,0 +1,111 @@
+#
+# Copyright 2026 the original author or authors.
+# <p>
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# <p>
+# https://www.apache.org/licenses/LICENSE-2.0
+# <p>
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.aws.sdk.AwsSdkJavaV1ToV2Safe
+displayName: Run AWS's SDK v1 to v2 migration on Java sources only
+description: >-
+  Runs `software.amazon.awssdk.v2migration.AwsSdkJavaV1ToV2` only on Java sources that use SDK v1 types and on Maven and Gradle
+  build files that reference `com.amazonaws`. AWS's recipes do not support Kotlin, error on other languages, and can throw on
+  sources already on SDK v2. Files that still use Kinesis Client Library 1.x are skipped, since KCL 1.x only works with the v1
+  clients v2-migration would retype.
+preconditions:
+  - org.openrewrite.aws.sdk.search.FindAwsSdkV1MigrationTargets
+  - org.openrewrite.java.search.DoesNotUseType:
+      fullyQualifiedTypeName: com.amazonaws.services.kinesis.clientlibrary..*
+recipeList:
+  - software.amazon.awssdk.v2migration.AwsSdkJavaV1ToV2
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.aws.sdk.MigrateAwsSdkV1ToV2Steps
+displayName: Migrate from AWS SDK for Java v1 to v2 (without reporting)
+description: >-
+  The edits of `org.openrewrite.aws.sdk.MigrateAwsSdkV1ToV2`, for compositions that limit them to some modules: they also run
+  `org.openrewrite.aws.sdk.GenerateAwsSdkV2Helpers` limited to the same modules, and report on every module.
+recipeList:
+  - org.openrewrite.aws.signing.ReplaceAwsRequestSigningApacheInterceptor:
+      generateHelpers: false
+  - org.openrewrite.aws.signing.MigrateAwsRequestSigningApacheInterceptorDependency
+  - org.openrewrite.aws.signing.RemoveUnusedInreachSigningInterceptor
+  # Pre: run on v1 code, before v2-migration, so it converts what these leave in v1 form and skips what they already converted
+  - org.openrewrite.aws.sdk.MigrateAwsSdkV1BoundLibraries
+  # Before MigrateAwsClientBuildersToV2, which would mark the settings of a ClientConfiguration it cannot fold
+  - org.openrewrite.aws.sdk.MigrateSharedAwsClientConfiguration:
+      generateHelpers: false
+  - org.openrewrite.aws.sdk.MigrateAwsClientBuilderSubclasses:
+      generateHelpers: false
+  - org.openrewrite.aws.sdk.MigrateAwsEndpointConfigurationValues:
+      generateHelpers: false
+  - org.openrewrite.aws.sdk.MigrateGenericAwsClientBuilders
+  - org.openrewrite.aws.sdk.MigrateAwsClientBuildersToV2
+  - org.openrewrite.aws.sdk.MigrateAwsSdkV1Kotlin
+  - org.openrewrite.aws.sdk.MigrateAwsSdkV1Groovy
+  - org.openrewrite.aws.sdk.MigrateAwsCredentialsAndRegionResiduals
+  - org.openrewrite.aws.sdk.ExpandAwsRequestConstructorsAndOverloads
+  # After the constructors are expanded into `withX` calls, so that it sees every way a chain sets a map
+  - org.openrewrite.aws.sdk.MergeAwsModelMapEntryAdders
+  # Before PrepareAwsAsyncClientCalls, which would otherwise treat the buffered client as a plain async client
+  - org.openrewrite.aws.sdk.MigrateAwsSdkV1CloudFrontAndSqsBuffered
+  - org.openrewrite.aws.sdk.PrepareAwsAsyncClientCalls:
+      generateHelpers: false
+  - org.openrewrite.aws.sdk.MigrateDynamoDbTableUtils:
+      generateHelpers: false
+  - org.openrewrite.aws.sdk.MigrateDynamoDbDocumentApi:
+      generateHelpers: false
+  - org.openrewrite.aws.sdk.MigrateS3ObjectMetadata:
+      generateHelpers: false
+  - org.openrewrite.aws.sdk.MigrateS3BucketLifecycleConfiguration:
+      generateHelpers: false
+  - org.openrewrite.aws.sdk.MigrateS3Residuals:
+      generateHelpers: false
+  - org.openrewrite.aws.sdk.MigrateAwsSdkV1Utilities
+  - org.openrewrite.aws.sdk.MigrateAwsRetryPolicies
+  - org.openrewrite.aws.sdk.MigrateAwsProfilesConfigFile
+  # v2-migration fails to rebuild the model for a `setNULL` statement, but completes a `withNULL` one
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: com.amazonaws.services.dynamodbv2.model.AttributeValue setNULL(java.lang.Boolean)
+      newMethodName: withNULL
+  - org.openrewrite.aws.sdk.AwsSdkJavaV1ToV2Safe
+  # Post: these key on the v2 types v2-migration leaves behind. First, as the others cannot template a call named `null`
+  - org.openrewrite.aws.sdk.CompleteDynamoDbAttributeValues
+  - org.openrewrite.aws.sdk.CompleteAwsServiceExceptionConstructors
+  - org.openrewrite.aws.sdk.CompleteAwsAsyncClientCalls
+  - org.openrewrite.aws.sdk.CompleteS3ObjectMigration
+  - org.openrewrite.aws.sdk.CompleteV2ModelMutations
+  - org.openrewrite.aws.sdk.CompleteV2MockitoStubs
+  - org.openrewrite.aws.sdk.MigrateXRayTracingHandler
+  - org.openrewrite.aws.sdk.MigrateAwsRequestHandlerOverrides
+  - org.openrewrite.aws.sdk.FixAutoConstructNullChecks
+  # After CompleteV2ModelMutations, which turns setters into builder calls, and the null checks, which key on a bare `bs()`
+  - org.openrewrite.aws.sdk.CompleteDynamoDbBinaryAttributeValues
+  - org.openrewrite.aws.sdk.RemoveUnusedAwsSdkV1Imports
+  - org.openrewrite.aws.sdk.MigrateAwsSdkV2Dependencies
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.aws.sdk.MigrateAwsSdkV1ToV2
+displayName: Migrate from AWS SDK for Java v1 to v2
+description: >-
+  Migrates completely off AWS SDK for Java v1: runs AWS's own `AwsSdkJavaV1ToV2` and converts what it leaves on v1, including
+  Kotlin sources, libraries that only work with v1, the awslabs request signing interceptor and the v2 dependencies each module
+  needs. Anything that cannot be migrated is marked and listed in the `AwsSdkV1Remnants` data table.
+tags:
+  - aws
+  - sdk
+recipeList:
+  - org.openrewrite.aws.sdk.GenerateAwsSdkV2Helpers
+  - org.openrewrite.aws.sdk.MigrateAwsSdkV1ToV2Steps
+  - org.openrewrite.aws.signing.FindAwsRequestSigningApacheInterceptor
+  - org.openrewrite.aws.sdk.search.FindAwsSdkV1Remnants

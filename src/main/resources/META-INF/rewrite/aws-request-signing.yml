@@ -1,0 +1,47 @@
+#
+# Copyright 2026 the original author or authors.
+# <p>
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# <p>
+# https://www.apache.org/licenses/LICENSE-2.0
+# <p>
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.aws.signing.MigrateAwsRequestSigningApacheInterceptor
+displayName: Migrate awslabs' `aws-request-signing-apache-interceptor` to AWS SDK v2
+description: >-
+  Replaces awslabs' `AWSRequestSigningApacheInterceptor`, which needs AWS SDK v1, with an `AwsSigV4RequestInterceptor` generated
+  into the project that signs Apache HttpClient 4 requests with AWS SDK v2's `AwsV4HttpSigner`. Fixes the original's signing
+  defects, listed with every other behaviour change in the `AwsRequestSigningBehaviourChanges` data table, and swaps the dependency
+  for `software.amazon.awssdk:auth`. Java credential arguments are left for the AWS SDK v1 to v2 migration to retype, so run this
+  as part of `org.openrewrite.aws.sdk.MigrateAwsSdkV1ToV2`.
+tags:
+  - aws
+  - sdk
+recipeList:
+  - org.openrewrite.aws.signing.ReplaceAwsRequestSigningApacheInterceptor
+  - org.openrewrite.aws.signing.MigrateAwsRequestSigningApacheInterceptorDependency
+  - org.openrewrite.aws.signing.RemoveUnusedInreachSigningInterceptor
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.aws.signing.RemoveUnusedInreachSigningInterceptor
+displayName: Remove an unused `vc.inreach.aws:aws-signing-request-interceptor`
+description: >-
+  The defunct `vc.inreach.aws:aws-signing-request-interceptor` brings AWS SDK v1. Projects often declare it next to awslabs'
+  interceptor without using it; it is removed when no code references its types.
+tags:
+  - aws
+  - sdk
+recipeList:
+  - org.openrewrite.java.dependencies.RemoveDependency:
+      groupId: vc.inreach.aws
+      artifactId: aws-signing-request-interceptor
+      unlessUsing: vc.inreach.aws..*
