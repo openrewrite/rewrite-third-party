@@ -1,0 +1,2642 @@
+__PACKAGE__import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeAction;
+import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValueUpdate;
+import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.ComparisonOperator;
+import software.amazon.awssdk.services.dynamodb.model.Condition;
+import software.amazon.awssdk.services.dynamodb.model.ConditionalOperator;
+import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
+import software.amazon.awssdk.services.dynamodb.model.CreateTableResponse;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.DeleteRequest;
+import software.amazon.awssdk.services.dynamodb.model.DeleteTableResponse;
+import software.amazon.awssdk.services.dynamodb.model.ExpectedAttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
+import software.amazon.awssdk.services.dynamodb.model.ListTablesResponse;
+import software.amazon.awssdk.services.dynamodb.model.ProvisionedThroughput;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.PutRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
+import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException;
+import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
+import software.amazon.awssdk.services.dynamodb.model.TableDescription;
+import software.amazon.awssdk.services.dynamodb.model.TableStatus;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.function.Function;
+
+/**
+ * The parts of AWS SDK v1's DynamoDB Document API ({@code com.amazonaws.services.dynamodbv2.document}) that this project uses,
+ * with the same names and behaviour, on AWS SDK v2's {@code DynamoDbClient}. Items keep v1's simple values: numbers are
+ * {@code BigDecimal}, binaries {@code byte[]}, sets {@code LinkedHashSet}s.
+ */
+public final class DynamoDbDocumentApi {
+
+    private DynamoDbDocumentApi() {
+    }
+
+    public static class DynamoDB {
+        private final DynamoDbClient client;
+
+        public DynamoDB(DynamoDbClient client) {
+            this.client = client;
+        }
+
+        public Table getTable(String tableName) {
+            return new Table(client, tableName, null);
+        }
+
+        public Table createTable(CreateTableRequest request) {
+            CreateTableResponse response = client.createTable(request);
+            return new Table(client, request.tableName(), response.tableDescription());
+        }
+
+        public Table createTable(String tableName, List<KeySchemaElement> keySchema,
+                                 List<AttributeDefinition> attributeDefinitions, ProvisionedThroughput provisionedThroughput) {
+            return createTable(CreateTableRequest.builder()
+                    .tableName(tableName)
+                    .keySchema(keySchema)
+                    .attributeDefinitions(attributeDefinitions)
+                    .provisionedThroughput(provisionedThroughput)
+                    .build());
+        }
+
+        public TableCollection<ListTablesResponse> listTables() {
+            List<Table> tables = new ArrayList<>();
+            for (String name : client.listTablesPaginator().tableNames()) {
+                tables.add(getTable(name));
+            }
+            return new TableCollection<>(tables);
+        }
+
+        public BatchWriteItemOutcome batchWriteItem(TableWriteItems... tableWriteItems) {
+            Map<String, List<WriteRequest>> requests = new LinkedHashMap<>();
+            for (TableWriteItems items : tableWriteItems) {
+                requests.computeIfAbsent(items.getTableName(), k -> new ArrayList<>()).addAll(items.writeRequests());
+            }
+            return batchWriteItemUnprocessed(requests);
+        }
+
+        public BatchWriteItemOutcome batchWriteItemUnprocessed(Map<String, ? extends List<WriteRequest>> unprocessedItems) {
+            return new BatchWriteItemOutcome(client.batchWriteItem(r -> r.requestItems(new LinkedHashMap<>(unprocessedItems))));
+        }
+
+        public void shutdown() {
+            client.close();
+        }
+    }
+
+    public static class TableCollection<R> implements Iterable<Table> {
+        private final List<Table> tables;
+
+        TableCollection(List<Table> tables) {
+            this.tables = tables;
+        }
+
+        @Override
+        public Iterator<Table> iterator() {
+            return tables.iterator();
+        }
+    }
+
+    public static class Table {
+        private static final long SLEEP_TIME_MILLIS = 5000;
+
+        private final DynamoDbClient client;
+        private final String tableName;
+        private volatile TableDescription description;
+
+        Table(DynamoDbClient client, String tableName, TableDescription description) {
+            this.client = client;
+            this.tableName = tableName;
+            this.description = description;
+        }
+
+        public String getTableName() {
+            return tableName;
+        }
+
+        public TableDescription getDescription() {
+            return description;
+        }
+
+        public TableDescription describe() {
+            description = client.describeTable(r -> r.tableName(tableName)).table();
+            return description;
+        }
+
+        public Index getIndex(String indexName) {
+            return new Index(this, indexName);
+        }
+
+        public TableDescription waitForActive() throws InterruptedException {
+            for (; ; ) {
+                TableDescription desc = describe();
+                if (desc.tableStatus() == TableStatus.ACTIVE) {
+                    return desc;
+                }
+                if (desc.tableStatus() == TableStatus.DELETING) {
+                    throw new IllegalArgumentException("Table " + tableName + " is being deleted");
+                }
+                Thread.sleep(SLEEP_TIME_MILLIS);
+            }
+        }
+
+        public void waitForDelete() throws InterruptedException {
+            try {
+                for (; ; ) {
+                    describe();
+                    Thread.sleep(SLEEP_TIME_MILLIS);
+                }
+            } catch (ResourceNotFoundException deleted) {
+                // the table is gone
+            }
+        }
+
+        public DeleteTableOutcome delete() {
+            return new DeleteTableOutcome(client.deleteTable(r -> r.tableName(tableName)));
+        }
+
+        public PutItemOutcome putItem(Item item) {
+            return putItem(new PutItemSpec().withItem(item));
+        }
+
+        public PutItemOutcome putItem(Item item, Expected... expected) {
+            return putItem(new PutItemSpec().withItem(item).withExpected(expected));
+        }
+
+        public PutItemOutcome putItem(Item item, String conditionExpression, Map<String, String> nameMap,
+                                      Map<String, Object> valueMap) {
+            return putItem(new PutItemSpec().withItem(item).withConditionExpression(conditionExpression)
+                    .withNameMap(nameMap).withValueMap(valueMap));
+        }
+
+        public PutItemOutcome putItem(PutItemSpec spec) {
+            PutItemRequest.Builder request = PutItemRequest.builder()
+                    .tableName(tableName)
+                    .item(spec.item.toAttributeValues())
+                    .conditionExpression(spec.conditionExpression)
+                    .returnValues(spec.returnValues);
+            if (spec.nameMap != null) {
+                request.expressionAttributeNames(spec.nameMap);
+            }
+            if (spec.valueMap != null) {
+                request.expressionAttributeValues(ItemUtils.fromSimpleMap(spec.valueMap));
+            }
+            if (spec.expected != null) {
+                request.expected(Legacy.expected(spec.expected)).conditionalOperator(spec.conditionalOperator);
+            }
+            return new PutItemOutcome(client.putItem(request.build()));
+        }
+
+        public Item getItem(String hashKeyName, Object hashKeyValue) {
+            return getItem(new PrimaryKey(hashKeyName, hashKeyValue));
+        }
+
+        public Item getItem(String hashKeyName, Object hashKeyValue, String rangeKeyName, Object rangeKeyValue) {
+            return getItem(new PrimaryKey(hashKeyName, hashKeyValue, rangeKeyName, rangeKeyValue));
+        }
+
+        public Item getItem(KeyAttribute... primaryKeyComponents) {
+            return getItem(new PrimaryKey(primaryKeyComponents));
+        }
+
+        public Item getItem(PrimaryKey primaryKey) {
+            return getItemOutcome(new GetItemSpec().withPrimaryKey(primaryKey)).getItem();
+        }
+
+        public Item getItem(PrimaryKey primaryKey, String projectionExpression, Map<String, String> nameMap) {
+            return getItemOutcome(new GetItemSpec().withPrimaryKey(primaryKey)
+                    .withProjectionExpression(projectionExpression).withNameMap(nameMap)).getItem();
+        }
+
+        public Item getItem(GetItemSpec spec) {
+            return getItemOutcome(spec).getItem();
+        }
+
+        public GetItemOutcome getItemOutcome(String hashKeyName, Object hashKeyValue) {
+            return getItemOutcome(new GetItemSpec().withPrimaryKey(hashKeyName, hashKeyValue));
+        }
+
+        public GetItemOutcome getItemOutcome(PrimaryKey primaryKey) {
+            return getItemOutcome(new GetItemSpec().withPrimaryKey(primaryKey));
+        }
+
+        public GetItemOutcome getItemOutcome(GetItemSpec spec) {
+            GetItemRequest.Builder request = GetItemRequest.builder()
+                    .tableName(tableName)
+                    .key(spec.primaryKey.toAttributeValues())
+                    .consistentRead(spec.consistentRead)
+                    .projectionExpression(spec.projectionExpression);
+            if (spec.nameMap != null) {
+                request.expressionAttributeNames(spec.nameMap);
+            }
+            return new GetItemOutcome(client.getItem(request.build()));
+        }
+
+        public UpdateItemOutcome updateItem(UpdateItemSpec spec) {
+            UpdateItemRequest.Builder request = UpdateItemRequest.builder()
+                    .tableName(tableName)
+                    .key(spec.primaryKey.toAttributeValues())
+                    .updateExpression(spec.updateExpression)
+                    .conditionExpression(spec.conditionExpression)
+                    .returnValues(spec.returnValues);
+            if (spec.nameMap != null) {
+                request.expressionAttributeNames(spec.nameMap);
+            }
+            if (spec.valueMap != null) {
+                request.expressionAttributeValues(ItemUtils.fromSimpleMap(spec.valueMap));
+            }
+            if (spec.expected != null) {
+                request.expected(Legacy.expected(spec.expected)).conditionalOperator(spec.conditionalOperator);
+            }
+            if (spec.attributeUpdates != null) {
+                request.attributeUpdates(Legacy.updates(spec.attributeUpdates));
+            }
+            return new UpdateItemOutcome(client.updateItem(request.build()));
+        }
+
+        public UpdateItemOutcome updateItem(PrimaryKey primaryKey, AttributeUpdate... attributeUpdates) {
+            return updateItem(new UpdateItemSpec().withPrimaryKey(primaryKey).withAttributeUpdate(attributeUpdates));
+        }
+
+        public UpdateItemOutcome updateItem(PrimaryKey primaryKey, Collection<Expected> expected,
+                                            AttributeUpdate... attributeUpdates) {
+            return updateItem(new UpdateItemSpec().withPrimaryKey(primaryKey).withExpected(expected)
+                    .withAttributeUpdate(attributeUpdates));
+        }
+
+        public UpdateItemOutcome updateItem(String hashKeyName, Object hashKeyValue, AttributeUpdate... attributeUpdates) {
+            return updateItem(new PrimaryKey(hashKeyName, hashKeyValue), attributeUpdates);
+        }
+
+        public UpdateItemOutcome updateItem(String hashKeyName, Object hashKeyValue, String rangeKeyName, Object rangeKeyValue,
+                                            AttributeUpdate... attributeUpdates) {
+            return updateItem(new PrimaryKey(hashKeyName, hashKeyValue, rangeKeyName, rangeKeyValue), attributeUpdates);
+        }
+
+        public UpdateItemOutcome updateItem(String hashKeyName, Object hashKeyValue, Collection<Expected> expected,
+                                            AttributeUpdate... attributeUpdates) {
+            return updateItem(new PrimaryKey(hashKeyName, hashKeyValue), expected, attributeUpdates);
+        }
+
+        public UpdateItemOutcome updateItem(String hashKeyName, Object hashKeyValue, String rangeKeyName, Object rangeKeyValue,
+                                            Collection<Expected> expected, AttributeUpdate... attributeUpdates) {
+            return updateItem(new PrimaryKey(hashKeyName, hashKeyValue, rangeKeyName, rangeKeyValue), expected,
+                    attributeUpdates);
+        }
+
+        public UpdateItemOutcome updateItem(String hashKeyName, Object hashKeyValue, String updateExpression,
+                                            Map<String, String> nameMap, Map<String, Object> valueMap) {
+            return updateItem(new PrimaryKey(hashKeyName, hashKeyValue), updateExpression, nameMap, valueMap);
+        }
+
+        public UpdateItemOutcome updateItem(String hashKeyName, Object hashKeyValue, String rangeKeyName, Object rangeKeyValue,
+                                            String updateExpression, Map<String, String> nameMap, Map<String, Object> valueMap) {
+            return updateItem(new PrimaryKey(hashKeyName, hashKeyValue, rangeKeyName, rangeKeyValue), updateExpression, nameMap,
+                    valueMap);
+        }
+
+        public UpdateItemOutcome updateItem(PrimaryKey primaryKey, String updateExpression, Map<String, String> nameMap,
+                                            Map<String, Object> valueMap) {
+            return updateItem(new UpdateItemSpec().withPrimaryKey(primaryKey).withUpdateExpression(updateExpression)
+                    .withNameMap(nameMap).withValueMap(valueMap));
+        }
+
+        public DeleteItemOutcome deleteItem(String hashKeyName, Object hashKeyValue) {
+            return deleteItem(new PrimaryKey(hashKeyName, hashKeyValue));
+        }
+
+        public DeleteItemOutcome deleteItem(String hashKeyName, Object hashKeyValue, String rangeKeyName, Object rangeKeyValue) {
+            return deleteItem(new PrimaryKey(hashKeyName, hashKeyValue, rangeKeyName, rangeKeyValue));
+        }
+
+        public DeleteItemOutcome deleteItem(KeyAttribute... primaryKeyComponents) {
+            return deleteItem(new PrimaryKey(primaryKeyComponents));
+        }
+
+        public DeleteItemOutcome deleteItem(PrimaryKey primaryKey) {
+            return deleteItem(new DeleteItemSpec().withPrimaryKey(primaryKey));
+        }
+
+        public DeleteItemOutcome deleteItem(PrimaryKey primaryKey, Expected... expected) {
+            return deleteItem(new DeleteItemSpec().withPrimaryKey(primaryKey).withExpected(expected));
+        }
+
+        public DeleteItemOutcome deleteItem(String hashKeyName, Object hashKeyValue, Expected... expected) {
+            return deleteItem(new PrimaryKey(hashKeyName, hashKeyValue), expected);
+        }
+
+        public DeleteItemOutcome deleteItem(String hashKeyName, Object hashKeyValue, String rangeKeyName, Object rangeKeyValue,
+                                            Expected... expected) {
+            return deleteItem(new PrimaryKey(hashKeyName, hashKeyValue, rangeKeyName, rangeKeyValue), expected);
+        }
+
+        public DeleteItemOutcome deleteItem(DeleteItemSpec spec) {
+            DeleteItemRequest.Builder request = DeleteItemRequest.builder()
+                    .tableName(tableName)
+                    .key(spec.primaryKey.toAttributeValues())
+                    .conditionExpression(spec.conditionExpression)
+                    .returnValues(spec.returnValues);
+            if (spec.nameMap != null) {
+                request.expressionAttributeNames(spec.nameMap);
+            }
+            if (spec.valueMap != null) {
+                request.expressionAttributeValues(ItemUtils.fromSimpleMap(spec.valueMap));
+            }
+            if (spec.expected != null) {
+                request.expected(Legacy.expected(spec.expected)).conditionalOperator(spec.conditionalOperator);
+            }
+            return new DeleteItemOutcome(client.deleteItem(request.build()));
+        }
+
+        public ItemCollection<QueryOutcome> query(String hashKeyName, Object hashKeyValue) {
+            return query(new QuerySpec().withHashKey(hashKeyName, hashKeyValue));
+        }
+
+        public ItemCollection<QueryOutcome> query(KeyAttribute hashKey) {
+            return query(new QuerySpec().withHashKey(hashKey));
+        }
+
+        public ItemCollection<QueryOutcome> query(QuerySpec spec) {
+            return spec.run(client, tableName, null);
+        }
+
+        public ItemCollection<QueryOutcome> query(String hashKeyName, Object hashKeyValue, RangeKeyCondition rangeKeyCondition) {
+            return query(new KeyAttribute(hashKeyName, hashKeyValue), rangeKeyCondition);
+        }
+
+        public ItemCollection<QueryOutcome> query(String hashKeyName, Object hashKeyValue, RangeKeyCondition rangeKeyCondition,
+                                                  QueryFilter... queryFilters) {
+            return query(new KeyAttribute(hashKeyName, hashKeyValue), rangeKeyCondition, queryFilters);
+        }
+
+        public ItemCollection<QueryOutcome> query(KeyAttribute hashKey, RangeKeyCondition rangeKeyCondition) {
+            return query(new QuerySpec().withHashKey(hashKey).withRangeKeyCondition(rangeKeyCondition));
+        }
+
+        public ItemCollection<QueryOutcome> query(KeyAttribute hashKey, RangeKeyCondition rangeKeyCondition,
+                                                  QueryFilter... queryFilters) {
+            return query(new QuerySpec().withHashKey(hashKey).withRangeKeyCondition(rangeKeyCondition)
+                    .withQueryFilters(queryFilters));
+        }
+
+        public ItemCollection<ScanOutcome> scan() {
+            return scan(new ScanSpec());
+        }
+
+        public ItemCollection<ScanOutcome> scan(String filterExpression, Map<String, String> nameMap, Map<String, Object> valueMap) {
+            return scan(new ScanSpec().withFilterExpression(filterExpression).withNameMap(nameMap).withValueMap(valueMap));
+        }
+
+        public ItemCollection<ScanOutcome> scan(String filterExpression, String projectionExpression, Map<String, String> nameMap,
+                                                Map<String, Object> valueMap) {
+            return scan(new ScanSpec().withFilterExpression(filterExpression).withProjectionExpression(projectionExpression)
+                    .withNameMap(nameMap).withValueMap(valueMap));
+        }
+
+        public ItemCollection<ScanOutcome> scan(ScanSpec spec) {
+            return spec.run(client, tableName, null);
+        }
+
+        public ItemCollection<ScanOutcome> scan(ScanFilter... scanFilters) {
+            return scan(new ScanSpec().withScanFilters(scanFilters));
+        }
+
+        @Override
+        public String toString() {
+            return "{" + tableName + ": " + description + "}";
+        }
+    }
+
+    public static class Index {
+        private final Table table;
+        private final String indexName;
+
+        Index(Table table, String indexName) {
+            this.table = table;
+            this.indexName = indexName;
+        }
+
+        public String getIndexName() {
+            return indexName;
+        }
+
+        public Table getTable() {
+            return table;
+        }
+
+        public ItemCollection<QueryOutcome> query(String hashKeyName, Object hashKeyValue) {
+            return query(new QuerySpec().withHashKey(hashKeyName, hashKeyValue));
+        }
+
+        public ItemCollection<QueryOutcome> query(KeyAttribute hashKey) {
+            return query(new QuerySpec().withHashKey(hashKey));
+        }
+
+        public ItemCollection<QueryOutcome> query(QuerySpec spec) {
+            return spec.run(table.client, table.tableName, indexName);
+        }
+
+        public ItemCollection<ScanOutcome> scan(ScanSpec spec) {
+            return spec.run(table.client, table.tableName, indexName);
+        }
+
+        public ItemCollection<QueryOutcome> query(String hashKeyName, Object hashKeyValue, RangeKeyCondition rangeKeyCondition) {
+            return query(new KeyAttribute(hashKeyName, hashKeyValue), rangeKeyCondition);
+        }
+
+        public ItemCollection<QueryOutcome> query(String hashKeyName, Object hashKeyValue, RangeKeyCondition rangeKeyCondition,
+                                                  QueryFilter... queryFilters) {
+            return query(new KeyAttribute(hashKeyName, hashKeyValue), rangeKeyCondition, queryFilters);
+        }
+
+        public ItemCollection<QueryOutcome> query(KeyAttribute hashKey, RangeKeyCondition rangeKeyCondition) {
+            return query(new QuerySpec().withHashKey(hashKey).withRangeKeyCondition(rangeKeyCondition));
+        }
+
+        public ItemCollection<QueryOutcome> query(KeyAttribute hashKey, RangeKeyCondition rangeKeyCondition,
+                                                  QueryFilter... queryFilters) {
+            return query(new QuerySpec().withHashKey(hashKey).withRangeKeyCondition(rangeKeyCondition)
+                    .withQueryFilters(queryFilters));
+        }
+
+        public ItemCollection<ScanOutcome> scan(ScanFilter... scanFilters) {
+            return scan(new ScanSpec().withScanFilters(scanFilters));
+        }
+    }
+
+    public static class KeyAttribute {
+        private final String name;
+        private final Object value;
+
+        public KeyAttribute(String attributeName, Object value) {
+            this.name = attributeName;
+            this.value = value;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public Object getValue() {
+            return value;
+        }
+
+        @Override
+        public String toString() {
+            return name + "=" + value;
+        }
+    }
+
+    public static class PrimaryKey {
+        private final Map<String, KeyAttribute> components = new LinkedHashMap<>();
+
+        public PrimaryKey() {
+        }
+
+        public PrimaryKey(KeyAttribute... components) {
+            addComponents(components);
+        }
+
+        public PrimaryKey(String hashKeyName, Object hashKeyValue) {
+            addComponent(hashKeyName, hashKeyValue);
+        }
+
+        public PrimaryKey(String hashKeyName, Object hashKeyValue, String rangeKeyName, Object rangeKeyValue) {
+            addComponent(hashKeyName, hashKeyValue);
+            addComponent(rangeKeyName, rangeKeyValue);
+        }
+
+        public Collection<KeyAttribute> getComponents() {
+            return components.values();
+        }
+
+        public Set<String> getComponentNameSet() {
+            return components.keySet();
+        }
+
+        public boolean hasComponent(String attrName) {
+            return components.containsKey(attrName);
+        }
+
+        public PrimaryKey addComponents(KeyAttribute... components) {
+            if (components != null) {
+                for (KeyAttribute component : components) {
+                    this.components.put(component.getName(), component);
+                }
+            }
+            return this;
+        }
+
+        public PrimaryKey addComponent(String keyAttributeName, Object keyAttributeValue) {
+            components.put(keyAttributeName, new KeyAttribute(keyAttributeName, keyAttributeValue));
+            return this;
+        }
+
+        Map<String, AttributeValue> toAttributeValues() {
+            Map<String, AttributeValue> key = new LinkedHashMap<>();
+            for (KeyAttribute component : components.values()) {
+                key.put(component.getName(), ItemUtils.toAttributeValue(component.getValue()));
+            }
+            return key;
+        }
+
+        @Override
+        public String toString() {
+            return String.valueOf(components.values());
+        }
+    }
+
+    public static class Item {
+        private final Map<String, Object> attributes = new LinkedHashMap<>();
+
+        public static Item fromMap(Map<String, Object> attributes) {
+            if (attributes == null) {
+                return null;
+            }
+            Item item = new Item();
+            for (Map.Entry<String, Object> e : attributes.entrySet()) {
+                item.with(e.getKey(), e.getValue());
+            }
+            return item;
+        }
+
+        static Item fromAttributeValues(Map<String, AttributeValue> values) {
+            return values == null || values.isEmpty() ? null : fromMap(ItemUtils.toSimpleMapValue(values));
+        }
+
+        Map<String, AttributeValue> toAttributeValues() {
+            return ItemUtils.fromSimpleMap(attributes);
+        }
+
+        public Item withPrimaryKey(PrimaryKey primaryKey) {
+            for (KeyAttribute component : primaryKey.getComponents()) {
+                with(component.getName(), component.getValue());
+            }
+            return this;
+        }
+
+        public Item withPrimaryKey(String hashKeyName, Object hashKeyValue) {
+            return with(hashKeyName, hashKeyValue);
+        }
+
+        public Item withPrimaryKey(String hashKeyName, Object hashKeyValue, String rangeKeyName, Object rangeKeyValue) {
+            return with(hashKeyName, hashKeyValue).with(rangeKeyName, rangeKeyValue);
+        }
+
+        public Item withKeyComponents(KeyAttribute... components) {
+            for (KeyAttribute component : components) {
+                with(component.getName(), component.getValue());
+            }
+            return this;
+        }
+
+        public Item withKeyComponent(String keyAttrName, Object keyAttrValue) {
+            return with(keyAttrName, keyAttrValue);
+        }
+
+        public Item withString(String attrName, String val) {
+            attributes.put(attrName, val);
+            return this;
+        }
+
+        public Item withNumber(String attrName, Number val) {
+            attributes.put(attrName, toBigDecimal(val));
+            return this;
+        }
+
+        public Item withNumber(String attrName, BigDecimal val) {
+            attributes.put(attrName, val);
+            return this;
+        }
+
+        public Item withBigInteger(String attrName, BigInteger val) {
+            return withNumber(attrName, val);
+        }
+
+        public Item withShort(String attrName, short val) {
+            return withNumber(attrName, Short.valueOf(val));
+        }
+
+        public Item withInt(String attrName, int val) {
+            return withNumber(attrName, Integer.valueOf(val));
+        }
+
+        public Item withLong(String attrName, long val) {
+            return withNumber(attrName, Long.valueOf(val));
+        }
+
+        public Item withFloat(String attrName, float val) {
+            return withNumber(attrName, Float.valueOf(val));
+        }
+
+        public Item withDouble(String attrName, double val) {
+            return withNumber(attrName, Double.valueOf(val));
+        }
+
+        public Item withBoolean(String attrName, boolean val) {
+            attributes.put(attrName, val);
+            return this;
+        }
+
+        public Item withBinary(String attrName, byte[] val) {
+            attributes.put(attrName, val);
+            return this;
+        }
+
+        public Item withBinary(String attrName, ByteBuffer val) {
+            return withBinary(attrName, ItemUtils.copyAllBytesFrom(val));
+        }
+
+        public Item withStringSet(String attrName, Set<String> val) {
+            attributes.put(attrName, val == null ? null : new LinkedHashSet<>(val));
+            return this;
+        }
+
+        public Item withStringSet(String attrName, String... val) {
+            return withStringSet(attrName, new LinkedHashSet<>(Arrays.asList(val)));
+        }
+
+        public Item withNumberSet(String attrName, Set<? extends Number> val) {
+            Set<BigDecimal> set = new LinkedHashSet<>();
+            for (Number n : val) {
+                set.add(toBigDecimal(n));
+            }
+            attributes.put(attrName, set);
+            return this;
+        }
+
+        public Item withNumberSet(String attrName, Number... val) {
+            return withNumberSet(attrName, new LinkedHashSet<>(Arrays.asList(val)));
+        }
+
+        public Item withBinarySet(String attrName, Set<byte[]> val) {
+            attributes.put(attrName, val);
+            return this;
+        }
+
+        public Item withList(String attrName, List<?> val) {
+            attributes.put(attrName, val);
+            return this;
+        }
+
+        public Item withList(String attrName, Object... vals) {
+            return withList(attrName, Arrays.asList(vals));
+        }
+
+        public Item withMap(String attrName, Map<String, ?> val) {
+            attributes.put(attrName, val);
+            return this;
+        }
+
+        public Item withNull(String attrName) {
+            attributes.put(attrName, null);
+            return this;
+        }
+
+        public Item with(String attrName, Object val) {
+            if (val instanceof Number && !(val instanceof BigDecimal)) {
+                val = toBigDecimal((Number) val);
+            } else if (val instanceof ByteBuffer) {
+                val = ItemUtils.copyAllBytesFrom((ByteBuffer) val);
+            }
+            attributes.put(attrName, val);
+            return this;
+        }
+
+        public Item removeAttribute(String attrName) {
+            attributes.remove(attrName);
+            return this;
+        }
+
+        public boolean hasAttribute(String attrName) {
+            return attributes.containsKey(attrName);
+        }
+
+        public boolean isPresent(String attrName) {
+            return attributes.containsKey(attrName);
+        }
+
+        public boolean isNull(String attrName) {
+            return attributes.containsKey(attrName) && attributes.get(attrName) == null;
+        }
+
+        public Object get(String attrName) {
+            return attributes.get(attrName);
+        }
+
+        public Class<?> getTypeOf(String attrName) {
+            Object val = attributes.get(attrName);
+            return val == null ? null : val.getClass();
+        }
+
+        public String getString(String attrName) {
+            Object val = attributes.get(attrName);
+            if (val == null || val instanceof String) {
+                return (String) val;
+            }
+            if (val instanceof BigDecimal) {
+                return ((BigDecimal) val).toPlainString();
+            }
+            if (val instanceof Boolean) {
+                return (Boolean) val ? "1" : "0";
+            }
+            return String.valueOf(val);
+        }
+
+        public String getJSON(String attrName) {
+            Object val = attributes.get(attrName);
+            return val == null ? null : Json.write(val, false);
+        }
+
+        public String getJSONPretty(String attrName) {
+            Object val = attributes.get(attrName);
+            return val == null ? null : Json.write(val, true);
+        }
+
+        public Item withJSON(String attrName, String json) {
+            attributes.put(attrName, Json.read(json));
+            return this;
+        }
+
+        public static Item fromJSON(String json) {
+            if (json == null) {
+                return null;
+            }
+            @SuppressWarnings("unchecked")
+            Map<String, Object> map = (Map<String, Object>) Json.read(json);
+            return fromMap(map);
+        }
+
+        public String toJSON() {
+            return Json.write(attributes, false);
+        }
+
+        public String toJSONPretty() {
+            return Json.write(attributes, true);
+        }
+
+        public BigDecimal getNumber(String attrName) {
+            Object val = attributes.get(attrName);
+            if (val == null || val instanceof BigDecimal) {
+                return (BigDecimal) val;
+            }
+            if (val instanceof Number) {
+                return toBigDecimal((Number) val);
+            }
+            if (val instanceof Boolean) {
+                return (Boolean) val ? BigDecimal.ONE : BigDecimal.ZERO;
+            }
+            return new BigDecimal(val.toString());
+        }
+
+        private BigDecimal requireNumber(String attrName) {
+            BigDecimal val = getNumber(attrName);
+            if (val == null) {
+                throw new NumberFormatException("value of " + attrName + " is null");
+            }
+            return val;
+        }
+
+        public BigInteger getBigInteger(String attrName) {
+            BigDecimal val = getNumber(attrName);
+            return val == null ? null : val.toBigInteger();
+        }
+
+        public short getShort(String attrName) {
+            return requireNumber(attrName).shortValue();
+        }
+
+        public int getInt(String attrName) {
+            return requireNumber(attrName).intValue();
+        }
+
+        public long getLong(String attrName) {
+            return requireNumber(attrName).longValue();
+        }
+
+        public float getFloat(String attrName) {
+            return requireNumber(attrName).floatValue();
+        }
+
+        public double getDouble(String attrName) {
+            return requireNumber(attrName).doubleValue();
+        }
+
+        public boolean getBoolean(String attrName) {
+            Object val = attributes.get(attrName);
+            if (val instanceof Boolean) {
+                return (Boolean) val;
+            }
+            if (val instanceof String) {
+                return "1".equals(val) || "true".equalsIgnoreCase((String) val);
+            }
+            if (val instanceof BigDecimal) {
+                return BigDecimal.ONE.compareTo((BigDecimal) val) == 0;
+            }
+            throw new IncompatibleTypeException("value of " + attrName + " is not a boolean");
+        }
+
+        public Boolean getBOOL(String attrName) {
+            return (Boolean) attributes.get(attrName);
+        }
+
+        public byte[] getBinary(String attrName) {
+            Object val = attributes.get(attrName);
+            if (val instanceof String) {
+                return ((String) val).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            }
+            return (byte[]) val;
+        }
+
+        public ByteBuffer getByteBuffer(String attrName) {
+            byte[] val = getBinary(attrName);
+            return val == null ? null : ByteBuffer.wrap(val);
+        }
+
+        @SuppressWarnings("unchecked")
+        public Set<String> getStringSet(String attrName) {
+            Object val = attributes.get(attrName);
+            if (val == null) {
+                return null;
+            }
+            Set<String> set = new LinkedHashSet<>();
+            for (Object o : (Collection<Object>) val) {
+                set.add(o instanceof BigDecimal ? ((BigDecimal) o).toPlainString() : String.valueOf(o));
+            }
+            return set;
+        }
+
+        @SuppressWarnings("unchecked")
+        public Set<BigDecimal> getNumberSet(String attrName) {
+            Object val = attributes.get(attrName);
+            if (val == null) {
+                return null;
+            }
+            Set<BigDecimal> set = new LinkedHashSet<>();
+            for (Object o : (Collection<Object>) val) {
+                set.add(o instanceof Number ? toBigDecimal((Number) o) : new BigDecimal(o.toString()));
+            }
+            return set;
+        }
+
+        @SuppressWarnings("unchecked")
+        public Set<byte[]> getBinarySet(String attrName) {
+            return (Set<byte[]>) attributes.get(attrName);
+        }
+
+        @SuppressWarnings("unchecked")
+        public <T> List<T> getList(String attrName) {
+            return (List<T>) attributes.get(attrName);
+        }
+
+        @SuppressWarnings("unchecked")
+        public <T> Map<String, T> getMap(String attrName) {
+            return (Map<String, T>) attributes.get(attrName);
+        }
+
+        @SuppressWarnings("unchecked")
+        public <T> Map<String, T> getRawMap(String attrName) {
+            return (Map<String, T>) attributes.get(attrName);
+        }
+
+        public Map<String, Object> asMap() {
+            return new LinkedHashMap<>(attributes);
+        }
+
+        public Iterable<Map.Entry<String, Object>> attributes() {
+            return new ArrayList<>(attributes.entrySet());
+        }
+
+        public int numberOfAttributes() {
+            return attributes.size();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof Item && ((Item) o).attributes.equals(attributes);
+        }
+
+        @Override
+        public int hashCode() {
+            return attributes.hashCode();
+        }
+
+        @Override
+        public String toString() {
+            return "{ Item: " + attributes + " }";
+        }
+
+        private static BigDecimal toBigDecimal(Number n) {
+            if (n == null || n instanceof BigDecimal) {
+                return (BigDecimal) n;
+            }
+            if (n instanceof BigInteger) {
+                return new BigDecimal((BigInteger) n);
+            }
+            return new BigDecimal(n.toString());
+        }
+    }
+
+    /**
+     * v1's legacy conditional parameters. v2's {@code DynamoDbClient} still takes them, so they keep v1's semantics.
+     */
+    public abstract static class Filter<T extends Filter<T>> {
+        private final String attribute;
+        private ComparisonOperator op;
+        private Object[] values;
+
+        protected Filter(String attrName) {
+            Legacy.checkAttrName(attrName);
+            this.attribute = attrName;
+        }
+
+        public String getAttribute() {
+            return attribute;
+        }
+
+        public ComparisonOperator getComparisonOperator() {
+            return op;
+        }
+
+        public Object[] getValues() {
+            return values == null ? null : values.clone();
+        }
+
+        @SuppressWarnings("unchecked")
+        T with(ComparisonOperator op, Object... values) {
+            this.op = op;
+            if (values.length > 0) {
+                this.values = values.clone();
+            }
+            return (T) this;
+        }
+
+        public T eq(Object val) {
+            return with(ComparisonOperator.EQ, val);
+        }
+
+        public T ne(Object val) {
+            return with(ComparisonOperator.NE, val);
+        }
+
+        public T exists() {
+            return with(ComparisonOperator.NOT_NULL);
+        }
+
+        public T notExist() {
+            return with(ComparisonOperator.NULL);
+        }
+
+        public T contains(Object val) {
+            return with(ComparisonOperator.CONTAINS, val);
+        }
+
+        public T notContains(Object val) {
+            return with(ComparisonOperator.NOT_CONTAINS, val);
+        }
+
+        public T beginsWith(String val) {
+            return with(ComparisonOperator.BEGINS_WITH, val);
+        }
+
+        public T in(Object... values) {
+            if (values == null || values.length == 0) {
+                throw new IllegalArgumentException("values must not be null or empty.");
+            }
+            return with(ComparisonOperator.IN, values);
+        }
+
+        public T between(Object low, Object hi) {
+            return with(ComparisonOperator.BETWEEN, low, hi);
+        }
+
+        public T ge(Object val) {
+            return with(ComparisonOperator.GE, val);
+        }
+
+        public T gt(Object val) {
+            return with(ComparisonOperator.GT, val);
+        }
+
+        public T le(Object val) {
+            return with(ComparisonOperator.LE, val);
+        }
+
+        public T lt(Object val) {
+            return with(ComparisonOperator.LT, val);
+        }
+    }
+
+    public static class QueryFilter extends Filter<QueryFilter> {
+        public QueryFilter(String attrName) {
+            super(attrName);
+        }
+    }
+
+    public static class ScanFilter extends Filter<ScanFilter> {
+        public ScanFilter(String attrName) {
+            super(attrName);
+        }
+    }
+
+    public static class Expected extends Filter<Expected> {
+        public Expected(String attrName) {
+            super(attrName);
+        }
+    }
+
+    public enum KeyConditions {
+        EQ(ComparisonOperator.EQ), LE(ComparisonOperator.LE), LT(ComparisonOperator.LT), GE(ComparisonOperator.GE),
+        GT(ComparisonOperator.GT), BEGINS_WITH(ComparisonOperator.BEGINS_WITH), BETWEEN(ComparisonOperator.BETWEEN);
+
+        private final ComparisonOperator comparisonOperator;
+
+        KeyConditions(ComparisonOperator comparisonOperator) {
+            this.comparisonOperator = comparisonOperator;
+        }
+
+        public ComparisonOperator toComparisonOperator() {
+            return comparisonOperator;
+        }
+    }
+
+    public static class RangeKeyCondition {
+        private final String attrName;
+        private KeyConditions kcond;
+        private Object[] values;
+
+        public RangeKeyCondition(String attrName) {
+            Legacy.checkAttrName(attrName);
+            this.attrName = attrName;
+        }
+
+        public String getAttrName() {
+            return attrName;
+        }
+
+        public KeyConditions getKeyCondition() {
+            return kcond;
+        }
+
+        public Object[] getValues() {
+            return values == null ? null : values.clone();
+        }
+
+        public RangeKeyCondition eq(Object val) {
+            return with(KeyConditions.EQ, val);
+        }
+
+        public RangeKeyCondition beginsWith(String val) {
+            return with(KeyConditions.BEGINS_WITH, val);
+        }
+
+        public RangeKeyCondition between(Object low, Object hi) {
+            return with(KeyConditions.BETWEEN, low, hi);
+        }
+
+        public RangeKeyCondition ge(Object val) {
+            return with(KeyConditions.GE, val);
+        }
+
+        public RangeKeyCondition gt(Object val) {
+            return with(KeyConditions.GT, val);
+        }
+
+        public RangeKeyCondition le(Object val) {
+            return with(KeyConditions.LE, val);
+        }
+
+        public RangeKeyCondition lt(Object val) {
+            return with(KeyConditions.LT, val);
+        }
+
+        private RangeKeyCondition with(KeyConditions kcond, Object... values) {
+            this.kcond = kcond;
+            this.values = values;
+            return this;
+        }
+    }
+
+    public static class AttributeUpdate {
+        private final String attributeName;
+        private AttributeAction action;
+        private Set<Object> attributeValues;
+        private Object value;
+
+        public AttributeUpdate(String attributeName) {
+            this.attributeName = attributeName;
+        }
+
+        public AttributeUpdate put(Object attributeValue) {
+            action = AttributeAction.PUT;
+            value = attributeValue;
+            return this;
+        }
+
+        public AttributeUpdate delete() {
+            action = AttributeAction.DELETE;
+            return this;
+        }
+
+        public AttributeUpdate removeElements(Object... elementsToBeRemoved) {
+            action = AttributeAction.DELETE;
+            attributeValues = Collections.unmodifiableSet(new LinkedHashSet<>(Arrays.asList(elementsToBeRemoved)));
+            return this;
+        }
+
+        public AttributeUpdate addNumeric(Number value) {
+            action = AttributeAction.ADD;
+            this.value = value;
+            return this;
+        }
+
+        public AttributeUpdate addElements(Object... newElements) {
+            action = AttributeAction.ADD;
+            attributeValues = Collections.unmodifiableSet(new LinkedHashSet<>(Arrays.asList(newElements)));
+            return this;
+        }
+
+        public String getAttributeName() {
+            return attributeName;
+        }
+
+        public AttributeAction getAction() {
+            return action;
+        }
+
+        public Set<Object> getAttributeValues() {
+            return attributeValues;
+        }
+
+        public Object getValue() {
+            return value;
+        }
+    }
+
+    /**
+     * The conversions of v1's {@code InternalUtils} from the legacy conditions to their request parameters.
+     */
+    static final class Legacy {
+
+        private Legacy() {
+        }
+
+        static void checkAttrName(String attrName) {
+            if (attrName == null || attrName.trim().isEmpty()) {
+                throw new IllegalArgumentException("Invalid attribute name");
+            }
+        }
+
+        static Map<String, ExpectedAttributeValue> expected(Collection<Expected> expected) {
+            Map<String, ExpectedAttributeValue> result = new LinkedHashMap<>();
+            for (Expected e : expected) {
+                ExpectedAttributeValue.Builder eav = ExpectedAttributeValue.builder();
+                List<AttributeValue> values = values(e.getValues());
+                if (values != null) {
+                    eav.attributeValueList(values);
+                }
+                eav.comparisonOperator(operator(e));
+                result.put(e.getAttribute(), eav.build());
+            }
+            if (expected.size() != result.size()) {
+                throw new IllegalArgumentException("duplicates attribute names not allowed in input");
+            }
+            return Collections.unmodifiableMap(result);
+        }
+
+        static Map<String, Condition> conditions(Collection<? extends Filter<?>> filters) {
+            Map<String, Condition> result = new LinkedHashMap<>();
+            for (Filter<?> f : filters) {
+                Condition.Builder condition = Condition.builder();
+                List<AttributeValue> values = values(f.getValues());
+                if (values != null) {
+                    condition.attributeValueList(values);
+                }
+                condition.comparisonOperator(operator(f));
+                result.put(f.getAttribute(), condition.build());
+            }
+            if (filters.size() != result.size()) {
+                throw new IllegalArgumentException("duplicates attribute names not allowed in input");
+            }
+            return Collections.unmodifiableMap(result);
+        }
+
+        static Condition condition(RangeKeyCondition rangeKeyCondition) {
+            if (rangeKeyCondition.getKeyCondition() == null) {
+                throw new IllegalArgumentException("key condition not specified in range key condition");
+            }
+            if (rangeKeyCondition.getValues() == null) {
+                throw new IllegalArgumentException("key condition values not specified in range key condition");
+            }
+            return Condition.builder().comparisonOperator(rangeKeyCondition.getKeyCondition().toComparisonOperator())
+                    .attributeValueList(values(rangeKeyCondition.getValues())).build();
+        }
+
+        static Map<String, AttributeValueUpdate> updates(List<AttributeUpdate> updates) {
+            Map<String, AttributeValueUpdate> result = new LinkedHashMap<>();
+            for (AttributeUpdate update : updates) {
+                AttributeValueUpdate.Builder u = AttributeValueUpdate.builder().action(update.getAction());
+                if (update.getValue() != null) {
+                    u.value(ItemUtils.toAttributeValue(update.getValue()));
+                } else if (update.getAttributeValues() != null) {
+                    u.value(ItemUtils.toAttributeValue(update.getAttributeValues()));
+                }
+                result.put(update.getAttributeName(), u.build());
+            }
+            return result;
+        }
+
+        private static ComparisonOperator operator(Filter<?> f) {
+            if (f.getComparisonOperator() == null) {
+                throw new IllegalArgumentException("Comparison operator for attribute " + f.getAttribute() + " must be specified");
+            }
+            return f.getComparisonOperator();
+        }
+
+        private static List<AttributeValue> values(Object[] values) {
+            if (values == null) {
+                return null;
+            }
+            List<AttributeValue> result = new ArrayList<>();
+            for (Object v : values) {
+                result.add(ItemUtils.toAttributeValue(v));
+            }
+            return result;
+        }
+    }
+
+    /**
+     * Writes and reads JSON as v1's Jackson-based {@code Item.toJSON()} and {@code Item.fromJSON(String)} did: binary values as
+     * base64 strings, sets as arrays, and numbers read back as {@code BigDecimal}s.
+     */
+    static final class Json {
+        private static final String NL = System.lineSeparator();
+
+        private final String text;
+        private int pos;
+
+        private Json(String text) {
+            this.text = text;
+        }
+
+        static String write(Object value, boolean pretty) {
+            StringBuilder sb = new StringBuilder();
+            write(sb, value, pretty, 0);
+            return sb.toString();
+        }
+
+        private static void write(StringBuilder sb, Object value, boolean pretty, int depth) {
+            if (value == null) {
+                sb.append("null");
+            } else if (value instanceof String) {
+                string(sb, (String) value);
+            } else if (value instanceof Number || value instanceof Boolean) {
+                sb.append(value);
+            } else if (value instanceof byte[]) {
+                string(sb, Base64.getEncoder().encodeToString((byte[]) value));
+            } else if (value instanceof ByteBuffer) {
+                string(sb, Base64.getEncoder().encodeToString(ItemUtils.copyAllBytesFrom((ByteBuffer) value)));
+            } else if (value instanceof Item) {
+                write(sb, ((Item) value).asMap(), pretty, depth);
+            } else if (value instanceof Map) {
+                Map<?, ?> map = (Map<?, ?>) value;
+                if (map.isEmpty()) {
+                    sb.append(pretty ? "{ }" : "{}");
+                    return;
+                }
+                sb.append('{');
+                boolean first = true;
+                for (Map.Entry<?, ?> e : map.entrySet()) {
+                    sb.append(first ? "" : ",");
+                    first = false;
+                    if (pretty) {
+                        sb.append(NL).append(indent(depth + 1));
+                    }
+                    string(sb, String.valueOf(e.getKey()));
+                    sb.append(pretty ? " : " : ":");
+                    write(sb, e.getValue(), pretty, depth + 1);
+                }
+                if (pretty) {
+                    sb.append(NL).append(indent(depth));
+                }
+                sb.append('}');
+            } else if (value instanceof Collection || value instanceof Object[]) {
+                Collection<?> c = value instanceof Collection ? (Collection<?>) value : Arrays.asList((Object[]) value);
+                if (c.isEmpty()) {
+                    sb.append(pretty ? "[ ]" : "[]");
+                    return;
+                }
+                sb.append(pretty ? "[ " : "[");
+                boolean first = true;
+                for (Object o : c) {
+                    sb.append(first ? "" : pretty ? ", " : ",");
+                    first = false;
+                    write(sb, o, pretty, depth);
+                }
+                sb.append(pretty ? " ]" : "]");
+            } else {
+                string(sb, value.toString());
+            }
+        }
+
+        private static String indent(int depth) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < depth; i++) {
+                sb.append("  ");
+            }
+            return sb.toString();
+        }
+
+        private static void string(StringBuilder sb, String s) {
+            sb.append('"');
+            for (int i = 0; i < s.length(); i++) {
+                char c = s.charAt(i);
+                switch (c) {
+                    case '"':
+                        sb.append("\\\"");
+                        break;
+                    case '\\':
+                        sb.append("\\\\");
+                        break;
+                    case '\n':
+                        sb.append("\\n");
+                        break;
+                    case '\r':
+                        sb.append("\\r");
+                        break;
+                    case '\t':
+                        sb.append("\\t");
+                        break;
+                    case '\b':
+                        sb.append("\\b");
+                        break;
+                    case '\f':
+                        sb.append("\\f");
+                        break;
+                    default:
+                        if (c < 0x20) {
+                            sb.append(String.format("\\u%04X", (int) c));
+                        } else {
+                            sb.append(c);
+                        }
+                }
+            }
+            sb.append('"');
+        }
+
+        static Object read(String text) {
+            Json json = new Json(text);
+            Object value = json.value();
+            json.space();
+            if (json.pos != text.length()) {
+                throw json.error();
+            }
+            return value;
+        }
+
+        private Object value() {
+            space();
+            if (pos >= text.length()) {
+                throw error();
+            }
+            char c = text.charAt(pos);
+            if (c == '{') {
+                pos++;
+                Map<String, Object> map = new LinkedHashMap<>();
+                space();
+                if (peek('}')) {
+                    return map;
+                }
+                do {
+                    space();
+                    String key = stringValue();
+                    space();
+                    expect(':');
+                    map.put(key, value());
+                    space();
+                } while (peek(','));
+                expect('}');
+                return map;
+            }
+            if (c == '[') {
+                pos++;
+                List<Object> list = new ArrayList<>();
+                space();
+                if (peek(']')) {
+                    return list;
+                }
+                do {
+                    list.add(value());
+                    space();
+                } while (peek(','));
+                expect(']');
+                return list;
+            }
+            if (c == '"') {
+                return stringValue();
+            }
+            if (text.startsWith("true", pos)) {
+                pos += 4;
+                return Boolean.TRUE;
+            }
+            if (text.startsWith("false", pos)) {
+                pos += 5;
+                return Boolean.FALSE;
+            }
+            if (text.startsWith("null", pos)) {
+                pos += 4;
+                return null;
+            }
+            int start = pos;
+            while (pos < text.length() && "+-0123456789.eE".indexOf(text.charAt(pos)) >= 0) {
+                pos++;
+            }
+            if (start == pos) {
+                throw error();
+            }
+            String number = text.substring(start, pos);
+            // Jackson read decimals as doubles, which v1 then turned into BigDecimals
+            return number.matches("-?[0-9]+") ? new BigDecimal(number) : new BigDecimal(Double.toString(Double.parseDouble(number)));
+        }
+
+        private String stringValue() {
+            expect('"');
+            StringBuilder sb = new StringBuilder();
+            while (pos < text.length()) {
+                char c = text.charAt(pos++);
+                if (c == '"') {
+                    return sb.toString();
+                }
+                if (c != '\\') {
+                    sb.append(c);
+                    continue;
+                }
+                char e = text.charAt(pos++);
+                switch (e) {
+                    case 'n':
+                        sb.append('\n');
+                        break;
+                    case 'r':
+                        sb.append('\r');
+                        break;
+                    case 't':
+                        sb.append('\t');
+                        break;
+                    case 'b':
+                        sb.append('\b');
+                        break;
+                    case 'f':
+                        sb.append('\f');
+                        break;
+                    case 'u':
+                        sb.append((char) Integer.parseInt(text.substring(pos, pos + 4), 16));
+                        pos += 4;
+                        break;
+                    default:
+                        sb.append(e);
+                }
+            }
+            throw error();
+        }
+
+        private void space() {
+            while (pos < text.length() && Character.isWhitespace(text.charAt(pos))) {
+                pos++;
+            }
+        }
+
+        private boolean peek(char c) {
+            if (pos < text.length() && text.charAt(pos) == c) {
+                pos++;
+                return true;
+            }
+            return false;
+        }
+
+        private void expect(char c) {
+            if (!peek(c)) {
+                throw error();
+            }
+        }
+
+        private IllegalArgumentException error() {
+            return new IllegalArgumentException("Invalid JSON at position " + pos + ": " + text);
+        }
+    }
+
+    public static class IncompatibleTypeException extends IllegalArgumentException {
+        public IncompatibleTypeException(String message) {
+            super(message);
+        }
+    }
+
+    public static class ValueMap extends LinkedHashMap<String, Object> {
+        public ValueMap withString(String key, String val) {
+            put(key, val);
+            return this;
+        }
+
+        public ValueMap withNumber(String key, Number val) {
+            put(key, val);
+            return this;
+        }
+
+        public ValueMap withInt(String key, int val) {
+            put(key, val);
+            return this;
+        }
+
+        public ValueMap withLong(String key, long val) {
+            put(key, val);
+            return this;
+        }
+
+        public ValueMap withDouble(String key, double val) {
+            put(key, val);
+            return this;
+        }
+
+        public ValueMap withBoolean(String key, boolean val) {
+            put(key, val);
+            return this;
+        }
+
+        public ValueMap withBinary(String key, byte[] val) {
+            put(key, val);
+            return this;
+        }
+
+        public ValueMap withStringSet(String key, Set<String> val) {
+            put(key, val);
+            return this;
+        }
+
+        public ValueMap withStringSet(String key, String... val) {
+            put(key, new LinkedHashSet<>(Arrays.asList(val)));
+            return this;
+        }
+
+        public ValueMap withNumberSet(String key, Set<? extends Number> val) {
+            put(key, val);
+            return this;
+        }
+
+        public ValueMap withNumberSet(String key, Number... val) {
+            put(key, new LinkedHashSet<>(Arrays.asList(val)));
+            return this;
+        }
+
+        public ValueMap withList(String key, List<?> val) {
+            put(key, val);
+            return this;
+        }
+
+        public ValueMap withList(String key, Object... vals) {
+            put(key, Arrays.asList(vals));
+            return this;
+        }
+
+        public ValueMap withMap(String key, Map<String, ?> val) {
+            put(key, val);
+            return this;
+        }
+
+        public ValueMap withNull(String key) {
+            put(key, null);
+            return this;
+        }
+
+        public ValueMap with(String key, Object val) {
+            put(key, val);
+            return this;
+        }
+    }
+
+    public static class NameMap extends LinkedHashMap<String, String> {
+        public NameMap with(String key, String val) {
+            put(key, val);
+            return this;
+        }
+    }
+
+    public static class GetItemSpec {
+        private PrimaryKey primaryKey;
+        private String projectionExpression;
+        private Map<String, String> nameMap;
+        private Boolean consistentRead;
+
+        public GetItemSpec withPrimaryKey(PrimaryKey primaryKey) {
+            this.primaryKey = primaryKey;
+            return this;
+        }
+
+        public GetItemSpec withPrimaryKey(KeyAttribute... components) {
+            return withPrimaryKey(new PrimaryKey(components));
+        }
+
+        public GetItemSpec withPrimaryKey(String hashKeyName, Object hashKeyValue) {
+            return withPrimaryKey(new PrimaryKey(hashKeyName, hashKeyValue));
+        }
+
+        public GetItemSpec withPrimaryKey(String hashKeyName, Object hashKeyValue, String rangeKeyName, Object rangeKeyValue) {
+            return withPrimaryKey(new PrimaryKey(hashKeyName, hashKeyValue, rangeKeyName, rangeKeyValue));
+        }
+
+        public GetItemSpec withProjectionExpression(String projectionExpression) {
+            this.projectionExpression = projectionExpression;
+            return this;
+        }
+
+        public GetItemSpec withNameMap(Map<String, String> nameMap) {
+            this.nameMap = nameMap;
+            return this;
+        }
+
+        public GetItemSpec withConsistentRead(boolean consistentRead) {
+            this.consistentRead = consistentRead;
+            return this;
+        }
+    }
+
+    public static class PutItemSpec {
+        private Item item;
+        private Collection<Expected> expected;
+        private ConditionalOperator conditionalOperator;
+        private String conditionExpression;
+        private Map<String, String> nameMap;
+        private Map<String, Object> valueMap;
+        private ReturnValue returnValues;
+
+        public PutItemSpec withItem(Item item) {
+            this.item = item;
+            return this;
+        }
+
+        public PutItemSpec withConditionExpression(String conditionExpression) {
+            this.conditionExpression = conditionExpression;
+            return this;
+        }
+
+        public PutItemSpec withNameMap(Map<String, String> nameMap) {
+            this.nameMap = nameMap;
+            return this;
+        }
+
+        public PutItemSpec withValueMap(Map<String, Object> valueMap) {
+            this.valueMap = valueMap;
+            return this;
+        }
+
+        public PutItemSpec withReturnValues(ReturnValue returnValues) {
+            this.returnValues = returnValues;
+            return this;
+        }
+
+        public PutItemSpec withReturnValues(String returnValues) {
+            return withReturnValues(ReturnValue.fromValue(returnValues));
+        }
+
+        public PutItemSpec withExpected(Expected... expected) {
+            return withExpected(expected == null ? null : Arrays.asList(expected));
+        }
+
+        public PutItemSpec withExpected(Collection<Expected> expected) {
+            this.expected = expected == null ? null : Collections.unmodifiableList(new ArrayList<>(expected));
+            return this;
+        }
+
+        public PutItemSpec withConditionalOperator(ConditionalOperator conditionalOperator) {
+            this.conditionalOperator = conditionalOperator;
+            return this;
+        }
+
+        public PutItemSpec withConditionalOperator(String conditionalOperator) {
+            return withConditionalOperator(ConditionalOperator.fromValue(conditionalOperator));
+        }
+    }
+
+    public static class DeleteItemSpec {
+        private PrimaryKey primaryKey;
+        private Collection<Expected> expected;
+        private ConditionalOperator conditionalOperator;
+        private String conditionExpression;
+        private Map<String, String> nameMap;
+        private Map<String, Object> valueMap;
+        private ReturnValue returnValues;
+
+        public DeleteItemSpec withPrimaryKey(PrimaryKey primaryKey) {
+            this.primaryKey = primaryKey;
+            return this;
+        }
+
+        public DeleteItemSpec withPrimaryKey(KeyAttribute... components) {
+            return withPrimaryKey(new PrimaryKey(components));
+        }
+
+        public DeleteItemSpec withPrimaryKey(String hashKeyName, Object hashKeyValue) {
+            return withPrimaryKey(new PrimaryKey(hashKeyName, hashKeyValue));
+        }
+
+        public DeleteItemSpec withPrimaryKey(String hashKeyName, Object hashKeyValue, String rangeKeyName, Object rangeKeyValue) {
+            return withPrimaryKey(new PrimaryKey(hashKeyName, hashKeyValue, rangeKeyName, rangeKeyValue));
+        }
+
+        public DeleteItemSpec withConditionExpression(String conditionExpression) {
+            this.conditionExpression = conditionExpression;
+            return this;
+        }
+
+        public DeleteItemSpec withNameMap(Map<String, String> nameMap) {
+            this.nameMap = nameMap;
+            return this;
+        }
+
+        public DeleteItemSpec withValueMap(Map<String, Object> valueMap) {
+            this.valueMap = valueMap;
+            return this;
+        }
+
+        public DeleteItemSpec withReturnValues(ReturnValue returnValues) {
+            this.returnValues = returnValues;
+            return this;
+        }
+
+        public DeleteItemSpec withReturnValues(String returnValues) {
+            return withReturnValues(ReturnValue.fromValue(returnValues));
+        }
+
+        public DeleteItemSpec withExpected(Expected... expected) {
+            return withExpected(expected == null ? null : Arrays.asList(expected));
+        }
+
+        public DeleteItemSpec withExpected(Collection<Expected> expected) {
+            this.expected = expected == null ? null : Collections.unmodifiableList(new ArrayList<>(expected));
+            return this;
+        }
+
+        public DeleteItemSpec withConditionalOperator(ConditionalOperator conditionalOperator) {
+            this.conditionalOperator = conditionalOperator;
+            return this;
+        }
+
+        public DeleteItemSpec withConditionalOperator(String conditionalOperator) {
+            return withConditionalOperator(ConditionalOperator.fromValue(conditionalOperator));
+        }
+    }
+
+    public static class UpdateItemSpec {
+        private PrimaryKey primaryKey;
+        private Collection<Expected> expected;
+        private ConditionalOperator conditionalOperator;
+        private List<AttributeUpdate> attributeUpdates;
+        private String updateExpression;
+        private String conditionExpression;
+        private Map<String, String> nameMap;
+        private Map<String, Object> valueMap;
+        private ReturnValue returnValues;
+
+        public UpdateItemSpec withPrimaryKey(PrimaryKey primaryKey) {
+            this.primaryKey = primaryKey;
+            return this;
+        }
+
+        public UpdateItemSpec withPrimaryKey(KeyAttribute... components) {
+            return withPrimaryKey(new PrimaryKey(components));
+        }
+
+        public UpdateItemSpec withPrimaryKey(String hashKeyName, Object hashKeyValue) {
+            return withPrimaryKey(new PrimaryKey(hashKeyName, hashKeyValue));
+        }
+
+        public UpdateItemSpec withPrimaryKey(String hashKeyName, Object hashKeyValue, String rangeKeyName, Object rangeKeyValue) {
+            return withPrimaryKey(new PrimaryKey(hashKeyName, hashKeyValue, rangeKeyName, rangeKeyValue));
+        }
+
+        public UpdateItemSpec withUpdateExpression(String updateExpression) {
+            this.updateExpression = updateExpression;
+            return this;
+        }
+
+        public UpdateItemSpec withConditionExpression(String conditionExpression) {
+            this.conditionExpression = conditionExpression;
+            return this;
+        }
+
+        public UpdateItemSpec withNameMap(Map<String, String> nameMap) {
+            this.nameMap = nameMap;
+            return this;
+        }
+
+        public UpdateItemSpec withValueMap(Map<String, Object> valueMap) {
+            this.valueMap = valueMap;
+            return this;
+        }
+
+        public UpdateItemSpec withReturnValues(ReturnValue returnValues) {
+            this.returnValues = returnValues;
+            return this;
+        }
+
+        public UpdateItemSpec withReturnValues(String returnValues) {
+            return withReturnValues(ReturnValue.fromValue(returnValues));
+        }
+
+        public UpdateItemSpec withExpected(Expected... expected) {
+            return withExpected(expected == null ? null : Arrays.asList(expected));
+        }
+
+        public UpdateItemSpec withExpected(Collection<Expected> expected) {
+            this.expected = expected == null ? null : Collections.unmodifiableList(new ArrayList<>(expected));
+            return this;
+        }
+
+        public UpdateItemSpec withConditionalOperator(ConditionalOperator conditionalOperator) {
+            this.conditionalOperator = conditionalOperator;
+            return this;
+        }
+
+        public UpdateItemSpec withConditionalOperator(String conditionalOperator) {
+            return withConditionalOperator(ConditionalOperator.fromValue(conditionalOperator));
+        }
+
+        public UpdateItemSpec withAttributeUpdate(AttributeUpdate... attributeUpdates) {
+            return withAttributeUpdate(attributeUpdates == null ? null : Arrays.asList(attributeUpdates));
+        }
+
+        public UpdateItemSpec withAttributeUpdate(List<AttributeUpdate> attributeUpdates) {
+            this.attributeUpdates = attributeUpdates == null ? null : new ArrayList<>(attributeUpdates);
+            return this;
+        }
+
+        public UpdateItemSpec addAttributeUpdate(AttributeUpdate attributeUpdate) {
+            if (attributeUpdates == null) {
+                attributeUpdates = new ArrayList<>();
+            }
+            attributeUpdates.add(attributeUpdate);
+            return this;
+        }
+    }
+
+    public static class QuerySpec {
+        private KeyAttribute hashKey;
+        private RangeKeyCondition rangeKeyCondition;
+        private Collection<QueryFilter> queryFilters;
+        private ConditionalOperator conditionalOperator;
+        private String keyConditionExpression;
+        private String filterExpression;
+        private String projectionExpression;
+        private Map<String, String> nameMap;
+        private Map<String, Object> valueMap;
+        private Boolean scanIndexForward;
+        private Boolean consistentRead;
+        private Integer maxResultSize;
+        private Integer maxPageSize;
+        private PrimaryKey exclusiveStartKey;
+
+        public QuerySpec withHashKey(KeyAttribute hashKey) {
+            this.hashKey = hashKey;
+            return this;
+        }
+
+        public QuerySpec withHashKey(String hashKeyName, Object hashKeyValue) {
+            return withHashKey(new KeyAttribute(hashKeyName, hashKeyValue));
+        }
+
+        public QuerySpec withRangeKeyCondition(RangeKeyCondition rangeKeyCondition) {
+            this.rangeKeyCondition = rangeKeyCondition;
+            return this;
+        }
+
+        public QuerySpec withQueryFilters(QueryFilter... queryFilters) {
+            this.queryFilters = queryFilters == null ? null : Arrays.asList(queryFilters.clone());
+            return this;
+        }
+
+        public QuerySpec withConditionalOperator(ConditionalOperator conditionalOperator) {
+            this.conditionalOperator = conditionalOperator;
+            return this;
+        }
+
+        public QuerySpec withKeyConditionExpression(String keyConditionExpression) {
+            this.keyConditionExpression = keyConditionExpression;
+            return this;
+        }
+
+        public QuerySpec withFilterExpression(String filterExpression) {
+            this.filterExpression = filterExpression;
+            return this;
+        }
+
+        public QuerySpec withProjectionExpression(String projectionExpression) {
+            this.projectionExpression = projectionExpression;
+            return this;
+        }
+
+        public QuerySpec withNameMap(Map<String, String> nameMap) {
+            this.nameMap = nameMap;
+            return this;
+        }
+
+        public QuerySpec withValueMap(Map<String, Object> valueMap) {
+            this.valueMap = valueMap;
+            return this;
+        }
+
+        public QuerySpec withScanIndexForward(boolean scanIndexForward) {
+            this.scanIndexForward = scanIndexForward;
+            return this;
+        }
+
+        public QuerySpec withConsistentRead(boolean consistentRead) {
+            this.consistentRead = consistentRead;
+            return this;
+        }
+
+        public QuerySpec withMaxResultSize(Integer maxResultSize) {
+            this.maxResultSize = maxResultSize;
+            return this;
+        }
+
+        public QuerySpec withMaxResultSize(int maxResultSize) {
+            return withMaxResultSize(Integer.valueOf(maxResultSize));
+        }
+
+        public QuerySpec withMaxPageSize(Integer maxPageSize) {
+            this.maxPageSize = maxPageSize;
+            return this;
+        }
+
+        public QuerySpec withMaxPageSize(int maxPageSize) {
+            return withMaxPageSize(Integer.valueOf(maxPageSize));
+        }
+
+        public QuerySpec withExclusiveStartKey(PrimaryKey exclusiveStartKey) {
+            this.exclusiveStartKey = exclusiveStartKey;
+            return this;
+        }
+
+        public QuerySpec withExclusiveStartKey(KeyAttribute... exclusiveStartKey) {
+            return withExclusiveStartKey(new PrimaryKey(exclusiveStartKey));
+        }
+
+        ItemCollection<QueryOutcome> run(DynamoDbClient client, String tableName, String indexName) {
+            Map<String, String> names = nameMap == null ? new LinkedHashMap<>() : new LinkedHashMap<>(nameMap);
+            Map<String, Object> values = valueMap == null ? new LinkedHashMap<>() : new LinkedHashMap<>(valueMap);
+            String keyCondition = keyConditionExpression;
+            boolean legacy = rangeKeyCondition != null || queryFilters != null;
+            if (hashKey != null && !legacy) {
+                // v1 sent the hash key as a legacy key condition, which cannot be mixed with expressions in v2
+                names.put("#v1HashKey", hashKey.getName());
+                values.put(":v1HashKey", hashKey.getValue());
+                keyCondition = keyCondition == null ? "#v1HashKey = :v1HashKey" : "#v1HashKey = :v1HashKey AND " + keyCondition;
+            }
+            QueryRequest.Builder request = QueryRequest.builder()
+                    .tableName(tableName)
+                    .indexName(indexName)
+                    .keyConditionExpression(keyCondition)
+                    .filterExpression(filterExpression)
+                    .projectionExpression(projectionExpression)
+                    .scanIndexForward(scanIndexForward)
+                    .consistentRead(consistentRead)
+                    .limit(maxPageSize);
+            if (!names.isEmpty()) {
+                request.expressionAttributeNames(names);
+            }
+            if (!values.isEmpty()) {
+                request.expressionAttributeValues(ItemUtils.fromSimpleMap(values));
+            }
+            if (exclusiveStartKey != null) {
+                request.exclusiveStartKey(exclusiveStartKey.toAttributeValues());
+            }
+            if (legacy) {
+                // v1 sends the hash key with a range key condition or query filters as legacy key conditions
+                Map<String, Condition> keyConditions = new LinkedHashMap<>();
+                if (hashKey != null) {
+                    keyConditions.put(hashKey.getName(), Condition.builder().comparisonOperator(ComparisonOperator.EQ)
+                            .attributeValueList(ItemUtils.toAttributeValue(hashKey.getValue())).build());
+                }
+                if (rangeKeyCondition != null) {
+                    keyConditions.put(rangeKeyCondition.getAttrName(), Legacy.condition(rangeKeyCondition));
+                }
+                request.keyConditions(keyConditions).conditionalOperator(conditionalOperator);
+                if (queryFilters != null) {
+                    request.queryFilter(Legacy.conditions(queryFilters));
+                }
+            }
+            QueryRequest first = request.build();
+            return new ItemCollection<>(maxResultSize, startKey -> {
+                QueryResponse response = client.query(startKey == null ? first : first.toBuilder().exclusiveStartKey(startKey).build());
+                return new ItemCollection.Page<>(response.items(), response.lastEvaluatedKey(), new QueryOutcome(response));
+            });
+        }
+    }
+
+    public static class ScanSpec {
+        private Collection<ScanFilter> scanFilters;
+        private ConditionalOperator conditionalOperator;
+        private String filterExpression;
+        private String projectionExpression;
+        private Map<String, String> nameMap;
+        private Map<String, Object> valueMap;
+        private Boolean consistentRead;
+        private Integer maxResultSize;
+        private Integer maxPageSize;
+        private Integer segment;
+        private Integer totalSegments;
+        private PrimaryKey exclusiveStartKey;
+
+        public ScanSpec withScanFilters(ScanFilter... scanFilters) {
+            this.scanFilters = scanFilters == null ? null : Arrays.asList(scanFilters.clone());
+            return this;
+        }
+
+        public ScanSpec withConditionalOperator(ConditionalOperator conditionalOperator) {
+            this.conditionalOperator = conditionalOperator;
+            return this;
+        }
+
+        public ScanSpec withFilterExpression(String filterExpression) {
+            this.filterExpression = filterExpression;
+            return this;
+        }
+
+        public ScanSpec withProjectionExpression(String projectionExpression) {
+            this.projectionExpression = projectionExpression;
+            return this;
+        }
+
+        public ScanSpec withNameMap(Map<String, String> nameMap) {
+            this.nameMap = nameMap;
+            return this;
+        }
+
+        public ScanSpec withValueMap(Map<String, Object> valueMap) {
+            this.valueMap = valueMap;
+            return this;
+        }
+
+        public ScanSpec withConsistentRead(boolean consistentRead) {
+            this.consistentRead = consistentRead;
+            return this;
+        }
+
+        public ScanSpec withMaxResultSize(Integer maxResultSize) {
+            this.maxResultSize = maxResultSize;
+            return this;
+        }
+
+        public ScanSpec withMaxResultSize(int maxResultSize) {
+            return withMaxResultSize(Integer.valueOf(maxResultSize));
+        }
+
+        public ScanSpec withMaxPageSize(Integer maxPageSize) {
+            this.maxPageSize = maxPageSize;
+            return this;
+        }
+
+        public ScanSpec withMaxPageSize(int maxPageSize) {
+            return withMaxPageSize(Integer.valueOf(maxPageSize));
+        }
+
+        public ScanSpec withSegment(int segment) {
+            this.segment = segment;
+            return this;
+        }
+
+        public ScanSpec withTotalSegments(int totalSegments) {
+            this.totalSegments = totalSegments;
+            return this;
+        }
+
+        public ScanSpec withExclusiveStartKey(PrimaryKey exclusiveStartKey) {
+            this.exclusiveStartKey = exclusiveStartKey;
+            return this;
+        }
+
+        public ScanSpec withExclusiveStartKey(KeyAttribute... exclusiveStartKey) {
+            return withExclusiveStartKey(new PrimaryKey(exclusiveStartKey));
+        }
+
+        ItemCollection<ScanOutcome> run(DynamoDbClient client, String tableName, String indexName) {
+            ScanRequest.Builder request = ScanRequest.builder()
+                    .tableName(tableName)
+                    .indexName(indexName)
+                    .filterExpression(filterExpression)
+                    .projectionExpression(projectionExpression)
+                    .consistentRead(consistentRead)
+                    .limit(maxPageSize)
+                    .segment(segment)
+                    .totalSegments(totalSegments);
+            if (nameMap != null && !nameMap.isEmpty()) {
+                request.expressionAttributeNames(nameMap);
+            }
+            if (valueMap != null && !valueMap.isEmpty()) {
+                request.expressionAttributeValues(ItemUtils.fromSimpleMap(valueMap));
+            }
+            if (exclusiveStartKey != null) {
+                request.exclusiveStartKey(exclusiveStartKey.toAttributeValues());
+            }
+            if (scanFilters != null) {
+                request.scanFilter(Legacy.conditions(scanFilters)).conditionalOperator(conditionalOperator);
+            }
+            ScanRequest first = request.build();
+            return new ItemCollection<>(maxResultSize, startKey -> {
+                ScanResponse response = client.scan(startKey == null ? first : first.toBuilder().exclusiveStartKey(startKey).build());
+                return new ItemCollection.Page<>(response.items(), response.lastEvaluatedKey(), new ScanOutcome(response));
+            });
+        }
+    }
+
+    /**
+     * Fetches pages lazily as it is iterated, as v1's did, up to the spec's maximum result size.
+     */
+    public static class ItemCollection<R> implements Iterable<Item> {
+
+        static final class Page<R> {
+            final List<Map<String, AttributeValue>> items;
+            final Map<String, AttributeValue> lastEvaluatedKey;
+            final R outcome;
+
+            Page(List<Map<String, AttributeValue>> items, Map<String, AttributeValue> lastEvaluatedKey, R outcome) {
+                this.items = items;
+                this.lastEvaluatedKey = lastEvaluatedKey;
+                this.outcome = outcome;
+            }
+        }
+
+        private final Integer maxResultSize;
+        private final Function<Map<String, AttributeValue>, Page<R>> fetch;
+        private int accumulatedItemCount;
+        private R lastLowLevelResult;
+
+        ItemCollection(Integer maxResultSize, Function<Map<String, AttributeValue>, Page<R>> fetch) {
+            this.maxResultSize = maxResultSize;
+            this.fetch = fetch;
+        }
+
+        public int getAccumulatedItemCount() {
+            return accumulatedItemCount;
+        }
+
+        public R getLastLowLevelResult() {
+            return lastLowLevelResult;
+        }
+
+        @Override
+        public Iterator<Item> iterator() {
+            return new Iterator<Item>() {
+                private Page<R> page = load(null);
+                private int index;
+                private int returned;
+
+                private Page<R> load(Map<String, AttributeValue> startKey) {
+                    Page<R> p = fetch.apply(startKey);
+                    lastLowLevelResult = p.outcome;
+                    return p;
+                }
+
+                @Override
+                public boolean hasNext() {
+                    if (maxResultSize != null && returned >= maxResultSize) {
+                        return false;
+                    }
+                    while (index >= page.items.size()) {
+                        if (page.lastEvaluatedKey == null || page.lastEvaluatedKey.isEmpty()) {
+                            return false;
+                        }
+                        page = load(page.lastEvaluatedKey);
+                        index = 0;
+                    }
+                    return true;
+                }
+
+                @Override
+                public Item next() {
+                    if (!hasNext()) {
+                        throw new NoSuchElementException();
+                    }
+                    returned++;
+                    accumulatedItemCount++;
+                    return Item.fromAttributeValues(page.items.get(index++));
+                }
+            };
+        }
+    }
+
+    public static class QueryOutcome {
+        private final QueryResponse result;
+
+        QueryOutcome(QueryResponse result) {
+            this.result = result;
+        }
+
+        public List<Item> getItems() {
+            return ItemUtils.toItemList(result.items());
+        }
+
+        public QueryResponse getQueryResult() {
+            return result;
+        }
+    }
+
+    public static class ScanOutcome {
+        private final ScanResponse result;
+
+        ScanOutcome(ScanResponse result) {
+            this.result = result;
+        }
+
+        public List<Item> getItems() {
+            return ItemUtils.toItemList(result.items());
+        }
+
+        public ScanResponse getScanResult() {
+            return result;
+        }
+    }
+
+    public static class GetItemOutcome {
+        private final GetItemResponse result;
+
+        GetItemOutcome(GetItemResponse result) {
+            this.result = result;
+        }
+
+        public Item getItem() {
+            return result.hasItem() ? Item.fromAttributeValues(result.item()) : null;
+        }
+
+        public GetItemResponse getGetItemResult() {
+            return result;
+        }
+    }
+
+    public static class PutItemOutcome {
+        private final PutItemResponse result;
+
+        PutItemOutcome(PutItemResponse result) {
+            this.result = result;
+        }
+
+        public Item getItem() {
+            return result.hasAttributes() ? Item.fromAttributeValues(result.attributes()) : null;
+        }
+
+        public PutItemResponse getPutItemResult() {
+            return result;
+        }
+    }
+
+    public static class UpdateItemOutcome {
+        private final UpdateItemResponse result;
+
+        UpdateItemOutcome(UpdateItemResponse result) {
+            this.result = result;
+        }
+
+        public Item getItem() {
+            return result.hasAttributes() ? Item.fromAttributeValues(result.attributes()) : null;
+        }
+
+        public UpdateItemResponse getUpdateItemResult() {
+            return result;
+        }
+    }
+
+    public static class DeleteItemOutcome {
+        private final DeleteItemResponse result;
+
+        DeleteItemOutcome(DeleteItemResponse result) {
+            this.result = result;
+        }
+
+        public Item getItem() {
+            return result.hasAttributes() ? Item.fromAttributeValues(result.attributes()) : null;
+        }
+
+        public DeleteItemResponse getDeleteItemResult() {
+            return result;
+        }
+    }
+
+    public static class DeleteTableOutcome {
+        private final DeleteTableResponse result;
+
+        DeleteTableOutcome(DeleteTableResponse result) {
+            this.result = result;
+        }
+
+        public DeleteTableResponse getDeleteTableResult() {
+            return result;
+        }
+    }
+
+    public static class TableWriteItems {
+        private final String tableName;
+        private final List<Item> itemsToPut = new ArrayList<>();
+        private final List<PrimaryKey> primaryKeysToDelete = new ArrayList<>();
+
+        public TableWriteItems(String tableName) {
+            this.tableName = tableName;
+        }
+
+        public String getTableName() {
+            return tableName;
+        }
+
+        public TableWriteItems withItemsToPut(Item... itemsToPut) {
+            return withItemsToPut(Arrays.asList(itemsToPut));
+        }
+
+        public TableWriteItems withItemsToPut(Collection<Item> itemsToPut) {
+            this.itemsToPut.clear();
+            this.itemsToPut.addAll(itemsToPut);
+            return this;
+        }
+
+        public TableWriteItems addItemToPut(Item item) {
+            itemsToPut.add(item);
+            return this;
+        }
+
+        public TableWriteItems withPrimaryKeysToDelete(PrimaryKey... primaryKeysToDelete) {
+            this.primaryKeysToDelete.clear();
+            this.primaryKeysToDelete.addAll(Arrays.asList(primaryKeysToDelete));
+            return this;
+        }
+
+        public TableWriteItems withHashOnlyKeysToDelete(String hashKeyName, Object... hashKeyValues) {
+            this.primaryKeysToDelete.clear();
+            for (Object value : hashKeyValues) {
+                addHashOnlyPrimaryKeyToDelete(hashKeyName, value);
+            }
+            return this;
+        }
+
+        public TableWriteItems withHashAndRangeKeysToDelete(String hashKeyName, String rangeKeyName,
+                                                            Object... alternatingHashAndRangeKeyValues) {
+            this.primaryKeysToDelete.clear();
+            for (int i = 0; i + 1 < alternatingHashAndRangeKeyValues.length; i += 2) {
+                addHashAndRangePrimaryKeyToDelete(hashKeyName, alternatingHashAndRangeKeyValues[i], rangeKeyName,
+                        alternatingHashAndRangeKeyValues[i + 1]);
+            }
+            return this;
+        }
+
+        public TableWriteItems addPrimaryKeyToDelete(PrimaryKey primaryKey) {
+            primaryKeysToDelete.add(primaryKey);
+            return this;
+        }
+
+        public TableWriteItems addHashOnlyPrimaryKeyToDelete(String hashKeyName, Object hashKeyValue) {
+            return addPrimaryKeyToDelete(new PrimaryKey(hashKeyName, hashKeyValue));
+        }
+
+        public TableWriteItems addHashAndRangePrimaryKeyToDelete(String hashKeyName, Object hashKeyValue, String rangeKeyName,
+                                                                 Object rangeKeyValue) {
+            return addPrimaryKeyToDelete(new PrimaryKey(hashKeyName, hashKeyValue, rangeKeyName, rangeKeyValue));
+        }
+
+        public Collection<Item> getItemsToPut() {
+            return Collections.unmodifiableList(itemsToPut);
+        }
+
+        public Collection<PrimaryKey> getPrimaryKeysToDelete() {
+            return Collections.unmodifiableList(primaryKeysToDelete);
+        }
+
+        List<WriteRequest> writeRequests() {
+            List<WriteRequest> requests = new ArrayList<>();
+            for (Item item : itemsToPut) {
+                requests.add(WriteRequest.builder().putRequest(PutRequest.builder().item(item.toAttributeValues()).build()).build());
+            }
+            for (PrimaryKey key : primaryKeysToDelete) {
+                requests.add(WriteRequest.builder().deleteRequest(DeleteRequest.builder().key(key.toAttributeValues()).build()).build());
+            }
+            return requests;
+        }
+    }
+
+    public static class BatchWriteItemOutcome {
+        private final BatchWriteItemResponse result;
+
+        BatchWriteItemOutcome(BatchWriteItemResponse result) {
+            this.result = result;
+        }
+
+        public Map<String, List<WriteRequest>> getUnprocessedItems() {
+            return result.unprocessedItems();
+        }
+
+        public BatchWriteItemResponse getBatchWriteItemResult() {
+            return result;
+        }
+    }
+
+    /**
+     * Conversions between v1's simple Java values and attribute values, as v1's {@code ItemUtils} made them.
+     */
+    public static final class ItemUtils {
+
+        private ItemUtils() {
+        }
+
+        public static Item toItem(Map<String, AttributeValue> item) {
+            return Item.fromAttributeValues(item);
+        }
+
+        public static List<Item> toItemList(List<Map<String, AttributeValue>> items) {
+            List<Item> result = new ArrayList<>();
+            if (items != null) {
+                for (Map<String, AttributeValue> item : items) {
+                    result.add(Item.fromAttributeValues(item));
+                }
+            }
+            return result;
+        }
+
+        public static Map<String, AttributeValue> toAttributeValues(Item item) {
+            return item == null ? null : item.toAttributeValues();
+        }
+
+        public static Map<String, AttributeValue> fromSimpleMap(Map<String, ?> map) {
+            if (map == null) {
+                return null;
+            }
+            Map<String, AttributeValue> result = new LinkedHashMap<>();
+            for (Map.Entry<String, ?> e : map.entrySet()) {
+                result.put(e.getKey(), toAttributeValue(e.getValue()));
+            }
+            return result;
+        }
+
+        public static Map<String, AttributeValue> toAttributeValueMap(Map<String, ?> map) {
+            return fromSimpleMap(map);
+        }
+
+        @SuppressWarnings("unchecked")
+        public static AttributeValue toAttributeValue(Object value) {
+            if (value == null) {
+                return AttributeValue.builder().nul(true).build();
+            }
+            if (value instanceof AttributeValue) {
+                return (AttributeValue) value;
+            }
+            if (value instanceof String) {
+                return AttributeValue.builder().s((String) value).build();
+            }
+            if (value instanceof Number) {
+                return AttributeValue.builder().n(numberString((Number) value)).build();
+            }
+            if (value instanceof Boolean) {
+                return AttributeValue.builder().bool((Boolean) value).build();
+            }
+            if (value instanceof byte[]) {
+                return AttributeValue.builder().b(SdkBytes.fromByteArray((byte[]) value)).build();
+            }
+            if (value instanceof ByteBuffer) {
+                return AttributeValue.builder().b(SdkBytes.fromByteBuffer((ByteBuffer) value)).build();
+            }
+            if (value instanceof Set) {
+                Set<Object> set = (Set<Object>) value;
+                if (set.isEmpty()) {
+                    throw new IllegalArgumentException("An empty set is not a valid attribute value");
+                }
+                Object first = set.iterator().next();
+                if (first instanceof String) {
+                    List<String> ss = new ArrayList<>();
+                    for (Object o : set) {
+                        ss.add((String) o);
+                    }
+                    return AttributeValue.builder().ss(ss).build();
+                }
+                if (first instanceof Number) {
+                    List<String> ns = new ArrayList<>();
+                    for (Object o : set) {
+                        ns.add(numberString((Number) o));
+                    }
+                    return AttributeValue.builder().ns(ns).build();
+                }
+                List<SdkBytes> bs = new ArrayList<>();
+                for (Object o : set) {
+                    bs.add(o instanceof ByteBuffer ? SdkBytes.fromByteBuffer((ByteBuffer) o) : SdkBytes.fromByteArray((byte[]) o));
+                }
+                return AttributeValue.builder().bs(bs).build();
+            }
+            if (value instanceof List) {
+                List<AttributeValue> l = new ArrayList<>();
+                for (Object o : (List<Object>) value) {
+                    l.add(toAttributeValue(o));
+                }
+                return AttributeValue.builder().l(l).build();
+            }
+            if (value instanceof Map) {
+                return AttributeValue.builder().m(fromSimpleMap((Map<String, ?>) value)).build();
+            }
+            if (value instanceof Item) {
+                return AttributeValue.builder().m(((Item) value).toAttributeValues()).build();
+            }
+            throw new UnsupportedOperationException("value type: " + value.getClass());
+        }
+
+        public static Map<String, Object> toSimpleMapValue(Map<String, AttributeValue> values) {
+            if (values == null) {
+                return null;
+            }
+            Map<String, Object> result = new LinkedHashMap<>();
+            for (Map.Entry<String, AttributeValue> e : values.entrySet()) {
+                result.put(e.getKey(), toSimpleValue(e.getValue()));
+            }
+            return result;
+        }
+
+        @SuppressWarnings("unchecked")
+        public static <T> T toSimpleValue(AttributeValue value) {
+            if (value == null || Boolean.TRUE.equals(value.nul())) {
+                return null;
+            }
+            Object result;
+            if (value.s() != null) {
+                result = value.s();
+            } else if (value.n() != null) {
+                result = new BigDecimal(value.n());
+            } else if (value.b() != null) {
+                result = value.b().asByteArray();
+            } else if (value.bool() != null) {
+                result = value.bool();
+            } else if (value.hasSs()) {
+                result = new LinkedHashSet<>(value.ss());
+            } else if (value.hasNs()) {
+                Set<BigDecimal> ns = new LinkedHashSet<>();
+                for (String n : value.ns()) {
+                    ns.add(new BigDecimal(n));
+                }
+                result = ns;
+            } else if (value.hasBs()) {
+                Set<byte[]> bs = new LinkedHashSet<>();
+                for (SdkBytes b : value.bs()) {
+                    bs.add(b.asByteArray());
+                }
+                result = bs;
+            } else if (value.hasL()) {
+                List<Object> l = new ArrayList<>();
+                for (AttributeValue v : value.l()) {
+                    l.add(toSimpleValue(v));
+                }
+                result = l;
+            } else if (value.hasM()) {
+                result = toSimpleMapValue(value.m());
+            } else {
+                result = null;
+            }
+            return (T) result;
+        }
+
+        static byte[] copyAllBytesFrom(ByteBuffer buffer) {
+            if (buffer == null) {
+                return null;
+            }
+            ByteBuffer copy = buffer.asReadOnlyBuffer();
+            copy.rewind();
+            byte[] bytes = new byte[copy.remaining()];
+            copy.get(bytes);
+            return bytes;
+        }
+
+        private static String numberString(Number n) {
+            if (n instanceof BigDecimal) {
+                return ((BigDecimal) n).toPlainString();
+            }
+            return n.toString();
+        }
+    }
+}

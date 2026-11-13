@@ -1,0 +1,111 @@
+#
+# Copyright 2026 the original author or authors.
+# <p>
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# <p>
+# https://www.apache.org/licenses/LICENSE-2.0
+# <p>
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.aws.sdk.MigrateAwsCredentialsAndRegionResiduals
+displayName: Migrate AWS SDK v1 credentials and regions that v2-migration does not map
+description: >-
+  Runs before `software.amazon.awssdk.v2migration.AwsSdkJavaV1ToV2` and converts the credential and region types it has no mapping
+  for: user `AWSCredentialsProvider` implementations, anonymous, EC2/container, web identity token, assume role and
+  properties-file credentials, v1 `Region`, `RegionUtils` and `DefaultAwsRegionProviderChain`. Where the repository references the `AWS_ACCESS_KEY`/`AWS_SECRET_KEY`
+  environment variables, the default credentials chain keeps v1's order and aliases through a generated class.
+recipeList:
+  - org.openrewrite.aws.sdk.MigrateAwsCredentialsProviderImplementations
+  - org.openrewrite.aws.sdk.MigrateAnonymousAndContainerAwsCredentials
+  - org.openrewrite.aws.sdk.MigrateAwsWebIdentityAndAssumeRoleCredentials
+  - org.openrewrite.aws.sdk.MigratePropertiesFileAwsCredentialsProviders:
+      generateHelpers: false
+  - org.openrewrite.aws.sdk.MigrateAwsDefaultCredentialsChainEnvAliases:
+      generateHelpers: false
+  - org.openrewrite.aws.sdk.MigrateAwsRegionResiduals
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.aws.sdk.MigrateAwsSdkV1Utilities
+displayName: Migrate AWS SDK v1 utility classes
+description: >-
+  Runs before `software.amazon.awssdk.v2migration.AwsSdkJavaV1ToV2` and converts the SDK v1 helpers it does not map:
+  `com.amazonaws.util` (`IOUtils`, `StringUtils`, `Base64`, `StringInputStream`, `EC2MetadataUtils`), the IAM policy builder,
+  `SDKGlobalConfiguration` and `com.amazonaws.Protocol`, adding the v2 artifacts they now need.
+recipeList:
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: software.amazon.awssdk
+      artifactId: utils
+      version: 2.x
+      onlyIfUsing: com.amazonaws.util.*
+      acceptTransitive: true
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: software.amazon.awssdk
+      artifactId: imds
+      version: 2.x
+      onlyIfUsing: com.amazonaws.util.EC2MetadataUtils
+      acceptTransitive: true
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: software.amazon.awssdk
+      artifactId: iam-policy-builder
+      version: 2.x
+      onlyIfUsing: com.amazonaws.auth.policy..*
+      acceptTransitive: true
+  # com.amazonaws.Protocol first, as it appears in main code and a later entry for the same artifact skips the build file
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: software.amazon.awssdk
+      artifactId: sdk-core
+      version: 2.x
+      onlyIfUsing: com.amazonaws.Protocol
+      acceptTransitive: true
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: software.amazon.awssdk
+      artifactId: sdk-core
+      version: 2.x
+      onlyIfUsing: com.amazonaws.SDKGlobalConfiguration
+      acceptTransitive: true
+  - org.openrewrite.aws.sdk.MigrateAwsSdkV1IoAndStringUtils
+  - org.openrewrite.aws.sdk.MigrateEc2MetadataUtils:
+      generateHelpers: false
+  - org.openrewrite.aws.sdk.MigrateAwsIamPolicies
+  - org.openrewrite.aws.sdk.MigrateAwsSdkGlobalConfiguration
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.amazonaws.Protocol
+      newFullyQualifiedTypeName: software.amazon.awssdk.core.Protocol
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.aws.sdk.MigrateAwsSdkV1CloudFrontAndSqsBuffered
+displayName: Migrate AWS SDK v1 CloudFront signers and the buffered SQS client
+description: >-
+  Runs before `software.amazon.awssdk.v2migration.AwsSdkJavaV1ToV2`, which would otherwise rename these classes to v2 classes that
+  do not exist. Adds the v2 `cloudfront` and `sqs` artifacts the replacements use.
+recipeList:
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: software.amazon.awssdk
+      artifactId: cloudfront
+      version: 2.x
+      onlyIfUsing: com.amazonaws.services.cloudfront.CloudFrontCookieSigner
+      acceptTransitive: true
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: software.amazon.awssdk
+      artifactId: cloudfront
+      version: 2.x
+      onlyIfUsing: com.amazonaws.services.cloudfront.CloudFrontUrlSigner
+      acceptTransitive: true
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: software.amazon.awssdk
+      artifactId: sqs
+      version: 2.x
+      onlyIfUsing: com.amazonaws.services.sqs.buffered.AmazonSQSBufferedAsyncClient
+      acceptTransitive: true
+  - org.openrewrite.aws.sdk.MigrateCloudFrontSigners:
+      generateHelpers: false
+  - org.openrewrite.aws.sdk.MigrateSqsBufferedClient:
+      generateHelpers: false
