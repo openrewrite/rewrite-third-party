@@ -1,0 +1,29 @@
+#
+# Copyright 2026 the original author or authors.
+# <p>
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# <p>
+# https://www.apache.org/licenses/LICENSE-2.0
+# <p>
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.aws.sdk.AsyncClientAndS3ResidualsWithV2Migration
+displayName: Migrate AWS SDK v1 async clients and S3 residuals together with AWS's v2 migration
+description: >-
+  Runs the async client and S3 gap fillers around `org.openrewrite.aws.sdk.AwsSdkJavaV1ToV2Safe` in the order they need: the pre
+  recipes on v1 code, then AWS's migration, then the post recipes on the v2 result. The full migration composes these steps with the
+  other gap fillers; this recipe exists to run and verify this slice on its own.
+recipeList:
+  - org.openrewrite.aws.sdk.PrepareAwsAsyncClientCalls
+  - org.openrewrite.aws.sdk.MigrateS3Residuals
+  - org.openrewrite.aws.sdk.AwsSdkJavaV1ToV2Safe
+  - org.openrewrite.aws.sdk.CompleteAwsAsyncClientCalls
+  - org.openrewrite.aws.sdk.FixAutoConstructNullChecks
