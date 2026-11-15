@@ -16,6 +16,7 @@
 package org.openrewrite.recipe.quarkus.internal;
 
 import org.junit.jupiter.api.Test;
+import org.openrewrite.DocumentExample;
 import org.openrewrite.test.RewriteTest;
 
 import java.util.regex.Pattern;
@@ -75,30 +76,7 @@ class QuarkusCliParityTest implements RewriteTest {
       </project>
       """;
 
-    @Test
-    void upgradesQuarkusPlatformLikeTheCli() {
-        rewriteRun(
-          spec -> spec.recipe(loadConsolidatedRecipe("org.openrewrite.quarkus.MigrateToQuarkus_v3_39_0")),
-          mavenProject(
-            "app",
-            pomXml(
-              POM_ON_QUARKUS_3_6,
-              spec -> spec.after(pom -> {
-                  assertThat(pom)
-                    .containsPattern(Pattern.compile("<quarkus.platform.version>3\\.39\\.\\d+(\\.\\d+)?</quarkus.platform.version>"))
-                    .contains("<artifactId>quarkus-rest-jackson</artifactId>")
-                    .contains("<artifactId>quarkus-junit</artifactId>")
-                    // only quarkus-cxf stopped pulling in quarkus-jackson, so only its users need it added
-                    .doesNotContain("<artifactId>quarkus-jackson</artifactId>");
-                  // renamed artifacts are managed by the upgraded platform, so get no version of their own
-                  assertThat(pom.substring(pom.lastIndexOf("<dependencies>"), pom.lastIndexOf("</dependencies>"))).doesNotContain("<version>");
-                  return pom;
-              })
-            )
-          )
-        );
-    }
-
+    @DocumentExample
     @Test
     void upgradesJavaInGitHubActionsWorkflowLikeTheCli() {
         rewriteRun(
@@ -132,6 +110,30 @@ class QuarkusCliParityTest implements RewriteTest {
                         java-version: 17
               """,
             spec -> spec.path(".github/workflows/ci.yml")
+          )
+        );
+    }
+
+    @Test
+    void upgradesQuarkusPlatformLikeTheCli() {
+        rewriteRun(
+          spec -> spec.recipe(loadConsolidatedRecipe("org.openrewrite.quarkus.MigrateToQuarkus_v3_39_0")),
+          mavenProject(
+            "app",
+            pomXml(
+              POM_ON_QUARKUS_3_6,
+              spec -> spec.after(pom -> {
+                  assertThat(pom)
+                    .containsPattern(Pattern.compile("<quarkus.platform.version>3\\.39\\.\\d+(\\.\\d+)?</quarkus.platform.version>"))
+                    .contains("<artifactId>quarkus-rest-jackson</artifactId>")
+                    .contains("<artifactId>quarkus-junit</artifactId>")
+                    // only quarkus-cxf stopped pulling in quarkus-jackson, so only its users need it added
+                    .doesNotContain("<artifactId>quarkus-jackson</artifactId>");
+                  // renamed artifacts are managed by the upgraded platform, so get no version of their own
+                  assertThat(pom.substring(pom.lastIndexOf("<dependencies>"), pom.lastIndexOf("</dependencies>"))).doesNotContain("<version>");
+                  return pom;
+              })
+            )
           )
         );
     }
