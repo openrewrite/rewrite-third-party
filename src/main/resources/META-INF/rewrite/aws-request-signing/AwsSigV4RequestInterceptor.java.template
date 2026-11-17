@@ -1,0 +1,191 @@
+package ${package};
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.Clock;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.apache.http.Header;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpEntityEnclosingRequest;
+import org.apache.http.HttpException;
+import org.apache.http.HttpHost;
+import org.apache.http.HttpRequest;
+import org.apache.http.HttpRequestInterceptor;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.entity.BufferedHttpEntity;
+import org.apache.http.message.BasicHeader;
+import org.apache.http.protocol.HttpContext;
+import org.apache.http.protocol.HttpCoreContext;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.http.ContentStreamProvider;
+import software.amazon.awssdk.http.SdkHttpFullRequest;
+import software.amazon.awssdk.http.SdkHttpMethod;
+import software.amazon.awssdk.http.auth.aws.signer.AwsV4HttpSigner;
+import software.amazon.awssdk.http.auth.spi.signer.HttpSigner;
+import software.amazon.awssdk.http.auth.spi.signer.SignedRequest;
+
+/**
+ * Signs Apache HttpClient 4 requests with AWS Signature Version 4 using AWS SDK for Java v2, replacing awslabs'
+ * {@code AWSRequestSigningApacheInterceptor}, which requires AWS SDK for Java v1.
+ */
+public final class ${className} implements HttpRequestInterceptor {
+    private static final AwsV4HttpSigner SIGNER = AwsV4HttpSigner.create();
+
+    private static final Pattern S3_ENDPOINT_PATTERN = Pattern.compile("^(?:.+\\.)?s3[.-]([a-z0-9-]+)$");
+    private static final Pattern STANDARD_CLOUDSEARCH_ENDPOINT_PATTERN = Pattern.compile("^(?:.+\\.)?([a-z0-9-]+)\\.cloudsearch$");
+    private static final Pattern EXTENDED_CLOUDSEARCH_ENDPOINT_PATTERN = Pattern.compile("^(?:.+\\.)?([a-z0-9-]+)\\.cloudsearch\\..+");
+
+    private final String service;
+    private final String region;
+    private final AwsCredentialsProvider credentialsProvider;
+    private final Clock clock;
+
+    /**
+     * @param service             the signing name of the service, such as {@code es}
+     * @param region              the signing region; when {@code null} it is guessed from the target host on every request,
+     *                            falling back to {@code us-east-1}, as SDK v1 did
+     * @param credentialsProvider resolved on every request
+     */
+    public ${className}(String service, String region, AwsCredentialsProvider credentialsProvider) {
+        this(service, region, credentialsProvider, Clock.systemUTC());
+    }
+
+    // A fixed clock lets tests compare signatures.
+    ${className}(String service, String region, AwsCredentialsProvider credentialsProvider, Clock clock) {
+        this.service = service;
+        this.region = region;
+        this.credentialsProvider = credentialsProvider;
+        this.clock = clock;
+    }
+
+    @Override
+    public void process(HttpRequest request, HttpContext context) throws HttpException, IOException {
+        URIBuilder uriBuilder;
+        String rawPath;
+        try {
+            uriBuilder = new URIBuilder(request.getRequestLine().getUri());
+            rawPath = uriBuilder.build().getRawPath();
+        } catch (URISyntaxException e) {
+            throw new IOException("Invalid URI", e);
+        }
+
+        SdkHttpFullRequest.Builder signable = SdkHttpFullRequest.builder()
+                .method(SdkHttpMethod.fromValue(request.getRequestLine().getMethod()));
+        HttpHost host = (HttpHost) context.getAttribute(HttpCoreContext.HTTP_TARGET_HOST);
+        if (host != null) {
+            signable.uri(URI.create(host.toURI()));
+        }
+        signable.encodedPath(rawPath);
+        for (NameValuePair p : uriBuilder.getQueryParams()) {
+            signable.appendRawQueryParameter(p.getName(), p.getValue());
+        }
+        // As the original: one value per header name, last wins; Host is recomputed from the target host.
+        Map<String, String> headers = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        for (Header h : request.getAllHeaders()) {
+            if (!skipHeader(h)) {
+                headers.put(h.getName(), h.getValue());
+            }
+        }
+        headers.forEach(signable::putHeader);
+        SdkHttpFullRequest unsigned = signable.build();
+
+        String signingRegion = region != null ? region : regionFromHost(unsigned.host(), service);
+        List<InputStream> opened = new ArrayList<>();
+        ContentStreamProvider payload = payload(request, opened);
+        SignedRequest signed;
+        try {
+            signed = SIGNER.sign(r -> r
+                    .identity(credentialsProvider.resolveCredentials())
+                    .request(unsigned)
+                    .payload(payload)
+                    .putProperty(AwsV4HttpSigner.SERVICE_SIGNING_NAME, service)
+                    .putProperty(AwsV4HttpSigner.REGION_NAME, signingRegion)
+                    .putProperty(HttpSigner.SIGNING_CLOCK, clock));
+        } finally {
+            for (InputStream in : opened) {
+                in.close();
+            }
+        }
+
+        List<Header> out = new ArrayList<>();
+        signed.request().forEachHeader((name, values) -> values.forEach(v -> out.add(new BasicHeader(name, v))));
+        request.setHeaders(out.toArray(new Header[0]));
+    }
+
+    private static ContentStreamProvider payload(HttpRequest request, List<InputStream> opened) throws IOException {
+        if (!(request instanceof HttpEntityEnclosingRequest)) {
+            return null;
+        }
+        HttpEntityEnclosingRequest enclosing = (HttpEntityEnclosingRequest) request;
+        HttpEntity entity = enclosing.getEntity();
+        if (entity == null) {
+            return null;
+        }
+        if (!entity.isRepeatable()) {
+            // Buffered so the body can be hashed and still be sent, and stays retryable.
+            entity = new BufferedHttpEntity(entity);
+            enclosing.setEntity(entity);
+        }
+        HttpEntity body = entity;
+        return () -> {
+            try {
+                InputStream in = body.getContent();
+                opened.add(in);
+                return in;
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        };
+    }
+
+    private static boolean skipHeader(Header h) {
+        return ("content-length".equalsIgnoreCase(h.getName()) && "0".equals(h.getValue())) ||
+               "host".equalsIgnoreCase(h.getName());
+    }
+
+    // Minimal copy of SDK v1's AwsHostNameUtils.parseRegion, which v1 applied when no region was set.
+    static String regionFromHost(String host, String serviceHint) {
+        if (host.endsWith(".amazonaws.com")) {
+            return parseStandardRegionName(host.substring(0, host.length() - ".amazonaws.com".length()));
+        }
+        if ("cloudsearch".equals(serviceHint) && !host.startsWith("cloudsearch.")) {
+            Matcher matcher = EXTENDED_CLOUDSEARCH_ENDPOINT_PATTERN.matcher(host);
+            if (matcher.matches()) {
+                return matcher.group(1);
+            }
+        }
+        if (serviceHint != null) {
+            Matcher matcher = Pattern.compile("^(?:.+\\.)?" + Pattern.quote(serviceHint) + "[.-]([a-z0-9-]+)\\.").matcher(host);
+            if (matcher.find()) {
+                return matcher.group(1);
+            }
+        }
+        return "us-east-1";
+    }
+
+    private static String parseStandardRegionName(String fragment) {
+        Matcher matcher = S3_ENDPOINT_PATTERN.matcher(fragment);
+        if (matcher.matches()) {
+            return matcher.group(1);
+        }
+        matcher = STANDARD_CLOUDSEARCH_ENDPOINT_PATTERN.matcher(fragment);
+        if (matcher.matches()) {
+            return matcher.group(1);
+        }
+        int index = fragment.lastIndexOf('.');
+        if (index == -1) {
+            return "us-east-1";
+        }
+        String region = fragment.substring(index + 1);
+        return "us-gov".equals(region) ? "us-gov-west-1" : region;
+    }
+}

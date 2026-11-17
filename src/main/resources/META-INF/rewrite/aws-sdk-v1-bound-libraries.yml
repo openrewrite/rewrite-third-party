@@ -1,0 +1,160 @@
+#
+# Copyright 2026 the original author or authors.
+# <p>
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# <p>
+# https://www.apache.org/licenses/LICENSE-2.0
+# <p>
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.aws.sdk.MigrateAwsSdkV1BoundLibraries
+displayName: Move AWS SDK v1-bound libraries to their SDK v2 releases
+description: >-
+  Runs before `software.amazon.awssdk.v2migration.AwsSdkJavaV1ToV2`. Moves libraries that require or bring in AWS SDK for
+  Java v1 to their releases built on SDK v2, so that v2-migration's retyping of the clients passed to them lines up:
+  Amazon SQS Java Messaging Library 1.x to 2.x, X-Ray's v1 SDK instrumentation to the v2 instrumentation, Secrets Manager
+  caching 1.x to 2.x, `aws-lambda-java-events` before 3 to 3.x, and Kinesis Producer Library 0.x to 1.x. Kinesis Client
+  Library 1.x consumers are ported to KCL 2.x where they only use the mapped APIs; other uses and their dependency are marked
+  for a hand port.
+tags:
+  - aws
+  - sdk
+recipeList:
+  - org.openrewrite.aws.sdk.UpgradeSqsJavaMessagingLibJavax
+  - org.openrewrite.aws.sdk.UpgradeSqsJavaMessagingLibJakarta
+  - org.openrewrite.aws.sdk.MigrateXRayToSdkV2Instrumentation
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: com.amazonaws.secretsmanager
+      artifactId: aws-secretsmanager-caching-java
+      newVersion: 2.x
+  - org.openrewrite.aws.sdk.MigrateLambdaEventsTo3
+  - org.openrewrite.aws.sdk.MigrateKinesisProducerLibraryTo1
+  - org.openrewrite.aws.sdk.MigrateKinesisClientLibraryToV2:
+      generateHelpers: false
+  - org.openrewrite.aws.sdk.MarkKinesisClientLibraryV1
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.aws.sdk.UpgradeSqsJavaMessagingLibJavax
+displayName: Upgrade Amazon SQS Java Messaging Library to 2.0.x on `javax.jms`
+description: >-
+  2.0.x is the last line on `javax.jms`, and the first built on AWS SDK v2 (`SQSConnectionFactory(ProviderConfiguration, SqsClient)`).
+preconditions:
+  - org.openrewrite.aws.sdk.search.FindBuildsByJmsNamespace:
+      jakarta: false
+recipeList:
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: com.amazonaws
+      artifactId: amazon-sqs-java-messaging-lib
+      newVersion: 2.0.x
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.aws.sdk.UpgradeSqsJavaMessagingLibJakarta
+displayName: Upgrade Amazon SQS Java Messaging Library to 2.x on `jakarta.jms`
+description: >-
+  From 2.1.0 the library implements `jakarta.jms`, which Spring Boot 3 builds use.
+preconditions:
+  - org.openrewrite.aws.sdk.search.FindBuildsByJmsNamespace:
+      jakarta: true
+recipeList:
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: com.amazonaws
+      artifactId: amazon-sqs-java-messaging-lib
+      newVersion: 2.x
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.aws.sdk.MigrateXRayToSdkV2Instrumentation
+displayName: Move X-Ray SDK instrumentation to AWS SDK v2
+description: >-
+  Replaces X-Ray's AWS SDK v1 instrumentation with the v2 one (`TracingInterceptor`), and moves every X-Ray artifact to
+  2.21.x, the first line whose `aws-xray-recorder-sdk-core` no longer depends on AWS SDK v1.
+recipeList:
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.amazonaws
+      oldArtifactId: aws-xray-recorder-sdk-aws-sdk
+      newArtifactId: aws-xray-recorder-sdk-aws-sdk-v2
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.amazonaws
+      oldArtifactId: aws-xray-recorder-sdk-aws-sdk-instrumentor
+      newArtifactId: aws-xray-recorder-sdk-aws-sdk-v2-instrumentor
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: com.amazonaws
+      artifactId: aws-xray-recorder-sdk-*
+      newVersion: 2.21.x
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.aws.sdk.MigrateLambdaEventsTo3
+displayName: Upgrade `aws-lambda-java-events` to 3.x
+description: >-
+  Releases before 3 build their S3, DynamoDB and Kinesis event records on AWS SDK v1 model classes. 3.x ships its own
+  copies of those classes under `com.amazonaws.services.lambda.runtime.events.models`, with the same names and accessors.
+recipeList:
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: com.amazonaws
+      artifactId: aws-lambda-java-events
+      newVersion: 3.x
+  - org.openrewrite.aws.sdk.MigrateLambdaEventModelTypes
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.aws.sdk.MigrateLambdaEventModelTypes
+displayName: Use `aws-lambda-java-events` 3.x event model types
+description: >-
+  In files that handle Lambda events, retypes the AWS SDK v1 model classes that event records exposed before 3.x to the
+  event library's own copies.
+preconditions:
+  - org.openrewrite.java.search.FindTypes:
+      fullyQualifiedTypeName: com.amazonaws.services.lambda.runtime.events..*
+recipeList:
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.amazonaws.services.s3.event.S3EventNotification
+      newFullyQualifiedTypeName: com.amazonaws.services.lambda.runtime.events.models.s3.S3EventNotification
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.amazonaws.services.dynamodbv2.model.AttributeValue
+      newFullyQualifiedTypeName: com.amazonaws.services.lambda.runtime.events.models.dynamodb.AttributeValue
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.amazonaws.services.dynamodbv2.model.Identity
+      newFullyQualifiedTypeName: com.amazonaws.services.lambda.runtime.events.models.dynamodb.Identity
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.amazonaws.services.dynamodbv2.model.OperationType
+      newFullyQualifiedTypeName: com.amazonaws.services.lambda.runtime.events.models.dynamodb.OperationType
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.amazonaws.services.dynamodbv2.model.Record
+      newFullyQualifiedTypeName: com.amazonaws.services.lambda.runtime.events.models.dynamodb.Record
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.amazonaws.services.dynamodbv2.model.StreamRecord
+      newFullyQualifiedTypeName: com.amazonaws.services.lambda.runtime.events.models.dynamodb.StreamRecord
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.amazonaws.services.dynamodbv2.model.StreamViewType
+      newFullyQualifiedTypeName: com.amazonaws.services.lambda.runtime.events.models.dynamodb.StreamViewType
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.amazonaws.services.kinesis.model.Record
+      newFullyQualifiedTypeName: com.amazonaws.services.lambda.runtime.events.models.kinesis.Record
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.amazonaws.services.kinesis.model.EncryptionType
+      newFullyQualifiedTypeName: com.amazonaws.services.lambda.runtime.events.models.kinesis.EncryptionType
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.aws.sdk.MigrateKinesisProducerLibraryTo1
+displayName: Upgrade Kinesis Producer Library to 1.x
+description: >-
+  KPL 1.x is the AWS SDK v2 release of KPL 0.x, with the same classes under `software.amazon.kinesis.producer`.
+  `KinesisProducerConfiguration.setCredentialsProvider` then takes the v2 credentials provider v2-migration produces.
+  Runs before v2-migration, whose naming convention would otherwise rename KPL classes to non-existent SDK classes.
+recipeList:
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: com.amazonaws.services.kinesis.producer
+      newPackageName: software.amazon.kinesis.producer
+      recursive: true
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: com.amazonaws
+      oldArtifactId: amazon-kinesis-producer
+      newGroupId: software.amazon.kinesis
+      newArtifactId: amazon-kinesis-producer
+      newVersion: 1.x
