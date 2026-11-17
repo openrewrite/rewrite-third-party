@@ -21,6 +21,7 @@ import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
+import org.openrewrite.test.TypeValidation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.openrewrite.java.Assertions.java;
@@ -138,6 +139,59 @@ class MigrateAwsSdkV1ToV2Test implements RewriteTest {
                   }
               }
               """
+          )
+        );
+    }
+
+    @Test
+    void endpointConfigurationImportGoesWithTheDocumentApiClient() {
+        rewriteRun(
+          // The v2 types aren't on the parser's classpath, and AWS's own credential rewrites leave identifiers untyped
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+              .classpathFromResources(new InMemoryExecutionContext(), "aws-java-sdk-core", "aws-java-sdk-dynamodb"))
+            .afterTypeValidationOptions(TypeValidation.none()),
+          //language=java
+          java(
+            """
+              package com.example;
+
+              import com.amazonaws.auth.AWSStaticCredentialsProvider;
+              import com.amazonaws.auth.BasicAWSCredentials;
+              import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
+              import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+              import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
+              import com.amazonaws.services.dynamodbv2.document.DynamoDB;
+              import com.amazonaws.services.dynamodbv2.document.Table;
+
+              class ScriptRunner {
+                  static AmazonDynamoDB amazonDynamoDB() {
+                      return AmazonDynamoDBClientBuilder
+                              .standard()
+                              .withEndpointConfiguration(new EndpointConfiguration("http://localhost:8000", "us-east-1"))
+                              .withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials("key", "secret")))
+                              .build();
+                  }
+
+                  static DynamoDB dynamodb = new DynamoDB(amazonDynamoDB());
+
+                  static void deleteTable(String name) {
+                      Table table = dynamodb.getTable(name);
+                      table.delete();
+                  }
+              }
+              """,
+            spec -> spec.after(actual -> assertThat(actual)
+              .doesNotContain("EndpointConfiguration", "com.amazonaws")
+              .contains("endpointOverride(URI.create(\"http://localhost:8000\"))")
+              .actual())
+          ),
+          java(
+            null,
+            """
+              package com.example;
+              """,
+            spec -> spec.path("com/example/DynamoDbDocumentApi.java")
+              .after(actual -> assertThat(actual).contains("public final class DynamoDbDocumentApi").actual())
           )
         );
     }

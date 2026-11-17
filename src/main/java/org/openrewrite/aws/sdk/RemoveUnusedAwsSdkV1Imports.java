@@ -17,12 +17,14 @@ package org.openrewrite.aws.sdk;
 
 import lombok.Getter;
 import org.openrewrite.ExecutionContext;
+import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.JavaType;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -34,11 +36,15 @@ public class RemoveUnusedAwsSdkV1Imports extends Recipe {
 
     @Getter
     final String description = "Removes single-type imports of `com.amazonaws` SDK classes that the file never refers to. Such an " +
-            "import is all that would keep the file on SDK v1 once the referencing code is migrated or was never there.";
+            "import is all that would keep the file on SDK v1 once the referencing code is migrated or was never there. Also " +
+            "removes unused imports of `software.amazon.awssdk` types that don't exist, which the type mapping leaves behind " +
+            "for v1 types without a v2 counterpart once their usages are rewritten.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
-        return JavaOnly.check(new UsesType<>("com.amazonaws..*", true), new JavaIsoVisitor<ExecutionContext>() {
+        return JavaOnly.check(Preconditions.or(
+                new UsesType<>("com.amazonaws..*", true),
+                new UsesType<>("software.amazon.awssdk..*", true)), new JavaIsoVisitor<ExecutionContext>() {
             @Override
             public J.CompilationUnit visitCompilationUnit(J.CompilationUnit cu, ExecutionContext ctx) {
                 // Compared by name rather than type, so that a file parsed without its classpath keeps every import it uses
@@ -57,7 +63,8 @@ public class RemoveUnusedAwsSdkV1Imports extends Recipe {
                 }.visit(cu, referenced);
                 J.CompilationUnit c = cu.withImports(ListUtils.map(cu.getImports(), (i, imp) -> {
                     String type = imp.getTypeName();
-                    return !imp.isStatic() && !"*".equals(imp.getQualid().getSimpleName()) && AwsSdkV2Coordinates.isV1SdkType(type) &&
+                    return !imp.isStatic() && !"*".equals(imp.getQualid().getSimpleName()) &&
+                           (AwsSdkV2Coordinates.isV1SdkType(type) || isUnresolvedV2Type(imp)) &&
                            !referenced.contains(imp.getQualid().getSimpleName()) ? null : imp;
                 }));
                 if (c != cu && !c.getImports().isEmpty() && !cu.getImports().isEmpty() &&
@@ -68,5 +75,12 @@ public class RemoveUnusedAwsSdkV1Imports extends Recipe {
                 return c;
             }
         });
+    }
+
+    // A v2 type that resolves may be one the project already uses, so only phantoms of the type mapping are removed
+    private static boolean isUnresolvedV2Type(J.Import imp) {
+        JavaType type = imp.getQualid().getType();
+        return imp.getTypeName().startsWith("software.amazon.awssdk.") &&
+               (!(type instanceof JavaType.Class) || type instanceof JavaType.ShallowClass);
     }
 }
