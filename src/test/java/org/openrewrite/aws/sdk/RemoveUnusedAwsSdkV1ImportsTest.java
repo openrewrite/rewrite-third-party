@@ -22,6 +22,7 @@ import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
+import org.openrewrite.test.TypeValidation;
 
 import static org.openrewrite.java.Assertions.java;
 
@@ -80,5 +81,56 @@ class RemoveUnusedAwsSdkV1ImportsTest implements RewriteTest {
               )
             );
         }
+    }
+
+    @Test
+    void removesUnusedImportOfV2TypeThatDoesNotExist() {
+        rewriteRun(
+          // The import names a type the v1 type mapping invented, so it can't be attributed
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+              .classpathFromResources(new InMemoryExecutionContext(), "aws-core"))
+            .typeValidationOptions(TypeValidation.none()),
+          //language=java
+          java(
+            """
+              package com.example;
+
+              import software.amazon.awssdk.awscore.client.builder.AwsClientBuilder.EndpointConfiguration;
+              import java.net.URI;
+
+              class Endpoints {
+                  URI local = URI.create("http://localhost:8000");
+              }
+              """,
+            """
+              package com.example;
+
+              import java.net.URI;
+
+              class Endpoints {
+                  URI local = URI.create("http://localhost:8000");
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void keepsUnusedImportOfV2TypeThatExists() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+            .classpathFromResources(new InMemoryExecutionContext(), "aws-core")),
+          //language=java
+          java(
+            """
+              package com.example;
+
+              import software.amazon.awssdk.awscore.client.builder.AwsClientBuilder;
+
+              class Builders {
+              }
+              """
+          )
+        );
     }
 }
