@@ -25,6 +25,7 @@ import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 import org.openrewrite.test.TypeValidation;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.openrewrite.gradle.Assertions.buildGradle;
 import static org.openrewrite.gradle.toolingapi.Assertions.withToolingApi;
 import static org.openrewrite.java.Assertions.*;
@@ -112,6 +113,101 @@ class MigrateAwsSdkV2DependenciesTest implements RewriteTest {
                     </dependencies>
                 </project>
                 """.formatted(V)
+            )
+          )
+        );
+    }
+
+    @Test
+    void springBootParentsOlderHttpComponentsAreRaisedForApache5Client() {
+        rewriteRun(
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.amazonaws.services.s3.AmazonS3;
+
+                  class Clients {
+                      AmazonS3 s3;
+                  }
+                  """
+              )
+            ),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                    <parent>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-starter-parent</artifactId>
+                        <version>3.1.12</version>
+                    </parent>
+                    <groupId>com.example</groupId>
+                    <artifactId>app</artifactId>
+                    <version>1.0</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.amazonaws</groupId>
+                            <artifactId>aws-java-sdk-s3</artifactId>
+                            <version>1.12.700</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """,
+              spec -> spec.after(actual -> assertThat(actual)
+                .containsPattern("<groupId>org.apache.httpcomponents.client5</groupId>\\s*<artifactId>httpclient5</artifactId>\\s*<version>5\\.([4-9]|\\d{2,})\\.")
+                .containsPattern("<artifactId>httpcore5</artifactId>\\s*<version>5\\.([3-9]|\\d{2,})\\.")
+                .containsPattern("<artifactId>httpcore5-h2</artifactId>\\s*<version>5\\.([3-9]|\\d{2,})\\.")
+                .contains("<artifactId>s3</artifactId>")
+                .doesNotContain("com.amazonaws")
+                .actual())
+            )
+          )
+        );
+    }
+
+    @Test
+    void springBootParentsHttpComponentsThatApache5ClientLinksAgainstAreLeftAlone() {
+        rewriteRun(
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.amazonaws.services.s3.AmazonS3;
+
+                  class Clients {
+                      AmazonS3 s3;
+                  }
+                  """
+              )
+            ),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                    <parent>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-starter-parent</artifactId>
+                        <version>3.4.0</version>
+                    </parent>
+                    <groupId>com.example</groupId>
+                    <artifactId>app</artifactId>
+                    <version>1.0</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.amazonaws</groupId>
+                            <artifactId>aws-java-sdk-s3</artifactId>
+                            <version>1.12.700</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """,
+              spec -> spec.after(actual -> assertThat(actual)
+                .contains("<artifactId>s3</artifactId>")
+                .doesNotContain("httpclient5", "httpcore5", "com.amazonaws")
+                .actual())
             )
           )
         );
@@ -533,6 +629,137 @@ class MigrateAwsSdkV2DependenciesTest implements RewriteTest {
                     implementation 'software.amazon.awssdk:dynamodb'
                 }
                 """.formatted(V)
+            )
+          )
+        );
+    }
+
+    @Disabled(TOOLING_API_UNAVAILABLE)
+    @Test
+    void gradleSpringBootPluginsOlderHttpComponentsAreRaisedForApache5Client() {
+        rewriteRun(
+          spec -> spec.beforeRecipe(withToolingApi()),
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.amazonaws.services.s3.AmazonS3;
+
+                  class Clients {
+                      AmazonS3 s3;
+                  }
+                  """
+              )
+            ),
+            //language=groovy
+            buildGradle(
+              """
+                plugins {
+                    id 'java'
+                    id 'org.springframework.boot' version '3.1.12'
+                    id 'io.spring.dependency-management' version '1.1.7'
+                }
+                repositories {
+                    mavenCentral()
+                }
+                dependencies {
+                    implementation 'com.amazonaws:aws-java-sdk-s3:1.12.700'
+                }
+                """,
+              spec -> spec.after(actual -> assertThat(actual)
+                .containsPattern("}\\n\\next\\['httpclient5\\.version'] = '5\\.([4-9]|\\d{2,})\\.\\d+'\\n" +
+                  "ext\\['httpcore5\\.version'] = '5\\.([3-9]|\\d{2,})\\.\\d+'\\n\\nrepositories \\{")
+                .contains("implementation \"software.amazon.awssdk:s3\"")
+                .doesNotContain("com.amazonaws")
+                .actual())
+            )
+          )
+        );
+    }
+
+    @Disabled(TOOLING_API_UNAVAILABLE)
+    @Test
+    void gradleSpringBootPluginsHttpComponentsThatApache5ClientLinksAgainstAreLeftAlone() {
+        rewriteRun(
+          spec -> spec.beforeRecipe(withToolingApi()),
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.amazonaws.services.s3.AmazonS3;
+
+                  class Clients {
+                      AmazonS3 s3;
+                  }
+                  """
+              )
+            ),
+            //language=groovy
+            buildGradle(
+              """
+                plugins {
+                    id 'java'
+                    id 'org.springframework.boot' version '3.4.0'
+                    id 'io.spring.dependency-management' version '1.1.7'
+                }
+                repositories {
+                    mavenCentral()
+                }
+                dependencies {
+                    implementation 'com.amazonaws:aws-java-sdk-s3:1.12.700'
+                }
+                """,
+              spec -> spec.after(actual -> assertThat(actual)
+                .doesNotContain("httpclient5", "httpcore5")
+                .contains("implementation \"software.amazon.awssdk:s3\"")
+                .doesNotContain("com.amazonaws")
+                .actual())
+            )
+          )
+        );
+    }
+
+    @Disabled(TOOLING_API_UNAVAILABLE)
+    @Test
+    void gradleHttpComponentsOverrideTheScriptAlreadySetsIsRaised() {
+        rewriteRun(
+          spec -> spec.beforeRecipe(withToolingApi()),
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.amazonaws.services.s3.AmazonS3;
+
+                  class Clients {
+                      AmazonS3 s3;
+                  }
+                  """
+              )
+            ),
+            //language=groovy
+            buildGradle(
+              """
+                plugins {
+                    id 'java'
+                    id 'org.springframework.boot' version '3.1.12'
+                    id 'io.spring.dependency-management' version '1.1.7'
+                }
+                ext['httpclient5.version'] = '5.2.1'
+                repositories {
+                    mavenCentral()
+                }
+                dependencies {
+                    implementation 'com.amazonaws:aws-java-sdk-s3:1.12.700'
+                }
+                """,
+              spec -> spec.after(actual -> assertThat(actual)
+                .containsOnlyOnce("ext['httpclient5.version']")
+                .containsPattern("ext\\['httpclient5\\.version'] = '5\\.([4-9]|\\d{2,})\\.\\d+'")
+                .containsPattern("ext\\['httpcore5\\.version'] = '5\\.([3-9]|\\d{2,})\\.\\d+'")
+                .actual())
             )
           )
         );

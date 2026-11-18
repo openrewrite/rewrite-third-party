@@ -23,19 +23,30 @@ import org.openrewrite.*;
 import org.openrewrite.aws.sdk.table.AwsSdkV2DependencyChanges;
 import org.openrewrite.gradle.AddDependencyVisitor;
 import org.openrewrite.gradle.RemoveDependency;
+import org.openrewrite.gradle.internal.SpringBomProperty;
 import org.openrewrite.gradle.marker.GradleDependencyConfiguration;
 import org.openrewrite.gradle.marker.GradleProject;
+import org.openrewrite.gradle.marker.SpringDependencyManagementPlugin;
+import org.openrewrite.gradle.trait.ExtraProperty;
 import org.openrewrite.gradle.trait.GradleDependency;
 import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaSourceFile;
 import org.openrewrite.java.tree.JavaType;
+import org.openrewrite.java.tree.Space;
+import org.openrewrite.java.tree.Statement;
 import org.openrewrite.marker.Markup;
 import org.openrewrite.maven.AddManagedDependencyVisitor;
+import org.openrewrite.maven.MavenDownloadingException;
+import org.openrewrite.maven.MavenExecutionContextView;
 import org.openrewrite.maven.UpdateMavenModel;
+import org.openrewrite.maven.internal.MavenPomDownloader;
 import org.openrewrite.maven.tree.Dependency;
+import org.openrewrite.maven.tree.GroupArtifact;
+import org.openrewrite.maven.tree.GroupArtifactVersion;
 import org.openrewrite.maven.tree.ManagedDependency;
+import org.openrewrite.maven.tree.MavenRepository;
 import org.openrewrite.maven.tree.MavenResolutionResult;
 import org.openrewrite.maven.tree.ResolvedPom;
 import org.openrewrite.properties.PropertiesVisitor;
@@ -84,6 +95,18 @@ public class MigrateAwsSdkV2Dependencies extends ScanningRecipe<MigrateAwsSdkV2D
 
     @Getter
     transient AwsSdkV2DependencyChanges changes = new AwsSdkV2DependencyChanges(this);
+
+    private static final String HTTPCLIENT5_GROUP = "org.apache.httpcomponents.client5";
+    private static final String HTTPCORE5_GROUP = "org.apache.httpcomponents.core5";
+
+    // apache5-client links against TLS and connection APIs added in httpclient5 5.4
+    private static final String APACHE5_CLIENT_MIN_HTTPCLIENT5 = "5.4";
+
+    private static final String[][] APACHE5_CLIENT_STACK = {
+            {HTTPCLIENT5_GROUP, "httpclient5"},
+            {HTTPCORE5_GROUP, "httpcore5"},
+            {HTTPCORE5_GROUP, "httpcore5-h2"}
+    };
 
     @Getter
     transient PreserveNonAwsTransitives preserveNonAwsTransitives = new PreserveNonAwsTransitives();
@@ -449,6 +472,9 @@ public class MigrateAwsSdkV2Dependencies extends ScanningRecipe<MigrateAwsSdkV2D
             changes.insertRow(ctx, new AwsSdkV2DependencyChanges.Row(path, "bom-added",
                     GROUP_ID + ":" + BOM_ARTIFACT_ID + ":" + version, "Manages every v2 artifact at one version"));
         }
+        if (usesV2) {
+            doc = alignApache5ClientStack(doc, mrr, version, path, ctx);
+        }
         for (Map.Entry<String, Boolean> e : required.entrySet()) {
             String artifact = e.getKey();
             if (inheritsMavenDependency(resolved, artifact)) {
@@ -520,6 +546,156 @@ public class MigrateAwsSdkV2Dependencies extends ScanningRecipe<MigrateAwsSdkV2D
         }
         return false;
     }
+
+    /**
+     * Every v2 service module depends on {@code apache5-client} at runtime. A parent or imported BOM that manages
+     * httpclient5 below 5.4, as Spring Boot before 3.4 does, would otherwise downgrade it and fail at runtime with
+     * {@code NoClassDefFoundError}, so the module manages the versions {@code apache5-client} is built with. Newer
+     * managed versions are left alone, as a pin in the module would outlive later upgrades of the parent.
+     */
+    private Xml.Document alignApache5ClientStack(Xml.Document doc, MavenResolutionResult mrr, String version, String path,
+                                                 ExecutionContext ctx) {
+        ResolvedPom resolved = mrr.getPom();
+        String managedClient = resolved.getManagedVersion(HTTPCLIENT5_GROUP, "httpclient5", null, null);
+        if (managedClient == null || !isOlder(managedClient, APACHE5_CLIENT_MIN_HTTPCLIENT5)) {
+            return doc;
+        }
+        ResolvedPom apache5;
+        try {
+            MavenPomDownloader downloader = new MavenPomDownloader(mrr.getProjectPoms(), ctx,
+                    MavenExecutionContextView.view(ctx).effectiveSettings(mrr), mrr.getActiveProfiles());
+            apache5 = downloader.download(new GroupArtifactVersion(GROUP_ID, "apache5-client", version), null,
+                    mrr.getPom(), mrr.getPom().getRepositories()).resolve(Collections.emptyList(), downloader, ctx);
+        } catch (MavenDownloadingException e) {
+            return doc;
+        }
+        for (String[] ga : APACHE5_CLIENT_STACK) {
+            String managed = resolved.getManagedVersion(ga[0], ga[1], null, null);
+            String needed = apache5ClientVersion(apache5, ga);
+            if (managed == null || needed == null || !isOlder(managed, needed)) {
+                continue;
+            }
+            Xml.Document before = doc;
+            doc = (Xml.Document) new AddManagedDependencyVisitor(ga[0], ga[1], needed, null, null, null, null)
+                    .visitNonNull(doc, ctx);
+            if (doc != before) {
+                changes.insertRow(ctx, new AwsSdkV2DependencyChanges.Row(path, "managed-version-raised",
+                        ga[0] + ":" + ga[1] + ":" + managed + " -> " + needed,
+                        "AWS SDK v2's apache5-client needs it; the version managed for the module was older"));
+            }
+        }
+        return doc;
+    }
+
+    private static @Nullable String apache5ClientVersion(ResolvedPom apache5, String[] ga) {
+        // AWS doesn't manage httpcore5-h2, which has to match httpcore5
+        return "httpcore5-h2".equals(ga[1]) ?
+                apache5.getManagedVersion(HTTPCORE5_GROUP, "httpcore5", null, null) :
+                apache5.getManagedVersion(ga[0], ga[1], null, null);
+    }
+
+    /**
+     * The Gradle counterpart of {@link #alignApache5ClientStack(Xml.Document, MavenResolutionResult, String, String, ExecutionContext)}.
+     * The {@code io.spring.dependency-management} plugin enforces the versions of the BOMs it imports, Spring Boot's
+     * included, so the BOM properties governing them are overridden the way Spring documents,
+     * with {@code ext['httpclient5.version']}. Gradle's own platforms resolve to the highest version and need nothing.
+     */
+    private JavaSourceFile alignApache5ClientStack(JavaSourceFile g, String version, String path, ExecutionContext ctx) {
+        GradleProject gp = g.getMarkers().findFirst(GradleProject.class).get();
+        SpringDependencyManagementPlugin plugin = gp.getSpringDependencyManagementPlugin();
+        if (plugin == null) {
+            return g;
+        }
+        Map<String, String> managed = plugin.getManagedVersions();
+        String managedClient = managed.get(HTTPCLIENT5_GROUP + ":httpclient5");
+        if (managedClient == null || !isOlder(managedClient, APACHE5_CLIENT_MIN_HTTPCLIENT5)) {
+            return g;
+        }
+        ResolvedPom apache5;
+        try {
+            List<MavenRepository> repositories = gp.getMavenRepositories();
+            MavenPomDownloader downloader = new MavenPomDownloader(ctx);
+            apache5 = downloader.download(new GroupArtifactVersion(GROUP_ID, "apache5-client", version), null, null,
+                    repositories).resolve(Collections.emptyList(), downloader, repositories, ctx);
+        } catch (MavenDownloadingException e) {
+            return g;
+        }
+
+        SpringBomProperty.Project project = SpringBomProperty.Project.of(gp);
+        List<GroupArtifactVersion> scriptBoms = SpringBomProperty.importedBoms(g);
+
+        Map<String, String> neededByProperty = new LinkedHashMap<>();
+        Map<String, String> raisedByProperty = new LinkedHashMap<>();
+        for (String[] ga : APACHE5_CLIENT_STACK) {
+            String key = ga[0] + ":" + ga[1];
+            String current = managed.get(key);
+            String needed = apache5ClientVersion(apache5, ga);
+            if (current == null || needed == null || !isOlder(current, needed)) {
+                continue;
+            }
+            SpringBomProperty property = SpringBomProperty.find(project, scriptBoms, new GroupArtifact(ga[0], ga[1]), ctx);
+            if (property == null) {
+                continue;
+            }
+            if (neededByProperty.putIfAbsent(property.getName(), needed) == null) {
+                raisedByProperty.put(property.getName(), key + ":" + current + " -> " + needed);
+            }
+        }
+        if (neededByProperty.isEmpty()) {
+            return g;
+        }
+
+        Set<String> declared = SpringBomProperty.declaredProperties(g);
+        g = (JavaSourceFile) new ExtraProperty.Matcher().<ExecutionContext>asVisitor((property, c) -> {
+            String needed = neededByProperty.get(property.getName());
+            return needed != null && isOlder(property.getValue(), needed) ? property.withValue(needed).getTree() : property.getTree();
+        }).visitNonNull(g, ctx);
+        List<String> added = new ArrayList<>();
+        for (Map.Entry<String, String> e : neededByProperty.entrySet()) {
+            if (!declared.contains(e.getKey())) {
+                added.add(e.getKey());
+            }
+            changes.insertRow(ctx, new AwsSdkV2DependencyChanges.Row(path, "managed-version-raised",
+                    raisedByProperty.get(e.getKey()) + " (" + e.getKey() + ")",
+                    "AWS SDK v2's apache5-client needs it; the version the Spring BOM manages was older"));
+        }
+        // Each declaration lands right after the plugins block, so they are added last first
+        for (int i = added.size() - 1; i >= 0; i--) {
+            g = SpringBomProperty.addDeclaration(new Cursor(new Cursor(null, Cursor.ROOT_VALUE), g), added.get(i),
+                    neededByProperty.get(added.get(i)));
+        }
+        return added.isEmpty() ? g : asOneBlock(g, added);
+    }
+
+    /**
+     * Keeps the added declarations together, set apart from the statements around them by a blank line.
+     */
+    private static JavaSourceFile asOneBlock(JavaSourceFile g, List<String> properties) {
+        List<Statement> statements = SpringBomProperty.topLevelStatements(g);
+        Cursor scope = new Cursor(new Cursor(null, Cursor.ROOT_VALUE), g);
+        int first = -1;
+        for (int i = 0; i < statements.size(); i++) {
+            if (properties.get(0).equals(ExtraProperty.Matcher.assignedProperty(new Cursor(scope, statements.get(i))))) {
+                first = i;
+                break;
+            }
+        }
+        if (first < 0 || first + properties.size() > statements.size()) {
+            return g;
+        }
+        int last = first + properties.size() - 1;
+        int f = first;
+        return SpringBomProperty.withTopLevelStatements(g, ListUtils.map(statements, (i, statement) -> {
+            if (i > f && i <= last) {
+                return statement.withPrefix(Space.format("\n"));
+            }
+            if (i == last + 1 && !statement.getPrefix().getWhitespace().contains("\n\n")) {
+                return statement.withPrefix(statement.getPrefix().withWhitespace("\n\n"));
+            }
+            return statement;
+        }));
+    }
+
 
     private Xml.Tag alignMavenBom(Xml.Tag bom, ResolvedPom resolved, String path, ExecutionContext ctx) {
         String declared = bom.getChildValue("version").orElse(null);
@@ -645,6 +821,9 @@ public class MigrateAwsSdkV2Dependencies extends ScanningRecipe<MigrateAwsSdkV2D
                 changes.insertRow(ctx, new AwsSdkV2DependencyChanges.Row(path, "added", GROUP_ID + ":" + artifact,
                         "The module's code used the v1 counterpart"));
             }
+        }
+        if (usesV2) {
+            g = alignApache5ClientStack(g, version, path, ctx);
         }
         return (JavaSourceFile) preserveNonAwsTransitives.preserve(g, Objects.requireNonNull(acc.preserve), changes, ctx);
     }
