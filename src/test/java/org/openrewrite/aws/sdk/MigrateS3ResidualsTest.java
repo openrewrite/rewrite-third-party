@@ -771,7 +771,7 @@ class MigrateS3ResidualsTest implements RewriteTest {
     @Test
     void getObjectToFileCreatesDirectoriesAndReplacesFile() {
         rewriteRun(
-          spec -> spec.typeValidationOptions(org.openrewrite.test.TypeValidation.none()),
+          spec -> spec.typeValidationOptions(TypeValidation.none()),
           //language=java
           java(
             """
