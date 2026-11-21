@@ -29,7 +29,6 @@ import org.openrewrite.java.tree.*;
 import org.openrewrite.marker.Markers;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -103,7 +102,7 @@ public class MigrateAwsClientBuilderSubclasses extends ScanningRecipe<MigrateAws
     @Override
     public Collection<? extends SourceFile> generate(Accumulator acc, ExecutionContext ctx) {
         if (Boolean.FALSE.equals(generateHelpers)) {
-            return Collections.emptyList();
+            return emptyList();
         }
         return acc.shims.generate(RecordingAwsClientBuilderShim.SHIM, RecordingAwsClientBuilderShim::source, ctx);
     }
@@ -138,7 +137,7 @@ public class MigrateAwsClientBuilderSubclasses extends ScanningRecipe<MigrateAws
                     }
                     J.MethodDeclaration ctor = (J.MethodDeclaration) s;
                     J.Block body = Objects.requireNonNull(ctor.getBody());
-                    body = body.withStatements(ListUtils.map(body.getStatements(), st -> isSuperCall(st) ? null : st));
+                    body = body.withStatements(ListUtils.filter(body.getStatements(), st -> !isSuperCall(st)));
                     boolean noParams = ctor.getParameters().isEmpty() || ctor.getParameters().get(0) instanceof J.Empty;
                     return body.getStatements().isEmpty() && noParams ? null : ctor.withBody(body);
                 })));

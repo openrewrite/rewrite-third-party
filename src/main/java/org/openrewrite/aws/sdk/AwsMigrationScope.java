@@ -34,6 +34,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptySet;
 import static org.openrewrite.internal.StringUtils.matchesGlob;
 
 /**
@@ -151,7 +152,7 @@ public final class AwsMigrationScope {
         if (isEverything()) {
             return true;
         }
-        Set<Integer> entries = moduleEntries.getOrDefault(moduleOf(path), Collections.emptySet());
+        Set<Integer> entries = moduleEntries.getOrDefault(moduleOf(path), emptySet());
         for (int i = only.size(); i < only.size() + except.size(); i++) {
             if (entries.contains(i)) {
                 return false;
@@ -160,7 +161,7 @@ public final class AwsMigrationScope {
         if (only.isEmpty()) {
             return true;
         }
-        Set<Integer> using = usingSources.getOrDefault(path, Collections.emptySet());
+        Set<Integer> using = usingSources.getOrDefault(path, emptySet());
         for (int i = 0; i < only.size(); i++) {
             if (entries.contains(i) && (only.get(i).using == null || !bySource || using.contains(i))) {
                 return true;

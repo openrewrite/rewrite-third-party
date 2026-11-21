@@ -34,6 +34,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
+import static java.util.Collections.emptyList;
+
 /**
  * v2's {@code CloudFrontUtilities} signs the same policies but takes request objects and returns {@code Cookie} header
  * values, and v2 keeps {@code SignerUtils} internal, so generated classes keep v1's static API on top of it.
@@ -125,7 +127,7 @@ public class MigrateCloudFrontSigners extends ScanningRecipe<MigrateCloudFrontSi
     @Override
     public Collection<? extends SourceFile> generate(Accumulator acc, ExecutionContext ctx) {
         if (Boolean.FALSE.equals(generateHelpers)) {
-            return Collections.emptyList();
+            return emptyList();
         }
         // The signers are parsed against the utils class of every package it is placed in, so their Protocol is typed
         Set<String> utilsSources = new LinkedHashSet<>();

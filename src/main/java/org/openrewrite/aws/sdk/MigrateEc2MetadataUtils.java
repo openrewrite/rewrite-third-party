@@ -31,8 +31,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Objects;
+
+import static java.util.Collections.emptyList;
 
 // v2's Ec2MetadataClient throws where v1 logged and returned null, and has no typed documents, so a generated class keeps v1's API
 @Value
@@ -80,7 +81,7 @@ public class MigrateEc2MetadataUtils extends ScanningRecipe<ProjectShims> {
     @Override
     public Collection<? extends SourceFile> generate(ProjectShims acc, ExecutionContext ctx) {
         if (Boolean.FALSE.equals(generateHelpers)) {
-            return Collections.emptyList();
+            return emptyList();
         }
         return acc.generate(SHIM, MigrateEc2MetadataUtils::source,
                 JavaParser.fromJavaVersion().classpathFromResources(ctx, "imds-2", "sdk-core-2", "http-client-spi-2", "utils-2"), ctx);

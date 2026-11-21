@@ -143,7 +143,7 @@ public class MigrateAwsSdkGlobalConfiguration extends Recipe {
     public TreeVisitor<?, ExecutionContext> getVisitor() {
         return JavaOnly.check(new UsesType<>(GLOBAL, false), new JavaVisitor<ExecutionContext>() {
             @Override
-            public J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
+            public @Nullable J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                 if (SET_PROPERTY.matches(method) && isConstant(method.getArguments().get(0), CBOR)) {
                     Expression value = method.getArguments().get(1);
                     removeImports();

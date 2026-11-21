@@ -116,15 +116,12 @@ class MigrateDynamoDbDocumentApiTest implements RewriteTest {
               """
           ),
           java(
-            null,
+            doesNotExist(),
             """
               package com.example;
               """,
             spec -> spec.path("com/example/DynamoDbDocumentApi.java")
-              .after(actual -> {
-                  assertThat(actual).contains("public final class DynamoDbDocumentApi", "public static class Table");
-                  return actual;
-              })
+              .after(actual -> assertThat(actual).contains("public final class DynamoDbDocumentApi", "public static class Table").actual())
           )
         );
     }
@@ -209,17 +206,14 @@ class MigrateDynamoDbDocumentApiTest implements RewriteTest {
               """
           ),
           java(
-            null,
+            doesNotExist(),
             """
               package com.example;
               """,
             spec -> spec.path("com/example/DynamoDbDocumentApi.java")
-              .after(actual -> {
-                  assertThat(actual).contains("public static class Expected extends Filter<Expected>",
-                    "public static class RangeKeyCondition", "public static class AttributeUpdate",
-                    "request.keyConditions(keyConditions)", "public static Item fromJSON(String json)");
-                  return actual;
-              })
+              .after(actual -> assertThat(actual).contains("public static class Expected extends Filter<Expected>",
+                       "public static class RangeKeyCondition", "public static class AttributeUpdate",
+                       "request.keyConditions(keyConditions)", "public static Item fromJSON(String json)").actual())
           )
         );
     }

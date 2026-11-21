@@ -31,7 +31,6 @@ import org.openrewrite.quark.Quark;
 import org.openrewrite.remote.Remote;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.regex.Pattern;
 
 import static java.util.Collections.emptyList;
@@ -128,7 +127,7 @@ public class MigrateAwsDefaultCredentialsChainEnvAliases extends ScanningRecipe<
     @Override
     public Collection<? extends SourceFile> generate(Accumulator acc, ExecutionContext ctx) {
         if (Boolean.FALSE.equals(generateHelpers)) {
-            return Collections.emptyList();
+            return emptyList();
         }
         if (acc.evidence == null) {
             return emptyList();

@@ -269,7 +269,7 @@ public class ReplaceAwsRequestSigningApacheInterceptor extends ScanningRecipe<Re
     @Override
     public Collection<? extends SourceFile> generate(Accumulator acc, ExecutionContext ctx) {
         if (Boolean.FALSE.equals(generateHelpers)) {
-            return Collections.emptyList();
+            return emptyList();
         }
         List<SourceFile> generated = new ArrayList<>();
         for (Project project : acc.projects.values()) {

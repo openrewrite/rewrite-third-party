@@ -186,7 +186,7 @@ class MigrateAwsSdkV1ToV2Test implements RewriteTest {
               .actual())
           ),
           java(
-            null,
+            doesNotExist(),
             """
               package com.example;
               """,

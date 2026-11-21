@@ -31,7 +31,6 @@ import org.openrewrite.marker.SearchResult;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.regex.Pattern;
 
 import static java.util.Collections.emptyList;
@@ -148,7 +147,7 @@ public class MigrateSharedAwsClientConfiguration extends ScanningRecipe<MigrateS
     @Override
     public Collection<? extends SourceFile> generate(Accumulator acc, ExecutionContext ctx) {
         if (Boolean.FALSE.equals(generateHelpers)) {
-            return Collections.emptyList();
+            return emptyList();
         }
         acc.retainRoots();
         return acc.shims.generate(AwsClientConfigurationShim.SHIM, AwsClientConfigurationShim::source, ctx);

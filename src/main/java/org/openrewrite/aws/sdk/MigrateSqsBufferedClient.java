@@ -30,7 +30,8 @@ import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.TypeUtils;
 
 import java.util.Collection;
-import java.util.Collections;
+
+import static java.util.Collections.emptyList;
 
 /**
  * v2 replaces the buffered client with {@code SqsAsyncClient.batchManager()}, which only offers the four buffered operations.
@@ -117,7 +118,7 @@ public class MigrateSqsBufferedClient extends ScanningRecipe<ProjectShims> {
     @Override
     public Collection<? extends SourceFile> generate(ProjectShims acc, ExecutionContext ctx) {
         if (Boolean.FALSE.equals(generateHelpers)) {
-            return Collections.emptyList();
+            return emptyList();
         }
         return acc.generate(SHIM, MigrateSqsBufferedClient::source, ctx);
     }

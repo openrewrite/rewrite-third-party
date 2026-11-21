@@ -41,10 +41,7 @@ import org.openrewrite.trait.Comments;
 import java.nio.file.Path;
 import java.util.*;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
-import static java.util.Collections.emptySet;
-import static java.util.Collections.singleton;
+import static java.util.Collections.*;
 import static java.util.Objects.requireNonNull;
 
 @Value
@@ -130,6 +127,7 @@ public class MigrateS3Residuals extends ScanningRecipe<MigrateS3Residuals.Accumu
     public static class Accumulator implements AwsMigrationScope.Limitable {
         @Nullable
         AwsMigrationScope scope;
+
         // Both shims share one package per project
         final Map<String, ShimTarget> locations = new HashMap<>();
         final Map<String, Set<String>> s3Compat = new HashMap<>();
@@ -252,7 +250,7 @@ public class MigrateS3Residuals extends ScanningRecipe<MigrateS3Residuals.Accumu
     @Override
     public Collection<? extends SourceFile> generate(Accumulator acc, ExecutionContext ctx) {
         if (Boolean.FALSE.equals(generateHelpers)) {
-            return Collections.emptyList();
+            return emptyList();
         }
         List<SourceFile> generated = new ArrayList<>();
         for (String key : acc.locations.keySet()) {
@@ -620,9 +618,7 @@ public class MigrateS3Residuals extends ScanningRecipe<MigrateS3Residuals.Accumu
             removeStatements.addAll(site.removeStatements);
             maybeRemoveImport(PRESIGN_REQUEST);
             maybeRemoveImport("com.amazonaws.services.s3.Headers");
-            if (site.httpMethodConstant != null) {
-                maybeRemoveImport(V1_HTTP_METHOD);
-            }
+            maybeRemoveImport(V1_HTTP_METHOD);
             changes.insertRow(ctx, new S3ResidualChanges.Row(sourcePath, "generatePresignedUrl(GeneratePresignedUrlRequest)", "migrated",
                     "S3Presigner from " + S3Shims.PRESIGNER_HOLDER + (site.expiration == null ? "; v1's default 15 minute expiry made explicit" : "") +
                     (site.httpMethodConstant == null ? "; POST and PATCH are signed directly with SigV4, as S3Presigner has neither" : "")));

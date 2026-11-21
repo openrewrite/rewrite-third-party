@@ -25,7 +25,8 @@ import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.J;
 
 import java.util.Collection;
-import java.util.Collections;
+
+import static java.util.Collections.emptyList;
 
 /**
  * v1's {@code TableUtils} has no v2 counterpart and v2-migration renames it to a type that does not exist, so its calls go to
@@ -77,7 +78,7 @@ public class MigrateDynamoDbTableUtils extends ScanningRecipe<ProjectShims> {
     @Override
     public Collection<? extends SourceFile> generate(ProjectShims shims, ExecutionContext ctx) {
         if (Boolean.FALSE.equals(generateHelpers)) {
-            return Collections.emptyList();
+            return emptyList();
         }
         return shims.generate(AwsTableUtilsShim.SHIM, AwsTableUtilsShim::source, ctx);
     }

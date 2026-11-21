@@ -120,7 +120,7 @@ public class MigrateAwsProfilesConfigFile extends Recipe {
             @Override
             public J visitBlock(J.Block block, ExecutionContext ctx) {
                 J.Block b = (J.Block) super.visitBlock(block, ctx);
-                return b.withStatements(ListUtils.map(b.getStatements(), s -> isRefresh(s) ? null : s));
+                return b.withStatements(ListUtils.filter(b.getStatements(), s -> !isRefresh(s)));
             }
 
             private J supplier(String path, J.NewClass n, ExecutionContext ctx) {
@@ -146,8 +146,7 @@ public class MigrateAwsProfilesConfigFile extends Recipe {
     }
 
     private static boolean hasOtherProviderConstructors(J.CompilationUnit cu) {
-        AtomicBoolean found = new AtomicBoolean();
-        new JavaIsoVisitor<AtomicBoolean>() {
+        return new JavaIsoVisitor<AtomicBoolean>() {
             @Override
             public J.NewClass visitNewClass(J.NewClass newClass, AtomicBoolean f) {
                 if (TypeUtils.isOfClassType(newClass.getType(), V1_PROVIDER) && !PROVIDER_WITH_FILE.matches(newClass)) {
@@ -155,8 +154,7 @@ public class MigrateAwsProfilesConfigFile extends Recipe {
                 }
                 return super.visitNewClass(newClass, f);
             }
-        }.visit(cu, found);
-        return found.get();
+        }.reduce(cu, new AtomicBoolean()).get();
     }
 
     private static boolean isNullCheck(Expression condition) {

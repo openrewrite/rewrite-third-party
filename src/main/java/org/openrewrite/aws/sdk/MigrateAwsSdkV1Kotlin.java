@@ -18,7 +18,10 @@ package org.openrewrite.aws.sdk;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Value;
-import org.openrewrite.*;
+import org.openrewrite.ExecutionContext;
+import org.openrewrite.Preconditions;
+import org.openrewrite.Recipe;
+import org.openrewrite.TreeVisitor;
 import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.ChangeType;
 import org.openrewrite.java.ShortenFullyQualifiedTypeReferences;
@@ -211,7 +214,7 @@ public class MigrateAwsSdkV1Kotlin extends Recipe {
                             @Override
                             public J visitBlock(J.Block block, ExecutionContext ctx) {
                                 J.Block b = (J.Block) super.visitBlock(block, ctx);
-                                return b.withStatements(ListUtils.map(b.getStatements(), s -> ids.contains(s.getId()) ? null : s));
+                                return b.withStatements(ListUtils.filter(b.getStatements(), s -> !ids.contains(s.getId())));
                             }
                         });
                     }

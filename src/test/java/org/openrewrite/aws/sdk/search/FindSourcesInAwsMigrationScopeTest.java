@@ -24,7 +24,6 @@ import org.openrewrite.test.RewriteTest;
 
 import java.util.List;
 
-import static java.util.Collections.singletonList;
 import static org.openrewrite.java.Assertions.java;
 import static org.openrewrite.java.Assertions.mavenProject;
 import static org.openrewrite.java.Assertions.srcMainJava;
@@ -59,7 +58,7 @@ class FindSourcesInAwsMigrationScopeTest implements RewriteTest {
     void onlySourcesUsingTheTypesOfMatchingModules() {
         rewriteRun(
           spec -> spec.recipe(new FindSourcesInAwsMigrationScope(
-            singletonList("com.amazonaws:aws-java-sdk-dynamodb using com.amazonaws.services.dynamodbv2..*"), null)),
+            List.of("com.amazonaws:aws-java-sdk-dynamodb using com.amazonaws.services.dynamodbv2..*"), null)),
           mavenProject("ddb",
             // with `using`, a build file is never one of the sources that use the types
             pomXml(DYNAMODB_POM.formatted("ddb")),
@@ -117,9 +116,9 @@ class FindSourcesInAwsMigrationScopeTest implements RewriteTest {
 
     @Test
     void exceptModulesWinOverOnly() {
-        List<String> dynamoDb = singletonList("com.amazonaws:aws-java-sdk-dynamodb");
+        var dynamoDb = List.of("com.amazonaws:aws-java-sdk-dynamodb");
         rewriteRun(
-          spec -> spec.recipe(new FindSourcesInAwsMigrationScope(dynamoDb, singletonList("com.amazonaws:aws-java-sdk-core:1.x"))),
+          spec -> spec.recipe(new FindSourcesInAwsMigrationScope(dynamoDb, List.of("com.amazonaws:aws-java-sdk-core:1.x"))),
           mavenProject("ddb",
             pomXml(DYNAMODB_POM.formatted("ddb")),
             srcMainJava(

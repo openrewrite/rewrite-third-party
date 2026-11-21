@@ -50,6 +50,80 @@ class MigrateAwsRequestHandlerOverridesTest implements RewriteTest {
               "utils"));
     }
 
+    @DocumentExample
+    @Test
+    void droppedSqsMd5HandlerDisablesChecksumValidationOnTheModulesClients() {
+        rewriteRun(
+          text(
+            """
+              com.amazonaws.services.sqs.QueueUrlHandler
+              com.amazonaws.services.sqs.internal.SQSRequestHandler
+              """,
+            null,
+            spec -> spec.path("order-system/src/main/java/com/amazonaws/services/sqs/request.handlers")
+          ),
+          //language=java
+          java(
+            """
+              import software.amazon.awssdk.regions.Region;
+              import software.amazon.awssdk.services.sqs.SqsAsyncClient;
+              import software.amazon.awssdk.services.sqs.SqsClient;
+
+              class Clients {
+                  SqsAsyncClient async() {
+                      return SqsAsyncClient.builder()
+                              .region(Region.EU_WEST_1)
+                              .build();
+                  }
+
+                  SqsClient sync() {
+                      return SqsClient.builder().build();
+                  }
+
+                  SqsClient explicit() {
+                      return SqsClient.builder().checksumValidationEnabled(true).build();
+                  }
+              }
+              """,
+            """
+              import software.amazon.awssdk.regions.Region;
+              import software.amazon.awssdk.services.sqs.SqsAsyncClient;
+              import software.amazon.awssdk.services.sqs.SqsClient;
+
+              class Clients {
+                  SqsAsyncClient async() {
+                      return SqsAsyncClient.builder().checksumValidationEnabled(false)
+                              .region(Region.EU_WEST_1)
+                              .build();
+                  }
+
+                  SqsClient sync() {
+                      return SqsClient.builder().checksumValidationEnabled(false).build();
+                  }
+
+                  SqsClient explicit() {
+                      return SqsClient.builder().checksumValidationEnabled(true).build();
+                  }
+              }
+              """,
+            spec -> spec.path("order-system/src/test/java/Clients.java")
+          ),
+          //language=java
+          java(
+            """
+              import software.amazon.awssdk.services.sqs.SqsClient;
+
+              class OtherModule {
+                  SqsClient sync() {
+                      return SqsClient.builder().build();
+                  }
+              }
+              """,
+            spec -> spec.path("crm-system/src/main/java/OtherModule.java")
+          )
+        );
+    }
+
     @Test
     void createBecomesBuilderWithChecksumValidationDisabled() {
         rewriteRun(
@@ -169,80 +243,6 @@ class MigrateAwsRequestHandlerOverridesTest implements RewriteTest {
               }
               """,
             spec -> spec.path("src/main/kotlin/Clients.kt")
-          )
-        );
-    }
-
-    @DocumentExample
-    @Test
-    void droppedSqsMd5HandlerDisablesChecksumValidationOnTheModulesClients() {
-        rewriteRun(
-          text(
-            """
-              com.amazonaws.services.sqs.QueueUrlHandler
-              com.amazonaws.services.sqs.internal.SQSRequestHandler
-              """,
-            null,
-            spec -> spec.path("order-system/src/main/java/com/amazonaws/services/sqs/request.handlers")
-          ),
-          //language=java
-          java(
-            """
-              import software.amazon.awssdk.regions.Region;
-              import software.amazon.awssdk.services.sqs.SqsAsyncClient;
-              import software.amazon.awssdk.services.sqs.SqsClient;
-
-              class Clients {
-                  SqsAsyncClient async() {
-                      return SqsAsyncClient.builder()
-                              .region(Region.EU_WEST_1)
-                              .build();
-                  }
-
-                  SqsClient sync() {
-                      return SqsClient.builder().build();
-                  }
-
-                  SqsClient explicit() {
-                      return SqsClient.builder().checksumValidationEnabled(true).build();
-                  }
-              }
-              """,
-            """
-              import software.amazon.awssdk.regions.Region;
-              import software.amazon.awssdk.services.sqs.SqsAsyncClient;
-              import software.amazon.awssdk.services.sqs.SqsClient;
-
-              class Clients {
-                  SqsAsyncClient async() {
-                      return SqsAsyncClient.builder().checksumValidationEnabled(false)
-                              .region(Region.EU_WEST_1)
-                              .build();
-                  }
-
-                  SqsClient sync() {
-                      return SqsClient.builder().checksumValidationEnabled(false).build();
-                  }
-
-                  SqsClient explicit() {
-                      return SqsClient.builder().checksumValidationEnabled(true).build();
-                  }
-              }
-              """,
-            spec -> spec.path("order-system/src/test/java/Clients.java")
-          ),
-          //language=java
-          java(
-            """
-              import software.amazon.awssdk.services.sqs.SqsClient;
-
-              class OtherModule {
-                  SqsClient sync() {
-                      return SqsClient.builder().build();
-                  }
-              }
-              """,
-            spec -> spec.path("crm-system/src/main/java/OtherModule.java")
           )
         );
     }

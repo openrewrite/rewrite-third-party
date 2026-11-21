@@ -151,8 +151,8 @@ public class MigrateAwsRetryPolicies extends Recipe {
                     md = md.withMethodType(mt).withName(md.getName().withType(mt));
                 }
                 maybeRemoveImport("com.amazonaws.AmazonWebServiceRequest");
-                maybeAddImport(V2_CONTEXT);
                 maybeRemoveImport("com.amazonaws.AmazonClientException");
+                maybeAddImport(V2_CONTEXT);
                 return md;
             }
 

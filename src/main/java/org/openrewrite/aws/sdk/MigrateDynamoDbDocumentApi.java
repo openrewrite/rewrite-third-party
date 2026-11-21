@@ -31,6 +31,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
+import static java.util.Collections.emptyList;
+
 /**
  * v2 has no Document API, and v2-migration moves its types to a package that does not exist. The Enhanced client's
  * documents differ in shape, so the calls go to a generated class with v1's API on the v2 client instead.
@@ -100,7 +102,7 @@ public class MigrateDynamoDbDocumentApi extends ScanningRecipe<ProjectShims> {
     @Override
     public Collection<? extends SourceFile> generate(ProjectShims acc, ExecutionContext ctx) {
         if (Boolean.FALSE.equals(generateHelpers)) {
-            return Collections.emptyList();
+            return emptyList();
         }
         return acc.generate(SHIM, MigrateDynamoDbDocumentApi::source,
                 JavaParser.fromJavaVersion().classpathFromResources(ctx, "dynamodb-2", "aws-core-2", "sdk-core-2", "utils-2"), ctx);

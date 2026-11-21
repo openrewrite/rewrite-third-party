@@ -132,8 +132,8 @@ public class CompleteV2MockitoStubs extends Recipe {
                     var.getInitializer() instanceof J.NewClass && !((J.NewClass) var.getInitializer()).getArguments().isEmpty() &&
                     !(((J.NewClass) var.getInitializer()).getArguments().get(0) instanceof J.Empty)) {
                     maybeRemoveImport("software.amazon.awssdk.services.s3.model.S3ObjectInputStream");
-                    maybeAddImport("java.io.InputStream");
                     maybeRemoveImport("com.amazonaws.services.s3.model.S3ObjectInputStream");
+                    maybeAddImport("java.io.InputStream");
                     return JavaTemplate.builder("InputStream " + var.getSimpleName() + " = #{any(java.io.InputStream)};")
                             .imports("java.io.InputStream")
                             .build()

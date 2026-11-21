@@ -27,8 +27,9 @@ import org.openrewrite.java.tree.J;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
+
+import static java.util.Collections.emptyList;
 
 /**
  * v2 has no properties-file credentials providers, so a minimal copy of v1's is generated into the project (tier 3).
@@ -98,7 +99,7 @@ public class MigratePropertiesFileAwsCredentialsProviders extends ScanningRecipe
     @Override
     public Collection<? extends SourceFile> generate(Accumulator acc, ExecutionContext ctx) {
         if (Boolean.FALSE.equals(generateHelpers)) {
-            return Collections.emptyList();
+            return emptyList();
         }
         List<SourceFile> generated = new ArrayList<>(acc.file.generate(FILE, MigratePropertiesFileAwsCredentialsProviders::fileSource, ctx));
         generated.addAll(acc.classpath.generate(CLASSPATH, MigratePropertiesFileAwsCredentialsProviders::classpathSource, ctx));
