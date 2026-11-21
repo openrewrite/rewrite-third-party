@@ -48,8 +48,7 @@ public class RemoveUnusedAwsSdkV1Imports extends Recipe {
             @Override
             public J.CompilationUnit visitCompilationUnit(J.CompilationUnit cu, ExecutionContext ctx) {
                 // Compared by name rather than type, so that a file parsed without its classpath keeps every import it uses
-                Set<String> referenced = new HashSet<>();
-                new JavaIsoVisitor<Set<String>>() {
+                Set<String> referenced = new JavaIsoVisitor<Set<String>>() {
                     @Override
                     public J.Import visitImport(J.Import _import, Set<String> names) {
                         return _import;
@@ -60,7 +59,7 @@ public class RemoveUnusedAwsSdkV1Imports extends Recipe {
                         names.add(identifier.getSimpleName());
                         return identifier;
                     }
-                }.visit(cu, referenced);
+                }.reduce(cu, new HashSet<>());
                 J.CompilationUnit c = cu.withImports(ListUtils.map(cu.getImports(), (i, imp) -> {
                     String type = imp.getTypeName();
                     return !imp.isStatic() && !"*".equals(imp.getQualid().getSimpleName()) &&

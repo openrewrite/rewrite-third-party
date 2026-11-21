@@ -25,6 +25,9 @@ import org.openrewrite.java.tree.TypeUtils;
 
 import java.util.*;
 
+import static java.util.Collections.emptyList;
+import static java.util.Collections.singleton;
+
 /**
  * The v2 form of v1 credentials providers whose v2 counterparts are only created through factories and builders:
  * {@code WebIdentityTokenCredentialsProvider} and {@code STSAssumeRoleSessionCredentialsProvider}. Shared by the Java and
@@ -79,7 +82,7 @@ final class AwsCredentialsProviderFactories {
 
     private static @Nullable Conversion webIdentity(Expression e, boolean kotlin) {
         if (NEW_WEB_IDENTITY.matches(e) && !hasBody(e) || WEB_IDENTITY_CREATE.matches(e)) {
-            return new Conversion("WebIdentityTokenFileCredentialsProvider.create()", Collections.emptyList(), Collections.singleton(V2_WEB_IDENTITY));
+            return new Conversion("WebIdentityTokenFileCredentialsProvider.create()", emptyList(), singleton(V2_WEB_IDENTITY));
         }
         if (!WEB_IDENTITY_BUILD.matches(e)) {
             return null;
@@ -93,9 +96,9 @@ final class AwsCredentialsProviderFactories {
         if (!WEB_IDENTITY_BUILDER.matches(select)) {
             return null;
         }
-        Set<String> imports = new LinkedHashSet<>(Collections.singleton(V2_WEB_IDENTITY));
+        Set<String> imports = new LinkedHashSet<>(singleton(V2_WEB_IDENTITY));
         if (options.isEmpty()) {
-            return new Conversion("WebIdentityTokenFileCredentialsProvider.create()", Collections.emptyList(), imports);
+            return new Conversion("WebIdentityTokenFileCredentialsProvider.create()", emptyList(), imports);
         }
         StringBuilder code = new StringBuilder("WebIdentityTokenFileCredentialsProvider" + AwsClientChain.whitespaceBefore((J.MethodInvocation) select) + ".builder()");
         List<Expression> args = new ArrayList<>();

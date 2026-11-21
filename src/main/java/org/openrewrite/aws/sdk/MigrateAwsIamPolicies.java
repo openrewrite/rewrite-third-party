@@ -18,8 +18,8 @@ package org.openrewrite.aws.sdk;
 import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
-import org.openrewrite.Tree;
 import org.openrewrite.Recipe;
+import org.openrewrite.Tree;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.ChangeType;
 import org.openrewrite.java.JavaTemplate;
@@ -310,9 +310,7 @@ public class MigrateAwsIamPolicies extends Recipe {
                     }
                 }
                 maybeAddImport(V2_PKG + (statement ? "IamStatement" : "IamPolicy"));
-                if (statement) {
-                    maybeAddImport(V2_PKG + "IamEffect");
-                }
+                maybeAddImport(V2_PKG + "IamEffect");
                 return JavaTemplate.builder(code.toString())
                         .imports(V2_PKG + "IamStatement", V2_PKG + "IamEffect", V2_PKG + "IamPolicy", "java.util.Arrays",
                                 "java.time.ZoneOffset", "java.time.format.DateTimeFormatter")
@@ -516,8 +514,7 @@ public class MigrateAwsIamPolicies extends Recipe {
             }
 
             private void removeImports(Expression e) {
-                Set<String> types = new HashSet<>();
-                new JavaVisitor<Set<String>>() {
+                Set<String> types = new JavaVisitor<Set<String>>() {
                     @Override
                     public J visitIdentifier(J.Identifier identifier, Set<String> found) {
                         JavaType.FullyQualified owner = identifier.getFieldType() == null ? null :
@@ -532,7 +529,7 @@ public class MigrateAwsIamPolicies extends Recipe {
                         }
                         return identifier;
                     }
-                }.visit(e, types);
+                }.reduce(e, new HashSet<>());
                 for (String type : types) {
                     if (type.startsWith(PKG)) {
                         maybeRemoveImport(type);

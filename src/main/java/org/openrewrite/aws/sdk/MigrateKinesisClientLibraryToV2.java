@@ -37,10 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptySet;
-import static java.util.Collections.singleton;
-import static java.util.Collections.singletonList;
+import static java.util.Collections.*;
 
 @Value
 @EqualsAndHashCode(callSuper = false)
@@ -303,7 +300,7 @@ public class MigrateKinesisClientLibraryToV2 extends ScanningRecipe<MigrateKines
     @Override
     public Collection<? extends SourceFile> generate(Accumulator acc, ExecutionContext ctx) {
         if (Boolean.FALSE.equals(generateHelpers)) {
-            return Collections.emptyList();
+            return emptyList();
         }
         Set<String> ported = new HashSet<>(acc.kclSources.values());
         ported.removeAll(acc.excludedProjects);

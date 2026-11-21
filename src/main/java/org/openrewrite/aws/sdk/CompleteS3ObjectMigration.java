@@ -28,9 +28,7 @@ import org.openrewrite.java.JavaVisitor;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.nCopies;
-import static java.util.Collections.singletonList;
+import static java.util.Collections.*;
 
 public class CompleteS3ObjectMigration extends Recipe {
 

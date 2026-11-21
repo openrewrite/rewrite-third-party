@@ -19,7 +19,9 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Value;
 import org.jspecify.annotations.Nullable;
-import org.openrewrite.*;
+import org.openrewrite.ExecutionContext;
+import org.openrewrite.ScanningRecipe;
+import org.openrewrite.TreeVisitor;
 import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.*;
 import org.openrewrite.java.search.UsesType;
@@ -78,7 +80,7 @@ public class MigrateAwsClientBuildersToV2 extends ScanningRecipe<Set<String>> {
                 J.Block b = (J.Block) super.visitBlock(block, ctx);
                 Set<UUID> remove = getCursor().getMessage(REMOVE);
                 if (remove != null) {
-                    b = b.withStatements(ListUtils.map(b.getStatements(), s -> remove.contains(s.getId()) ? null : s));
+                    b = b.withStatements(ListUtils.filter(b.getStatements(), s -> !remove.contains(s.getId())));
                 }
                 return b;
             }
@@ -89,10 +91,10 @@ public class MigrateAwsClientBuildersToV2 extends ScanningRecipe<Set<String>> {
                 J.MethodDeclaration beforeExecution = RequestHandlerToInterceptor.convertibleBeforeExecution(cd);
                 if (beforeExecution != null) {
                     cd = RequestHandlerToInterceptor.convert(cd, beforeExecution, getCursor(), ctx);
+                    maybeRemoveImport(V1_REQUEST_HANDLER);
                     maybeAddImport(RequestHandlerToInterceptor.EXECUTION_INTERCEPTOR);
                     maybeAddImport("software.amazon.awssdk.core.SdkRequest");
                     maybeAddImport("software.amazon.awssdk.core.interceptor.Context");
-                    maybeRemoveImport(V1_REQUEST_HANDLER);
                     maybeAddImport("software.amazon.awssdk.core.interceptor.ExecutionAttributes");
                     doAfterVisit(new ChangeType("com.amazonaws.AmazonWebServiceRequest", "software.amazon.awssdk.core.SdkRequest", null).getVisitor());
                 }

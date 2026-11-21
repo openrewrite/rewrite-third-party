@@ -163,7 +163,7 @@ public class MigrateS3ObjectMetadata extends ScanningRecipe<MigrateS3ObjectMetad
     @Override
     public Collection<? extends SourceFile> generate(Accumulator acc, ExecutionContext ctx) {
         if (Boolean.FALSE.equals(generateHelpers)) {
-            return Collections.emptyList();
+            return emptyList();
         }
         Set<String> roots = acc.retainRoots();
         Set<String> transferRoots = new HashSet<>();

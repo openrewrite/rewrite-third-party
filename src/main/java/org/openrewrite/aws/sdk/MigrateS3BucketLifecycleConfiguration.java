@@ -129,7 +129,7 @@ public class MigrateS3BucketLifecycleConfiguration extends ScanningRecipe<Migrat
     @Override
     public Collection<? extends SourceFile> generate(Accumulator acc, ExecutionContext ctx) {
         if (Boolean.FALSE.equals(generateHelpers)) {
-            return Collections.emptyList();
+            return emptyList();
         }
         acc.producerProjects.removeAll(acc.unsupportedProjects);
         acc.retainRoots();

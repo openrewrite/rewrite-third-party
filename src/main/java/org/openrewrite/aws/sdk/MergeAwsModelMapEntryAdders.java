@@ -32,6 +32,8 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static java.util.Collections.singletonList;
+
 /**
  * v2 models have no {@code addXEntry(key, value)}, and v2-migration leaves it in place, so a v1 chain that builds a map
  * entry by entry does not compile after it.
@@ -120,7 +122,7 @@ public class MergeAwsModelMapEntryAdders extends Recipe {
                 JavaType.Method with = withMethod(first, map);
                 return first.withName(first.getName().withSimpleName("with" + map).withType(with))
                         .withMethodType(with)
-                        .withArguments(Collections.singletonList(mapOf.withPrefix(Space.EMPTY)));
+                        .withArguments(singletonList(mapOf.withPrefix(Space.EMPTY)));
             }
         });
     }

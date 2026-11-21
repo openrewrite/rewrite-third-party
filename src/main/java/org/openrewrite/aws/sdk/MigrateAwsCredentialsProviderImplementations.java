@@ -60,7 +60,7 @@ public class MigrateAwsCredentialsProviderImplementations extends Recipe {
             @Override
             public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
                 J.Block b = super.visitBlock(block, ctx);
-                return b.withStatements(ListUtils.map(b.getStatements(), s -> isSdkRefreshCall(s) ? null : s));
+                return b.withStatements(ListUtils.filter(b.getStatements(), s -> !isSdkRefreshCall(s)));
             }
 
             @Override

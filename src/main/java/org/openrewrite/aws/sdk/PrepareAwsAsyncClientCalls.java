@@ -31,9 +31,10 @@ import org.openrewrite.java.tree.TypeUtils;
 import org.openrewrite.marker.SearchResult;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
+
+import static java.util.Collections.emptyList;
 
 @Value
 @EqualsAndHashCode(callSuper = false)
@@ -95,7 +96,7 @@ public class PrepareAwsAsyncClientCalls extends ScanningRecipe<ProjectShims> {
     @Override
     public Collection<? extends SourceFile> generate(ProjectShims acc, ExecutionContext ctx) {
         if (Boolean.FALSE.equals(generateHelpers)) {
-            return Collections.emptyList();
+            return emptyList();
         }
         return acc.generate(AwsSyncClientsShim.SHIM, AwsSyncClientsShim::source, ctx);
     }

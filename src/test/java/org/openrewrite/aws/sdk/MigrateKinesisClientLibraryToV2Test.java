@@ -369,7 +369,10 @@ class MigrateKinesisClientLibraryToV2Test implements RewriteTest {
             .extracting(r -> r.getAfter().getSourcePath().toString())
             .containsExactlyInAnyOrder("src/main/java/com/example/KclWorker.java", "src/main/java/com/example/KclRecordProcessor.java"))
             .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(),
-              "aws-java-sdk-core", "aws-java-sdk-kinesis", "aws-java-sdk-dynamodb", "amazon-kinesis-client-1")),
+              "aws-java-sdk-core",
+              "aws-java-sdk-kinesis",
+              "aws-java-sdk-dynamodb",
+              "amazon-kinesis-client-1")),
           //language=java
           java(
             """

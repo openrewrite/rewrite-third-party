@@ -28,9 +28,10 @@ import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.TypeUtils;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
+import static java.util.Collections.emptyList;
 
 /**
  * A v1 {@code EndpointConfiguration} kept as a value, such as a Spring bean, has no v2 type to become. Builder folding only
@@ -145,7 +146,7 @@ public class MigrateAwsEndpointConfigurationValues extends ScanningRecipe<Migrat
     @Override
     public Collection<? extends SourceFile> generate(Accumulator acc, ExecutionContext ctx) {
         if (Boolean.FALSE.equals(generateHelpers)) {
-            return Collections.emptyList();
+            return emptyList();
         }
         acc.producerProjects.removeAll(acc.excludedProjects);
         acc.retainRoots();

@@ -65,6 +65,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 import static org.openrewrite.aws.sdk.AwsSdkV2Coordinates.*;
 
@@ -460,7 +461,7 @@ public class MigrateAwsSdkV2Dependencies extends ScanningRecipe<MigrateAwsSdkV2D
                 if (v.isPresent()) {
                     changes.insertRow(ctx, new AwsSdkV2DependencyChanges.Row(path, "version-removed", g + ":" + a,
                             "Managed by " + GROUP_ID + ":" + BOM_ARTIFACT_ID + ":" + version));
-                    return t.withContent(ListUtils.map(t.getContent(), c -> c == v.get() ? null : c));
+                    return t.withContent(ListUtils.filter(t.getContent(), c -> c != v.get()));
                 }
                 return t;
             }
@@ -498,8 +499,8 @@ public class MigrateAwsSdkV2Dependencies extends ScanningRecipe<MigrateAwsSdkV2D
      * versionless v1 artifacts on their tags. They are stale once every artifact is renamed.
      */
     private static Xml.Tag withoutStaleV1Warnings(Xml.Tag tag) {
-        return tag.withMarkers(tag.getMarkers().withMarkers(ListUtils.map(tag.getMarkers().getMarkers(),
-                m -> m instanceof Markup && ((Markup) m).getMessage().contains(V1_GROUP_ID + ":aws-java-sdk") ? null : m)));
+        return tag.withMarkers(tag.getMarkers().withMarkers(ListUtils.filter(tag.getMarkers().getMarkers(),
+                m -> !(m instanceof Markup && ((Markup) m).getMessage().contains(V1_GROUP_ID + ":aws-java-sdk")))));
     }
 
     private static boolean isDependencyListEntry(Cursor cursor) {
@@ -565,7 +566,7 @@ public class MigrateAwsSdkV2Dependencies extends ScanningRecipe<MigrateAwsSdkV2D
             MavenPomDownloader downloader = new MavenPomDownloader(mrr.getProjectPoms(), ctx,
                     MavenExecutionContextView.view(ctx).effectiveSettings(mrr), mrr.getActiveProfiles());
             apache5 = downloader.download(new GroupArtifactVersion(GROUP_ID, "apache5-client", version), null,
-                    mrr.getPom(), mrr.getPom().getRepositories()).resolve(Collections.emptyList(), downloader, ctx);
+                    mrr.getPom(), mrr.getPom().getRepositories()).resolve(emptyList(), downloader, ctx);
         } catch (MavenDownloadingException e) {
             return doc;
         }
@@ -616,7 +617,7 @@ public class MigrateAwsSdkV2Dependencies extends ScanningRecipe<MigrateAwsSdkV2D
             List<MavenRepository> repositories = gp.getMavenRepositories();
             MavenPomDownloader downloader = new MavenPomDownloader(ctx);
             apache5 = downloader.download(new GroupArtifactVersion(GROUP_ID, "apache5-client", version), null, null,
-                    repositories).resolve(Collections.emptyList(), downloader, repositories, ctx);
+                    repositories).resolve(emptyList(), downloader, repositories, ctx);
         } catch (MavenDownloadingException e) {
             return g;
         }
@@ -863,8 +864,7 @@ public class MigrateAwsSdkV2Dependencies extends ScanningRecipe<MigrateAwsSdkV2D
     }
 
     private Yaml.Documents deleteLoggingKeys(Yaml.Documents yaml, ExecutionContext ctx) {
-        Set<String> keys = new LinkedHashSet<>();
-        new YamlIsoVisitor<Set<String>>() {
+        Set<String> keys = new YamlIsoVisitor<Set<String>>() {
             @Override
             public Yaml.Mapping.Entry visitMappingEntry(Yaml.Mapping.Entry entry, Set<String> found) {
                 if (entry.getValue() instanceof Yaml.Scalar) {
@@ -880,7 +880,7 @@ public class MigrateAwsSdkV2Dependencies extends ScanningRecipe<MigrateAwsSdkV2D
                 }
                 return super.visitMappingEntry(entry, found);
             }
-        }.visit(yaml, keys);
+        }.reduce(yaml, new LinkedHashSet<>());
         Yaml.Documents result = yaml;
         for (String key : keys) {
             result = (Yaml.Documents) new DeleteProperty(key, null, false, null).getVisitor().visitNonNull(result, ctx);
