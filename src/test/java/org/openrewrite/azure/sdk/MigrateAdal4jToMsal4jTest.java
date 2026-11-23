@@ -374,6 +374,16 @@ class MigrateAdal4jToMsal4jTest implements RewriteTest {
                     <groupId>com.example</groupId>
                     <artifactId>app</artifactId>
                     <version>1.0</version>
+                    <!-- MSAL4J, unlike the Azure SDK, doesn't run on Jackson -->
+                    <dependencyManagement>
+                        <dependencies>
+                            <dependency>
+                                <groupId>com.fasterxml.jackson.core</groupId>
+                                <artifactId>jackson-databind</artifactId>
+                                <version>2.9.9</version>
+                            </dependency>
+                        </dependencies>
+                    </dependencyManagement>
                     <dependencies>
                         <dependency>
                             <groupId>com.microsoft.azure</groupId>

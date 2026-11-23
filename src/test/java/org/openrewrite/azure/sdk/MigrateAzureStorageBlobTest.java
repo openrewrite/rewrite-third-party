@@ -17,6 +17,7 @@ package org.openrewrite.azure.sdk;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
@@ -1154,8 +1155,12 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
         );
     }
 
-    @Test
-    void leavesAModuleThatPinsAJacksonTheCurrentSdkCantRunOn() {
+    @ParameterizedTest
+    @CsvSource({
+      "com.fasterxml.jackson.core, jackson-databind, 2.9.9, 2.10.0",
+      "io.projectreactor, reactor-core, 3.3.17.RELEASE, 3.4.0"
+    })
+    void leavesAModuleThatPinsALibraryTheCurrentSdkCantRunOn(String groupId, String artifactId, String version, String floor) {
         rewriteRun(
           mavenProject("app",
             srcMainJava(
@@ -1175,15 +1180,15 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
                   import com.microsoft.azure.storage.CloudStorageAccount;
                   import com.microsoft.azure.storage.blob.CloudBlobClient;
 
-                  /*~~(Legacy Azure SDK: left as it is, since its build pins Jackson 2.9.9, older than the 2.10.0 the current Azure SDK needs)~~>*/class Clients {
+                  /*~~(Legacy Azure SDK: left as it is, since its build pins %s %s, older than the %s the current Azure SDK needs)~~>*/class Clients {
                       CloudBlobClient blobs(String connectionString) throws Exception {
                           return CloudStorageAccount.parse(connectionString).createCloudBlobClient();
                       }
                   }
-                  """
+                  """.formatted(artifactId, version, floor)
               )
             ),
-            // As an older Spring Boot parent does, which azure-core would fail to start on
+            // As the parent of Spring Boot 2.3 and older does, on which azure-core fails to build a client
             //language=xml
             pomXml(
               """
@@ -1195,9 +1200,9 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
                   <dependencyManagement>
                     <dependencies>
                       <dependency>
-                        <groupId>com.fasterxml.jackson.core</groupId>
-                        <artifactId>jackson-databind</artifactId>
-                        <version>2.9.9</version>
+                        <groupId>%s</groupId>
+                        <artifactId>%s</artifactId>
+                        <version>%s</version>
                       </dependency>
                     </dependencies>
                   </dependencyManagement>
@@ -1209,7 +1214,7 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
                     </dependency>
                   </dependencies>
                 </project>
-                """
+                """.formatted(groupId, artifactId, version)
             )
           )
         );

@@ -85,8 +85,8 @@ public final class LegacyAzureMigration {
 
     /**
      * Why the current SDK couldn't build or run where a source is, such as in a Gradle subproject whose build file has
-     * a name of its own that the repository's model doesn't attribute to it, or in a module that pins a Jackson older
-     * than the current SDK runs on, or null when it could.
+     * a name of its own that the repository's model doesn't attribute to it, or in a module that pins a library
+     * azure-core runs on below what it needs, or null when it could.
      */
     public static @Nullable String unbuilt(Tree source, ExecutionContext ctx) {
         Map<UUID, String> unbuilt = ctx.getMessage(UNBUILT);

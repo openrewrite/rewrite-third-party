@@ -232,22 +232,24 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
     private static void recordBuild(SourceFile build, Accumulator acc) {
         Map<String, String> artifacts = new HashMap<>();
         Set<ResolvedDependency> seen = Collections.newSetFromMap(new IdentityHashMap<>());
-        String jackson = null;
+        Map<String[], String> pinned = new LinkedHashMap<>();
         if (build instanceof Xml.Document) {
             MavenResolutionResult mrr = build.getMarkers().findFirst(MavenResolutionResult.class).get();
             for (List<ResolvedDependency> scope : mrr.getDependencies().values()) {
                 collect(scope, artifacts, seen);
             }
             // Maven takes a managed version, then the nearest, over the one the current SDK asks for
-            for (String artifact : JACKSON) {
-                String managed = mrr.getPom().getManagedVersion(JACKSON_GROUP, artifact, null, null);
+            for (String[] floor : FLOORS) {
+                String managed = mrr.getPom().getManagedVersion(floor[0], floor[1], null, null);
                 if (managed != null) {
-                    jackson = older(jackson, managed);
+                    pinned.put(floor, managed);
                 }
             }
             for (ResolvedDependency d : mrr.getDependencies().getOrDefault(Scope.Compile, Collections.emptyList())) {
-                if (d.getDepth() == 0 && JACKSON_GROUP.equals(d.getGroupId()) && JACKSON.contains(d.getArtifactId())) {
-                    jackson = older(jackson, d.getVersion());
+                for (String[] floor : FLOORS) {
+                    if (d.getDepth() == 0 && floor[0].equals(d.getGroupId()) && floor[1].equals(d.getArtifactId())) {
+                        pinned.putIfAbsent(floor, d.getVersion());
+                    }
                 }
             }
         } else {
@@ -258,19 +260,26 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
             for (GradleDependencyConfiguration c : gp.getConfigurations()) {
                 collect(c.getDirectResolved(), artifacts, seen);
             }
-            // Gradle takes the newest version any dependency asks for, unless Spring's dependency management pins one
+            // Gradle takes the newest version any dependency asks for, unless Spring's dependency management pins one.
+            // What it pins of libraries the module doesn't have yet isn't in the model.
             GradleDependencyConfiguration classpath = gp.getConfiguration("compileClasspath");
             if (classpath != null && gp.getPlugins().stream().anyMatch(plugin -> "io.spring.dependency-management".equals(plugin.getId()))) {
                 for (ResolvedDependency d : classpath.getResolved()) {
-                    if (JACKSON_GROUP.equals(d.getGroupId()) && JACKSON.contains(d.getArtifactId())) {
-                        jackson = older(jackson, d.getVersion());
+                    for (String[] floor : FLOORS) {
+                        if (floor[0].equals(d.getGroupId()) && floor[1].equals(d.getArtifactId())) {
+                            pinned.put(floor, d.getVersion());
+                        }
                     }
                 }
             }
         }
-        if (jackson != null && JACKSON_COMPARATOR.compare(null, jackson, MIN_JACKSON) < 0) {
-            acc.unfit.put(dir(build.getSourcePath()), "its build pins Jackson " + jackson + ", older than the " +
-                                                      MIN_JACKSON + " the current Azure SDK needs");
+        for (Map.Entry<String[], String> pin : pinned.entrySet()) {
+            String[] floor = pin.getKey();
+            if (FLOOR_COMPARATOR.compare(null, pin.getValue(), floor[2]) < 0) {
+                acc.unfit.put(dir(build.getSourcePath()), "its build pins " + floor[1] + " " + pin.getValue() +
+                                                          ", older than the " + floor[2] + " the current Azure SDK needs");
+                break;
+            }
         }
         Set<String> legacy = new HashSet<>();
         for (String ga : artifacts.keySet()) {
@@ -281,34 +290,41 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
         acc.editable.put(dir(build.getSourcePath()), legacy);
     }
 
-    private static final String JACKSON_GROUP = "com.fasterxml.jackson.core";
-    private static final Set<String> JACKSON = new HashSet<>(Arrays.asList("jackson-core", "jackson-databind"));
     /**
-     * azure-core checks for it when it starts, and fails to start with an older one.
+     * The oldest versions of the libraries azure-core runs on that it runs on, as {@code groupId}, {@code artifactId}
+     * and version: it checks Jackson's when it starts, and builds no client on a Reactor without the context views
+     * that 3.4 brought, as Spring Boot 2.3 and older manage them.
      */
-    private static final String MIN_JACKSON = "2.10.0";
-    private static final VersionComparator JACKSON_COMPARATOR = new LatestRelease(null);
-
-    private static String older(@Nullable String a, String b) {
-        return a == null || JACKSON_COMPARATOR.compare(null, b, a) < 0 ? b : a;
-    }
+    private static final String[][] FLOORS = {
+            {"com.fasterxml.jackson.core", "jackson-core", "2.10.0"},
+            {"com.fasterxml.jackson.core", "jackson-databind", "2.10.0"},
+            {"io.projectreactor", "reactor-core", "3.4.0"}
+    };
+    private static final VersionComparator FLOOR_COMPARATOR = new LatestRelease(null);
 
     /**
      * Why the current SDK couldn't build or run where the source is, or null when it could: the build the recipe would
-     * edit has to be one it can add a dependency to, which resolves the legacy artifacts the source uses, and has no
-     * Jackson pinned that the current SDK can't run on. In a repository with no build the recipe reads, there is none
-     * to edit, and the source is migrated as code alone.
+     * edit has to be one it can add a dependency to, which resolves the legacy artifacts the source uses, and, where
+     * the source would use an artifact built on azure-core, pins none of the libraries azure-core runs on below what it
+     * needs. In a repository with no build the recipe reads, there is none to edit, and the source is migrated as code
+     * alone.
      */
-    private static @Nullable String unfit(Path source, Set<String> usedLegacy, Accumulator acc) {
+    private static @Nullable String unfit(Path source, Scanned scanned, Accumulator acc) {
         if (acc.modules.isEmpty()) {
             return null;
         }
         Path owner = owner(source, acc.modules);
         Set<String> resolved = owner == null ? null : acc.editable.get(owner);
-        if (resolved == null || !resolved.containsAll(usedLegacy)) {
+        if (resolved == null || !resolved.containsAll(acc.usedLegacy.getOrDefault(source, Collections.emptySet()))) {
             return "no build the recipe can edit compiles it";
         }
-        return acc.unfit.get(owner);
+        for (String needed : scanned.neededMigrated.keySet()) {
+            // MSAL4J alone runs on neither
+            if (needed.startsWith("com.azure:")) {
+                return acc.unfit.get(owner);
+            }
+        }
+        return null;
     }
 
     private static Map<String, Boolean> needed(JavaSourceFile source) {
@@ -339,7 +355,7 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
             String unfit;
             if (e.getValue().left) {
                 left.add(e.getKey());
-            } else if ((unfit = unfit(e.getKey(), acc.usedLegacy.getOrDefault(e.getKey(), Collections.emptySet()), acc)) != null) {
+            } else if ((unfit = unfit(e.getKey(), e.getValue(), acc)) != null) {
                 // Migrated, it would use the current SDK where no build declares it, or where it can't run
                 left.add(e.getKey());
                 unbuilt.put(e.getValue().id, unfit);
