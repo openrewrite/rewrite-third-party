@@ -931,13 +931,18 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
             srcTestJava(
               java(
                 """
+                  import com.mongodb.Block;
+                  import com.mongodb.Function;
                   import com.mongodb.ServerAddress;
                   import com.mongodb.ServerCursor;
                   import com.mongodb.client.ListIndexesIterable;
                   import com.mongodb.client.MongoCursor;
+                  import com.mongodb.client.MongoIterable;
                   import org.bson.Document;
 
+                  import java.util.Collection;
                   import java.util.Iterator;
+                  import java.util.concurrent.TimeUnit;
 
                   class StubCursor implements MongoCursor<Document> {
                       private final Iterator<Document> documents;
@@ -977,18 +982,61 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
                   }
 
                   class Indexes<T> implements ListIndexesIterable<T> {
+                      @Override
+                      public ListIndexesIterable<T> maxTime(long maxTime, TimeUnit timeUnit) {
+                          return this;
+                      }
+
+                      @Override
+                      public ListIndexesIterable<T> batchSize(int batchSize) {
+                          return this;
+                      }
+
+                      @Override
+                      public MongoCursor<T> iterator() {
+                          return cursor();
+                      }
+
+                      @Override
+                      public MongoCursor<T> cursor() {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public T first() {
+                          return null;
+                      }
+
+                      @Override
+                      public <U> MongoIterable<U> map(Function<T, U> mapper) {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public void forEach(Block<? super T> block) {
+                      }
+
+                      @Override
+                      public <A extends Collection<? super T>> A into(A target) {
+                          return target;
+                      }
                   }
                   """,
                 """
+                  import com.mongodb.Block;
+                  import com.mongodb.Function;
                   import com.mongodb.ServerAddress;
                   import com.mongodb.ServerCursor;
                   import com.mongodb.client.ListIndexesIterable;
                   import com.mongodb.client.MongoCursor;
+                  import com.mongodb.client.MongoIterable;
                   import com.mongodb.client.cursor.TimeoutMode;
                   import org.bson.BsonValue;
                   import org.bson.Document;
 
+                  import java.util.Collection;
                   import java.util.Iterator;
+                  import java.util.concurrent.TimeUnit;
 
                   class StubCursor implements MongoCursor<Document> {
                       private final Iterator<Document> documents;
@@ -1034,6 +1082,44 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
 
                   class Indexes<T> implements ListIndexesIterable<T> {
                       @Override
+                      public ListIndexesIterable<T> maxTime(long maxTime, TimeUnit timeUnit) {
+                          return this;
+                      }
+
+                      @Override
+                      public ListIndexesIterable<T> batchSize(int batchSize) {
+                          return this;
+                      }
+
+                      @Override
+                      public MongoCursor<T> iterator() {
+                          return cursor();
+                      }
+
+                      @Override
+                      public MongoCursor<T> cursor() {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public T first() {
+                          return null;
+                      }
+
+                      @Override
+                      public <U> MongoIterable<U> map(Function<T, U> mapper) {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      public void forEach(Block<? super T> block) {
+                      }
+
+                      @Override
+                      public <A extends Collection<? super T>> A into(A target) {
+                          return target;
+                      }
+
+                      @Override
                       public ListIndexesIterable<T> comment(String comment) {
                           throw new UnsupportedOperationException();
                       }
@@ -1064,64 +1150,126 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
             srcTestJava(
               java(
                 """
-                  import com.mongodb.client.FindIterable;
+                  import com.mongodb.Block;
+                  import com.mongodb.Function;
+                  import com.mongodb.client.ListIndexesIterable;
+                  import com.mongodb.client.MongoCursor;
+                  import com.mongodb.client.MongoIterable;
                   import org.bson.Document;
 
-                  abstract class Base<T> implements FindIterable<T> {
+                  import java.util.Collection;
+                  import java.util.concurrent.TimeUnit;
+
+                  abstract class Base<T> implements ListIndexesIterable<T> {
+                      @Override
+                      public ListIndexesIterable<T> maxTime(long maxTime, TimeUnit timeUnit) {
+                          return this;
+                      }
+
+                      @Override
+                      public ListIndexesIterable<T> batchSize(int batchSize) {
+                          return this;
+                      }
+
+                      @Override
+                      public MongoCursor<T> iterator() {
+                          return cursor();
+                      }
+
+                      @Override
+                      public MongoCursor<T> cursor() {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public T first() {
+                          return null;
+                      }
+
+                      @Override
+                      public <U> MongoIterable<U> map(Function<T, U> mapper) {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public void forEach(Block<? super T> block) {
+                      }
+
+                      @Override
+                      public <A extends Collection<? super T>> A into(A target) {
+                          return target;
+                      }
                   }
 
                   class Documents extends Base<Document> {
                   }
                   """,
                 """
-                  import com.mongodb.ExplainVerbosity;
-                  import com.mongodb.client.FindIterable;
+                  import com.mongodb.Block;
+                  import com.mongodb.Function;
+                  import com.mongodb.client.ListIndexesIterable;
+                  import com.mongodb.client.MongoCursor;
+                  import com.mongodb.client.MongoIterable;
                   import com.mongodb.client.cursor.TimeoutMode;
                   import org.bson.BsonValue;
                   import org.bson.Document;
-                  import org.bson.conversions.Bson;
 
-                  abstract class Base<T> implements FindIterable<T> {
+                  import java.util.Collection;
+                  import java.util.concurrent.TimeUnit;
+
+                  abstract class Base<T> implements ListIndexesIterable<T> {
+                      @Override
+                      public ListIndexesIterable<T> maxTime(long maxTime, TimeUnit timeUnit) {
+                          return this;
+                      }
+
+                      @Override
+                      public ListIndexesIterable<T> batchSize(int batchSize) {
+                          return this;
+                      }
+
+                      @Override
+                      public MongoCursor<T> iterator() {
+                          return cursor();
+                      }
+
+                      @Override
+                      public MongoCursor<T> cursor() {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public T first() {
+                          return null;
+                      }
+
+                      @Override
+                      public <U> MongoIterable<U> map(Function<T, U> mapper) {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      public void forEach(Block<? super T> block) {
+                      }
+
+                      @Override
+                      public <A extends Collection<? super T>> A into(A target) {
+                          return target;
+                      }
                   }
 
                   class Documents extends Base<Document> {
                       @Override
-                      public FindIterable<Document> allowDiskUse(Boolean allowDiskUse) {
+                      public ListIndexesIterable<Document> comment(String comment) {
                           throw new UnsupportedOperationException();
                       }
 
                       @Override
-                      public FindIterable<Document> comment(BsonValue comment) {
+                      public ListIndexesIterable<Document> comment(BsonValue comment) {
                           throw new UnsupportedOperationException();
                       }
 
                       @Override
-                      public Document explain() {
-                          throw new UnsupportedOperationException();
-                      }
-
-                      @Override
-                      public Document explain(ExplainVerbosity verbosity) {
-                          throw new UnsupportedOperationException();
-                      }
-
-                      @Override
-                      public <E> E explain(Class<E> explainResultClass) {
-                          throw new UnsupportedOperationException();
-                      }
-
-                      @Override
-                      public <E> E explain(Class<E> explainResultClass, ExplainVerbosity verbosity) {
-                          throw new UnsupportedOperationException();
-                      }
-
-                      @Override
-                      public FindIterable<Document> let(Bson variables) {
-                          throw new UnsupportedOperationException();
-                      }
-
-                      @Override
-                      public FindIterable<Document> timeoutMode(TimeoutMode timeoutMode) {
+                      public ListIndexesIterable<Document> timeoutMode(TimeoutMode timeoutMode) {
                           throw new UnsupportedOperationException();
                       }
                   }
@@ -1141,8 +1289,12 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
             srcTestJava(
               java(
                 """
+                  import com.mongodb.ServerAddress;
+                  import com.mongodb.ServerCursor;
                   import com.mongodb.client.MongoCursor;
                   import org.bson.Document;
+
+                  import java.util.NoSuchElementException;
 
                   class Cursors {
                       MongoCursor<Document> empty() {
@@ -1151,13 +1303,41 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
                               public boolean hasNext() {
                                   return false;
                               }
+
+                              @Override
+                              public Document next() {
+                                  throw new NoSuchElementException();
+                              }
+
+                              @Override
+                              public Document tryNext() {
+                                  return null;
+                              }
+
+                              @Override
+                              public void close() {
+                              }
+
+                              @Override
+                              public ServerCursor getServerCursor() {
+                                  return null;
+                              }
+
+                              @Override
+                              public ServerAddress getServerAddress() {
+                                  return null;
+                              }
                           };
                       }
                   }
                   """,
                 """
+                  import com.mongodb.ServerAddress;
+                  import com.mongodb.ServerCursor;
                   import com.mongodb.client.MongoCursor;
                   import org.bson.Document;
+
+                  import java.util.NoSuchElementException;
 
                   class Cursors {
                       MongoCursor<Document> empty() {
@@ -1165,6 +1345,30 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
                               @Override
                               public boolean hasNext() {
                                   return false;
+                              }
+
+                              @Override
+                              public Document next() {
+                                  throw new NoSuchElementException();
+                              }
+
+                              @Override
+                              public Document tryNext() {
+                                  return null;
+                              }
+
+                              @Override
+                              public void close() {
+                              }
+
+                              @Override
+                              public ServerCursor getServerCursor() {
+                                  return null;
+                              }
+
+                              @Override
+                              public ServerAddress getServerAddress() {
+                                  return null;
                               }
 
                               @Override
@@ -1187,8 +1391,8 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
         rewriteRun(
           spec -> spec.dataTable(MongoDriverMigrationDecisions.Row.class, rows -> assertThat(rows)
             .extracting(MongoDriverMigrationDecisions.Row::getReason)
-            .anyMatch(r -> r.contains("declares `Stub`, which implements `ClientSession`, to which driver 5 adds") &&
-                           r.contains("which names a type of its internal API"))),
+            .anyMatch(r -> r.startsWith("declares `Stub`, which implements `ClientSession`, of which driver 5 requires") &&
+                           r.endsWith("which names a type of its internal API"))),
           mavenProject("app",
             //language=java
             srcTestJava(
@@ -1200,6 +1404,268 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
                   }
 
                   class Stub extends Session {
+                  }
+                  """
+              )
+            ),
+            pomXml(POM)
+          )
+        );
+    }
+
+    @Test
+    void implementsTheCodecRegistryAsDriver3AdaptedIt() {
+        rewriteRun(
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import org.bson.codecs.Codec;
+                  import org.bson.codecs.configuration.CodecConfigurationException;
+                  import org.bson.codecs.configuration.CodecRegistry;
+
+                  class Registry implements CodecRegistry {
+                      @Override
+                      public <T> Codec<T> get(Class<T> clazz) {
+                          throw new CodecConfigurationException("No codec for " + clazz);
+                      }
+                  }
+                  """,
+                """
+                  import org.bson.codecs.Codec;
+                  import org.bson.codecs.configuration.CodecConfigurationException;
+                  import org.bson.codecs.configuration.CodecRegistry;
+
+                  class Registry implements CodecRegistry {
+                      @Override
+                      public <T> Codec<T> get(Class<T> clazz) {
+                          throw new CodecConfigurationException("No codec for " + clazz);
+                      }
+
+                      @Override
+                      public <T> Codec<T> get(Class<T> clazz, CodecRegistry registry) {
+                          try {
+                              return get(clazz);
+                          } catch (CodecConfigurationException e) {
+                              return null;
+                          }
+                      }
+                  }
+                  """
+              )
+            ),
+            pom("mongodb-driver-sync")
+          )
+        );
+    }
+
+    @Test
+    void leavesDriverWhenTheDriverCallsMethodsThatDriver5AddsToAClass() {
+        rewriteRun(
+          spec -> spec.dataTable(MongoDriverMigrationDecisions.Row.class, rows -> assertThat(rows)
+            .extracting(MongoDriverMigrationDecisions.Row::getReason)
+            .anyMatch(r -> r.startsWith("declares `HeapBuffer`, which implements `ByteBuf`, of which driver 5 requires") &&
+                           r.endsWith("which the driver calls on it, so that a method that throws cannot stand in"))),
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import org.bson.ByteBuf;
+
+                  abstract class Buffer implements ByteBuf {
+                  }
+
+                  class HeapBuffer extends Buffer {
+                  }
+                  """
+              )
+            ),
+            pomXml(POM)
+          )
+        );
+    }
+
+    @Test
+    void implementsTheMethodsThatTheDriverOfTheClassLacked() {
+        // MongoIterable gained cursor() in 3.11, which a class written for driver 3.10 lacks
+        rewriteRun(
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.mongodb.Block;
+                  import com.mongodb.Function;
+                  import com.mongodb.client.ListIndexesIterable;
+                  import com.mongodb.client.MongoCursor;
+                  import com.mongodb.client.MongoIterable;
+                  import org.bson.Document;
+
+                  import java.util.Collection;
+                  import java.util.concurrent.TimeUnit;
+
+                  class NoIndexes implements ListIndexesIterable<Document> {
+                      @Override
+                      public ListIndexesIterable<Document> maxTime(long maxTime, TimeUnit timeUnit) {
+                          return this;
+                      }
+
+                      @Override
+                      public ListIndexesIterable<Document> batchSize(int batchSize) {
+                          return this;
+                      }
+
+                      @Override
+                      public MongoCursor<Document> iterator() {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public Document first() {
+                          return null;
+                      }
+
+                      @Override
+                      public <U> MongoIterable<U> map(Function<Document, U> mapper) {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public void forEach(Block<? super Document> block) {
+                      }
+
+                      @Override
+                      public <A extends Collection<? super Document>> A into(A target) {
+                          return target;
+                      }
+                  }
+                  """,
+                """
+                  import com.mongodb.Block;
+                  import com.mongodb.Function;
+                  import com.mongodb.client.ListIndexesIterable;
+                  import com.mongodb.client.MongoCursor;
+                  import com.mongodb.client.MongoIterable;
+                  import com.mongodb.client.cursor.TimeoutMode;
+                  import org.bson.BsonValue;
+                  import org.bson.Document;
+
+                  import java.util.Collection;
+                  import java.util.concurrent.TimeUnit;
+
+                  class NoIndexes implements ListIndexesIterable<Document> {
+                      @Override
+                      public ListIndexesIterable<Document> maxTime(long maxTime, TimeUnit timeUnit) {
+                          return this;
+                      }
+
+                      @Override
+                      public ListIndexesIterable<Document> batchSize(int batchSize) {
+                          return this;
+                      }
+
+                      @Override
+                      public MongoCursor<Document> iterator() {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public Document first() {
+                          return null;
+                      }
+
+                      @Override
+                      public <U> MongoIterable<U> map(Function<Document, U> mapper) {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      public void forEach(Block<? super Document> block) {
+                      }
+
+                      @Override
+                      public <A extends Collection<? super Document>> A into(A target) {
+                          return target;
+                      }
+
+                      @Override
+                      public ListIndexesIterable<Document> comment(String comment) {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public ListIndexesIterable<Document> comment(BsonValue comment) {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public MongoCursor<Document> cursor() {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public ListIndexesIterable<Document> timeoutMode(TimeoutMode timeoutMode) {
+                          throw new UnsupportedOperationException();
+                      }
+                  }
+                  """
+              )
+            ),
+            pom("mongodb-driver-sync")
+          )
+        );
+    }
+
+    @Test
+    void leavesDriverWhenAClassExtendsADriverTypeRaw() {
+        rewriteRun(
+          spec -> spec.dataTable(MongoDriverMigrationDecisions.Row.class, rows -> assertThat(rows)
+            .extracting(MongoDriverMigrationDecisions.Row::getReason)
+            .anyMatch(r -> r.startsWith("declares `Raw`, which implements `ListIndexesIterable`, of which driver 5 requires") &&
+                           r.endsWith("whose type arguments the class leaves unbound"))),
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.mongodb.client.ListIndexesIterable;
+
+                  abstract class Indexes<T> implements ListIndexesIterable<T> {
+                  }
+
+                  @SuppressWarnings("rawtypes")
+                  class Raw extends Indexes {
+                  }
+                  """
+              )
+            ),
+            pomXml(POM)
+          )
+        );
+    }
+
+    @Test
+    void leavesDriverWhenAClassReturnsNothingWhereDriver5ReturnsAResult() {
+        rewriteRun(
+          spec -> spec.dataTable(MongoDriverMigrationDecisions.Row.class, rows -> assertThat(rows)
+            .extracting(MongoDriverMigrationDecisions.Row::getReason)
+            .contains("declares `Inserts`, which implements `MongoCollection`, of which driver 5 requires `insertOne(Object)`, " +
+                      "which it declares to return a value, where the class's returns nothing")),
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.mongodb.client.MongoCollection;
+
+                  abstract class Collection<T> implements MongoCollection<T> {
+                  }
+
+                  class Inserts<T> extends Collection<T> {
+                      @Override
+                      public void insertOne(T document) {
+                      }
                   }
                   """
               )

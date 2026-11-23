@@ -211,7 +211,7 @@ final class LegacyScanner extends TreeVisitor<Tree, ExecutionContext> {
                 if (fixable) {
                     replacesRemovedApi[0] = true;
                 } else {
-                    acc.removedApiUses.add(new LegacyUsage.Blocker(module, path, description));
+                    acc.removedApiUses.add(new LegacyUsage.Blocker(module, path, description, true));
                 }
             }
         }.visit(cu, ctx);
@@ -346,8 +346,7 @@ final class LegacyScanner extends TreeVisitor<Tree, ExecutionContext> {
             for (AddedMethods.Missing m : missing) {
                 if (m.declaration == null) {
                     acc.removedApiUses.add(new LegacyUsage.Blocker(module, path, owner + " implements `" +
-                            LegacyUsage.simpleName(m.type) + "`, to which driver 5 adds `" + m.method.label() + "`, " +
-                            (m.method.internal ? "which names a type of its internal API" : "whose type arguments the class leaves unbound")));
+                            LegacyUsage.simpleName(m.type) + "`, of which driver 5 requires `" + m.method.label() + "`, " + m.why));
                     return;
                 }
             }
@@ -358,7 +357,7 @@ final class LegacyScanner extends TreeVisitor<Tree, ExecutionContext> {
             J.ClassDeclaration c = super.visitClassDeclaration(classDecl, ctx);
             if (c.getKind() != J.ClassDeclaration.Kind.Type.Interface && c.getKind() != J.ClassDeclaration.Kind.Type.Annotation &&
                 !c.hasModifier(J.Modifier.Type.Abstract)) {
-                check("declares `" + c.getSimpleName() + "`, which", AddedMethods.get().missing(c.getType(), Collections.emptyList()));
+                check("declares `" + c.getSimpleName() + "`, which", AddedMethods.get().missing(c.getType(), Collections.emptyList(), true));
             }
             return c;
         }
@@ -375,7 +374,7 @@ final class LegacyScanner extends TreeVisitor<Tree, ExecutionContext> {
                 }
                 JavaType.FullyQualified type = TypeUtils.asFullyQualified(n.getClazz().getType());
                 check("declares an anonymous `" + (type == null ? "" : type.getClassName()) + "`, which",
-                        AddedMethods.get().missing(type, declared));
+                        AddedMethods.get().missing(type, declared, false));
             }
             return n;
         }

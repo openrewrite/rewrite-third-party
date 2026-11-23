@@ -64,8 +64,12 @@ public class MigrateMongoJavaDriver3To5 extends ScanningRecipe<MigrateMongoJavaD
             "`mongodb-driver-sync` 5, or `mongodb-driver-legacy` 5 when a module keeps the legacy API. The driver stays " +
             "where it is when a library bound to driver 3, such as Spring Data MongoDB before 4.3, Morphia or Jongo, is on the " +
             "classpath, or when a use of removed API has no replacement; `FindRemovedMongoApis` marks those. Classes that " +
-            "implement a driver interface to which driver 5 adds abstract methods, such as `MongoCursor.available()`, get " +
-            "those methods, throwing `UnsupportedOperationException`. Calls whose result driver 5 changed keep the old one: " +
+            "implement a driver type get the abstract methods driver 5 requires of it that they lack, such as " +
+            "`MongoCursor.available()`: those the driver never calls on the class throw `UnsupportedOperationException`, " +
+            "`CodecRegistry.get(Class, CodecRegistry)` does what driver 3 did, and where nothing can stand in, as for a " +
+            "`ByteBuf`, or a method returns nothing where driver 5's returns a result, the driver stays where it is. A " +
+            "method that overrides one driver 5 removed, such as `MongoIterable.forEach(Block)`, loses its `@Override`. " +
+            "Calls whose result driver 5 changed keep the old one: " +
             "`toJson()`, and the `toString()` of `BasicDBObject` and `BsonDocument`, ask for the strict extended JSON that " +
             "driver 3 wrote, and the `toString()` of `MongoClientURI` and `ConnectionString`, which driver 5 redacts, becomes " +
             "`getURI()` or `getConnectionString()`. A `module-info.java` requires the modules of driver 5; a repository with " +
@@ -311,7 +315,7 @@ public class MigrateMongoJavaDriver3To5 extends ScanningRecipe<MigrateMongoJavaD
         if (usage.boundLibraries.isEmpty() && !usage.removedApiUses.isEmpty()) {
             for (LegacyUsage.Blocker b : usage.removedApiUses) {
                 decisions.insertRow(ctx, new MongoDriverMigrationDecisions.Row(b.module, "Driver not moved to 5", b.sourcePath,
-                        "uses " + b.reason + ", which driver 5 removed and no recipe replaces"));
+                        b.clause()));
             }
         } else {
             decisions.insertRow(ctx, new MongoDriverMigrationDecisions.Row("", "Driver not moved to 5", "",

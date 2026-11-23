@@ -30,8 +30,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * The abstract methods that driver 5 adds to the interfaces and abstract classes of driver 3, read from
- * {@code META-INF/rewrite/mongodb/added-methods.tsv}, and which of them a class that implements those types lacks.
+ * The abstract methods that driver 5 requires of the interfaces and abstract classes of driver 3 that grew during 3.x or
+ * since, read from {@code META-INF/rewrite/mongodb/added-methods.tsv}, and which of them a class that implements those
+ * types lacks.
  */
 final class AddedMethods {
 
@@ -42,14 +43,26 @@ final class AddedMethods {
     static final class Method {
         final String name;
         final String erasedParameters;
+        /** Each parameter's erased type, or {@code *} where it is a type variable. */
+        final String[] patterns;
+        final boolean returnsValue;
         final boolean internal;
+        /** Whether the driver calls the method on a class of the code, so that one that throws cannot stand in. */
+        final boolean called;
         final String declaration;
+        /** What the method does where driver 3 called the class, or {@code null} to throw. */
+        final @Nullable String body;
 
-        Method(String name, String erasedParameters, boolean internal, String declaration) {
+        Method(String name, String erasedParameters, String patterns, String returnType, String kind, String declaration,
+               @Nullable String body) {
             this.name = name;
             this.erasedParameters = erasedParameters;
-            this.internal = internal;
+            this.patterns = patterns.isEmpty() ? new String[0] : patterns.split(",");
+            this.returnsValue = !"void".equals(returnType);
+            this.internal = "internal".equals(kind);
+            this.called = "called".equals(kind);
             this.declaration = declaration;
+            this.body = body;
         }
 
         String key() {
@@ -63,21 +76,38 @@ final class AddedMethods {
             }
             return name + "(" + p + ")";
         }
+
+        /** Whether a method of the code with these erased parameter types implements this one, or is meant to. */
+        boolean implementedBy(List<@Nullable String> parameters) {
+            if (parameters.size() != patterns.length) {
+                return false;
+            }
+            for (int i = 0; i < patterns.length; i++) {
+                String p = parameters.get(i);
+                // A parameter whose type is unknown could be the one this needs
+                if (p != null && !"*".equals(patterns[i]) && !patterns[i].equals(p)) {
+                    return false;
+                }
+            }
+            return true;
+        }
     }
 
     /**
      * A method a class lacks, with its declaration written for that class, or {@code null} for the declaration when it
-     * cannot be written: it names a type of the driver's internal API, or the class leaves a type variable unbound.
+     * cannot be written or cannot stand in, and {@link #why} says why.
      */
     static final class Missing {
         final String type;
         final Method method;
         final @Nullable String declaration;
+        final @Nullable String why;
 
-        Missing(String type, Method method, @Nullable String declaration) {
+        Missing(String type, Method method, @Nullable String declaration, @Nullable String why) {
             this.type = type;
             this.method = method;
             this.declaration = declaration;
+            this.why = why;
         }
     }
 
@@ -111,7 +141,9 @@ final class AddedMethods {
                 }
                 String[] f = line.split("\t", -1);
                 typeVariables.put(f[0], f[1].isEmpty() ? Collections.emptyList() : Arrays.asList(f[1].split(",")));
-                methods.computeIfAbsent(f[0], k -> new ArrayList<>()).add(new Method(f[2], f[3], "internal".equals(f[4]), f[5]));
+                methods.computeIfAbsent(f[0], k -> new ArrayList<>())
+                        .add(new Method(f[2], f[3], f[4], f[5], f[6], f[7],
+                                f.length > 8 && !f[8].isEmpty() ? f[8].replace("\\n", "\n") : null));
             }
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -124,33 +156,74 @@ final class AddedMethods {
      *
      * @param type     the class, or for an anonymous class the type it instantiates
      * @param declared the methods an anonymous class declares, which its type does not hold
+     * @param declares whether {@code type} is the class being declared, whose own type variables its body names
      */
-    List<Missing> missing(JavaType.@Nullable FullyQualified type, Collection<JavaType.Method> declared) {
+    List<Missing> missing(JavaType.@Nullable FullyQualified type, Collection<JavaType.Method> declared, boolean declares) {
         if (type == null) {
             return Collections.emptyList();
         }
-        Set<String> have = new HashSet<>();
+        Map<String, List<JavaType.Method>> have = new HashMap<>();
         for (JavaType.Method m : declared) {
-            have.add(key(m));
+            add(have, m);
         }
         Map<String, List<@Nullable String>> required = new LinkedHashMap<>();
-        walk(type, Collections.emptyMap(), have, required);
+        walk(type, Collections.emptyMap(), true, declares, have, required);
         Map<String, Missing> out = new LinkedHashMap<>();
         for (Map.Entry<String, List<@Nullable String>> r : required.entrySet()) {
             for (Method m : methods.get(r.getKey())) {
-                if (!have.contains(m.key()) && !out.containsKey(m.key())) {
-                    out.put(m.key(), new Missing(r.getKey(), m, m.internal ? null : write(m, typeVariables.get(r.getKey()), r.getValue())));
+                if (out.containsKey(m.key())) {
+                    continue;
                 }
+                JavaType.Method implementation = implementation(have, m);
+                if (implementation != null) {
+                    if (returnsValue(implementation) != m.returnsValue) {
+                        // Driver 5 changed what the method returns, as MongoCollection.insertOne, which returns a result
+                        out.put(m.key(), new Missing(r.getKey(), m, null, m.returnsValue ?
+                                "which it declares to return a value, where the class's returns nothing" :
+                                "which it declares to return nothing, where the class's returns a value"));
+                    }
+                    continue;
+                }
+                String declaration = m.internal ? null : write(m, typeVariables.get(r.getKey()), r.getValue());
+                String why = m.internal ? "which names a type of its internal API" :
+                        declaration == null ? "whose type arguments the class leaves unbound" :
+                        m.called && m.body == null ? "which the driver calls on it, so that a method that throws cannot stand in" : null;
+                out.put(m.key(), new Missing(r.getKey(), m, why == null ? declaration : null, why));
             }
         }
         return new ArrayList<>(out.values());
     }
 
+    private static JavaType.@Nullable Method implementation(Map<String, List<JavaType.Method>> have, Method m) {
+        for (JavaType.Method candidate : have.getOrDefault(m.name, Collections.emptyList())) {
+            List<@Nullable String> parameters = new ArrayList<>();
+            for (JavaType t : candidate.getParameterTypes()) {
+                parameters.add(erase(t));
+            }
+            if (m.implementedBy(parameters)) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private static boolean returnsValue(JavaType.Method m) {
+        // An unknown return type could be the one driver 5 declares
+        return m.getReturnType() != JavaType.Primitive.Void;
+    }
+
+    private static void add(Map<String, List<JavaType.Method>> have, JavaType.Method m) {
+        have.computeIfAbsent(m.getName(), k -> new ArrayList<>()).add(m);
+    }
+
     /**
      * Collects the methods that the types in the hierarchy of {@code t} declare, when they are the code's own, and the
-     * type arguments of each type of the table, in the order of its type variables.
+     * type arguments of each type of the table, in the order of its type variables. A type variable that {@code env}
+     * does not bind is in scope only in the type arguments of the type the walk starts from, where the code declares
+     * it; further up, as where a class extends a raw type, it is unbound.
      */
-    private void walk(JavaType t, Map<String, String> env, Set<String> have, Map<String, List<@Nullable String>> required) {
+    private void walk(JavaType t, Map<String, String> env, boolean start, boolean declares,
+                      Map<String, List<JavaType.Method>> have, Map<String, List<@Nullable String>> required) {
         JavaType.FullyQualified cls;
         Map<String, String> bound = new HashMap<>();
         if (t instanceof JavaType.Parameterized) {
@@ -160,7 +233,7 @@ final class AddedMethods {
             List<JavaType> args = p.getTypeParameters();
             for (int i = 0; i < vars.size() && i < args.size(); i++) {
                 if (vars.get(i) instanceof JavaType.GenericTypeVariable) {
-                    String arg = source(args.get(i), env);
+                    String arg = source(args.get(i), env, start);
                     if (arg != null) {
                         bound.put(((JavaType.GenericTypeVariable) vars.get(i)).getName(), arg);
                     }
@@ -168,6 +241,15 @@ final class AddedMethods {
             }
         } else if (t instanceof JavaType.FullyQualified) {
             cls = (JavaType.FullyQualified) t;
+            if (start && declares) {
+                // The class's own type variables, which its body names
+                for (JavaType v : cls.getTypeParameters()) {
+                    if (v instanceof JavaType.GenericTypeVariable) {
+                        String name = ((JavaType.GenericTypeVariable) v).getName();
+                        bound.put(name, name);
+                    }
+                }
+            }
         } else {
             return;
         }
@@ -178,7 +260,10 @@ final class AddedMethods {
         boolean driver = fqn.startsWith("com.mongodb.") || fqn.startsWith("org.bson.");
         if (!driver) {
             for (JavaType.Method m : cls.getMethods()) {
-                have.add(key(m));
+                // An abstract method, as those of the JDK's interfaces, implements nothing
+                if (!m.hasFlags(Flag.Abstract) && !m.hasFlags(Flag.Static)) {
+                    add(have, m);
+                }
             }
         } else if (methods.containsKey(fqn)) {
             List<@Nullable String> args = new ArrayList<>();
@@ -192,10 +277,10 @@ final class AddedMethods {
             return;
         }
         if (cls.getSupertype() != null) {
-            walk(cls.getSupertype(), bound, have, required);
+            walk(cls.getSupertype(), bound, false, false, have, required);
         }
         for (JavaType.FullyQualified i : cls.getInterfaces()) {
-            walk(i, bound, have, required);
+            walk(i, bound, false, false, have, required);
         }
     }
 
@@ -234,13 +319,15 @@ final class AddedMethods {
     /**
      * The source of a type argument, with its type variables bound as {@code env} binds them, or {@code null} when it
      * cannot be written.
+     *
+     * @param free whether a type variable that {@code env} does not bind is in scope, as the code's own
      */
-    private static @Nullable String source(JavaType t, Map<String, String> env) {
+    private static @Nullable String source(JavaType t, Map<String, String> env, boolean free) {
         if (t instanceof JavaType.Primitive) {
             return ((JavaType.Primitive) t).getKeyword();
         }
         if (t instanceof JavaType.Array) {
-            String e = source(((JavaType.Array) t).getElemType(), env);
+            String e = source(((JavaType.Array) t).getElemType(), env, free);
             return e == null ? null : e + "[]";
         }
         if (t instanceof JavaType.GenericTypeVariable) {
@@ -249,17 +336,17 @@ final class AddedMethods {
                 if (g.getVariance() == JavaType.GenericTypeVariable.Variance.INVARIANT || g.getBounds().isEmpty()) {
                     return "?";
                 }
-                String b = source(g.getBounds().get(0), env);
+                String b = source(g.getBounds().get(0), env, free);
                 return b == null ? null : (g.getVariance() == JavaType.GenericTypeVariable.Variance.COVARIANT ? "? extends " : "? super ") + b;
             }
-            // Bound by a supertype, or else a type variable of the class itself, which its body can name
-            return env.getOrDefault(g.getName(), g.getName());
+            String b = env.get(g.getName());
+            return b != null ? b : free ? g.getName() : null;
         }
         if (t instanceof JavaType.Parameterized) {
             JavaType.Parameterized p = (JavaType.Parameterized) t;
             StringJoiner args = new StringJoiner(", ", "<", ">");
             for (JavaType a : p.getTypeParameters()) {
-                String s = source(a, env);
+                String s = source(a, env, free);
                 if (s == null) {
                     return null;
                 }
@@ -273,28 +360,22 @@ final class AddedMethods {
         return null;
     }
 
-    private static String key(JavaType.Method m) {
-        StringJoiner p = new StringJoiner(",");
-        for (JavaType t : m.getParameterTypes()) {
-            p.add(erase(t));
-        }
-        return m.getName() + "(" + p + ")";
-    }
-
-    private static String erase(JavaType t) {
+    private static @Nullable String erase(JavaType t) {
         if (t instanceof JavaType.Primitive) {
             return ((JavaType.Primitive) t).getKeyword();
         }
         if (t instanceof JavaType.Array) {
-            return erase(((JavaType.Array) t).getElemType()) + "[]";
+            String e = erase(((JavaType.Array) t).getElemType());
+            return e == null ? null : e + "[]";
         }
         if (t instanceof JavaType.GenericTypeVariable) {
             List<JavaType> bounds = ((JavaType.GenericTypeVariable) t).getBounds();
             return bounds.isEmpty() ? "java.lang.Object" : erase(bounds.get(0));
         }
-        if (t instanceof JavaType.FullyQualified) {
+        if (t instanceof JavaType.FullyQualified && !(t instanceof JavaType.Unknown)) {
             return ((JavaType.FullyQualified) t).getFullyQualifiedName();
         }
-        return String.valueOf(t);
+        // Unknown, which any parameter could be
+        return null;
     }
 }

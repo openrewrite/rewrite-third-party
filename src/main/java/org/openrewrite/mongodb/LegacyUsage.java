@@ -37,11 +37,23 @@ final class LegacyUsage {
         final String module;
         final String sourcePath;
         final String reason;
+        /** Whether {@link #reason} names API that driver 5 removed, rather than saying what keeps the driver. */
+        final boolean removedApi;
 
         Blocker(String module, String sourcePath, String reason) {
+            this(module, sourcePath, reason, false);
+        }
+
+        Blocker(String module, String sourcePath, String reason, boolean removedApi) {
             this.module = module;
             this.sourcePath = sourcePath;
             this.reason = reason;
+            this.removedApi = removedApi;
+        }
+
+        /** What keeps the driver where it is, as a clause that follows the repository or the module. */
+        String clause() {
+            return removedApi ? "uses " + reason + ", which driver 5 removed and no recipe replaces" : reason;
         }
     }
 
@@ -106,7 +118,8 @@ final class LegacyUsage {
     final Set<String> boundLibraries = ConcurrentHashMap.newKeySet();
 
     /**
-     * Uses of driver 3 API that driver 5 lacks and that no recipe replaces, which keep the driver from moving to 5.
+     * Uses of driver 3 API that driver 5 lacks and that no recipe replaces, and classes that driver 5 requires methods
+     * of that no method added can stand in for, which keep the driver from moving to 5.
      */
     final List<Blocker> removedApiUses = Collections.synchronizedList(new ArrayList<>());
 
@@ -150,11 +163,21 @@ final class LegacyUsage {
             return "uses " + String.join(", ", new TreeSet<>(boundLibraries)) + ", which needs a driver older than 5";
         }
         if (!removedApiUses.isEmpty()) {
-            Set<String> uses = new TreeSet<>();
+            Set<String> removed = new TreeSet<>();
+            Set<String> clauses = new TreeSet<>();
             for (Blocker b : removedApiUses) {
-                uses.add(b.reason);
+                if (b.removedApi) {
+                    removed.add(b.reason);
+                } else {
+                    clauses.add(b.reason);
+                }
             }
-            return "uses " + String.join(", ", uses) + ", which driver 5 removed and no recipe replaces";
+            List<String> why = new ArrayList<>();
+            if (!removed.isEmpty()) {
+                why.add("uses " + String.join(", ", removed) + ", which driver 5 removed and no recipe replaces");
+            }
+            why.addAll(clauses);
+            return String.join("; ", why);
         }
         if (minJavaRelease < 8) {
             return "compiles for Java " + minJavaRelease + ", and driver 5 needs Java 8";
