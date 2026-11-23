@@ -20,6 +20,8 @@ import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.Tree;
 import org.openrewrite.java.JavaParser;
+import org.openrewrite.java.marker.JavaSourceSet;
+import org.openrewrite.java.tree.J;
 import org.openrewrite.java.style.IntelliJ;
 import org.openrewrite.style.NamedStyles;
 import org.openrewrite.test.RecipeSpec;
@@ -27,6 +29,7 @@ import org.openrewrite.test.RewriteTest;
 
 import java.util.List;
 
+import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -540,6 +543,34 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
               )
             ),
             pomXml(POM)
+          )
+        );
+    }
+
+    @Test
+    void leavesRepositoriesAlreadyPastDriver3() {
+        rewriteRun(
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.mongodb.BasicDBObject;
+                  import com.mongodb.DBCollection;
+                  import com.mongodb.client.MongoCollection;
+                  import org.bson.Document;
+
+                  class Counts {
+                      long count(DBCollection people, MongoCollection<Document> docs) {
+                          return people.count(new BasicDBObject("a", 1)) + docs.count();
+                      }
+                  }
+                  """,
+                spec -> spec.mapBeforeRecipe(cu -> (J.CompilationUnit) JavaSourceSet.updateOnSourceFile(cu,
+                  sourceSet -> sourceSet.addTypesForGav("org.mongodb:mongodb-driver-legacy:4.11.5", emptyList())))
+              )
+            ),
+            pomXml(POM.replace("mongo-java-driver", "mongodb-driver-legacy").replace("3.12.14", "4.11.5"))
           )
         );
     }

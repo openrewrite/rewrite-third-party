@@ -270,6 +270,11 @@ packageName: io.quarkus.updates.quarkiverse.minio.minio38
 description: Recipes for migrating to version 3.8 of the [Quarkus MinIO](https://docs.quarkiverse.io/quarkus-minio/dev/) extension, such as the `quarkus.minio.url` to `quarkus.minio.host` property rename.
 ---
 type: specs.openrewrite.org/v1beta/category
+name: MongoDB
+packageName: org.openrewrite.mongodb
+description: Recipes for moving Java code that uses the [MongoDB Java driver](https://www.mongodb.com/docs/drivers/java/sync/current/) from the legacy 3.x API to the 5.x API.
+---
+type: specs.openrewrite.org/v1beta/category
 name: Apache
 packageName: org.apache
 description: Recipes published by [The Apache Software Foundation](https://apache.org/) for its own projects.

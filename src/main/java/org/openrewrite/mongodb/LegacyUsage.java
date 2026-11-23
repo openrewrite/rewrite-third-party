@@ -125,6 +125,10 @@ final class LegacyUsage {
      * Why the driver stays where it is, or {@code null}.
      */
     @Nullable String whyNotUpgraded() {
+        String newer = driverNewerThan3();
+        if (newer != null) {
+            return "compiles against MongoDB driver " + newer + ", newer than the 3.x these recipes migrate from";
+        }
         if (!boundLibraries.isEmpty()) {
             return "uses " + String.join(", ", new TreeSet<>(boundLibraries)) + ", which needs a driver older than 5";
         }
@@ -147,6 +151,21 @@ final class LegacyUsage {
             return "declares no MongoDB driver in a build file this migration can change";
         }
         return null;
+    }
+
+    /**
+     * The newest driver that a module compiles against when it is 4.0 or newer, or {@code null}. Such a repository has
+     * already left driver 3, and the API that driver 4 added and driver 5 removed is not what these recipes know, so
+     * they leave it alone.
+     */
+    @Nullable String driverNewerThan3() {
+        String newest = null;
+        for (String version : driverVersionByModule.values()) {
+            if (MongoClasspath.isAtLeast(version, "4.0") && (newest == null || MongoClasspath.isAtLeast(version, newest))) {
+                newest = version;
+            }
+        }
+        return newest;
     }
 
     boolean converts(String module) {
@@ -183,7 +202,13 @@ final class LegacyUsage {
                 reasons.computeIfAbsent(m, k -> new ArrayList<>()).addAll(repositoryBlockers);
             }
         }
-        if (!upgradesDriver()) {
+        String newer = driverNewerThan3();
+        if (newer != null) {
+            for (String m : modulesUsingLegacyApi) {
+                reasons.computeIfAbsent(m, k -> new ArrayList<>())
+                        .add("is in a repository that compiles against MongoDB driver " + newer + ", newer than the 3.x these recipes migrate from");
+            }
+        } else if (!upgradesDriver()) {
             for (String m : modulesUsingLegacyApi) {
                 String version = driverVersionByModule.get(m);
                 if (!MongoClasspath.hasModernApi(version)) {
