@@ -58,6 +58,7 @@ final class RemovedApiFixes {
             {"org.bson.BSONObject containsKey(java.lang.String)", "containsField"},
             {"com.mongodb.ConnectionString getURI()", "getConnectionString"},
             {"com.mongodb.WriteConcern withJ(boolean)", "withJournal"},
+            {"com.mongodb.DB getMongo()", "getMongoClient"},
             {"com.mongodb.client.MongoCollection count()", "estimatedDocumentCount"},
             {"com.mongodb.client.MongoCollection count(..)", "countDocuments"},
     };

@@ -622,6 +622,42 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
     }
 
     @Test
+    void renamesGetMongoOfALegacyDatabase() {
+        rewriteRun(
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.mongodb.DB;
+                  import com.mongodb.Mongo;
+
+                  class Admin {
+                      String describe(DB db) {
+                          Mongo mongo = db.getMongo();
+                          return mongo.toString();
+                      }
+                  }
+                  """,
+                """
+                  import com.mongodb.DB;
+                  import com.mongodb.MongoClient;
+
+                  class Admin {
+                      String describe(DB db) {
+                          MongoClient mongo = db.getMongoClient();
+                          return mongo.toString();
+                      }
+                  }
+                  """
+              )
+            ),
+            pom("mongodb-driver-legacy")
+          )
+        );
+    }
+
+    @Test
     void findsRemovedApiWithoutReplacement() {
         rewriteRun(
           spec -> spec.recipe(new FindRemovedMongoApis(null)),

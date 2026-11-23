@@ -191,7 +191,7 @@ abstract class RemovedApiFinder extends JavaIsoVisitor<ExecutionContext> {
             case "com.mongodb.WriteConcern":
                 return "withJ".equals(name);
             case "com.mongodb.DB":
-                return "getStats".equals(name) || "slaveOk".equals(name);
+                return "getStats".equals(name) || "slaveOk".equals(name) || "getMongo".equals(name);
             case "com.mongodb.DBCollection":
                 switch (name) {
                     case "slaveOk":
