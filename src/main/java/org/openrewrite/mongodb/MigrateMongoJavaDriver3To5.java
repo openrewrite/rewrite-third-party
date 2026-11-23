@@ -1,0 +1,250 @@
+/*
+ * Copyright 2026 the original author or authors.
+ * <p>
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * https://www.apache.org/licenses/LICENSE-2.0
+ * <p>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.openrewrite.mongodb;
+
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Value;
+import org.jspecify.annotations.Nullable;
+import org.openrewrite.*;
+import org.openrewrite.gradle.marker.GradleProject;
+import org.openrewrite.java.dependencies.ChangeDependency;
+import org.openrewrite.java.dependencies.UpgradeDependencyVersion;
+import org.openrewrite.java.tree.J;
+import org.openrewrite.maven.tree.MavenResolutionResult;
+import org.openrewrite.mongodb.table.MongoDriverMigrationDecisions;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Moves a repository from MongoDB Java driver 3 to driver 5: the code of each module from the legacy API to the
+ * driver 5 API where every use has a translation, the uses of API that driver 5 removed to their replacements, and the
+ * driver dependency to {@code mongodb-driver-sync} 5, or to {@code mongodb-driver-legacy} 5 where some module keeps
+ * the legacy API.
+ */
+@Value
+@EqualsAndHashCode(callSuper = false)
+public class MigrateMongoJavaDriver3To5 extends ScanningRecipe<MigrateMongoJavaDriver3To5.Accumulator> {
+
+    private static final String VERSION = "5.x";
+
+    @Getter
+    final String displayName = "Migrate from MongoDB Java driver 3 to 5";
+
+    @Getter
+    final String description = "Moves the Java code of each module from the legacy API (`com.mongodb.MongoClient`, `DB`, " +
+            "`DBCollection`, `DBCursor`, `MongoClientURI`, `MongoClientOptions`) to the driver 5 API " +
+            "(`com.mongodb.client.MongoClient`, `MongoDatabase`, `MongoCollection<DBObject>`, `FindIterable<DBObject>` or " +
+            "`MongoCursor<DBObject>`, `ConnectionString`, `MongoClientSettings`), keeping documents as `DBObject`s, which driver 5 " +
+            "still encodes and decodes. A module converts only when every use of the legacy API in it, and in the modules it " +
+            "shares legacy-typed declarations with, has a translation, nothing outside the repository takes or returns its " +
+            "legacy types, and no framework injects them; otherwise it keeps the legacy API. Uses of API that driver 5 removed, " +
+            "such as `WriteConcern.SAFE`, `com.mongodb.util.JSON`, `Mongo`, `MongoCollection.count` and " +
+            "`MongoIterable.forEach(Block)`, move to their replacements, and the driver dependency moves to " +
+            "`mongodb-driver-sync` 5, or `mongodb-driver-legacy` 5 when a module keeps the legacy API. The driver stays " +
+            "where it is when a library bound to driver 3, such as Spring Data MongoDB before 4.3, Morphia or Jongo, is on the " +
+            "classpath, or when a use of removed API has no replacement; `FindRemovedMongoApis` marks those. Clients of " +
+            "repositories that use `java.util.UUID` keep the `JAVA_LEGACY` UUID representation that driver 3 used by default. " +
+            "`MongoDriverMigrationDecisions` lists each module's outcome and the reasons for it.";
+
+    transient MongoDriverMigrationDecisions decisions = new MongoDriverMigrationDecisions(this);
+
+    public static class Accumulator {
+        final LegacyUsage usage = new LegacyUsage();
+        final Set<String> reported = ConcurrentHashMap.newKeySet();
+        final List<Delegate> toSync = new ArrayList<>();
+        final List<Delegate> toLegacy = new ArrayList<>();
+        final List<Delegate> upgrades = new ArrayList<>();
+
+        List<Delegate> all() {
+            List<Delegate> all = new ArrayList<>(toSync);
+            all.addAll(toLegacy);
+            all.addAll(upgrades);
+            return all;
+        }
+    }
+
+    static final class Delegate {
+        final ScanningRecipe<Object> recipe;
+        final Object acc;
+
+        @SuppressWarnings("unchecked")
+        Delegate(ScanningRecipe<?> recipe, ExecutionContext ctx) {
+            this.recipe = (ScanningRecipe<Object>) recipe;
+            this.acc = this.recipe.getInitialValue(ctx);
+        }
+
+        void scan(Tree tree, ExecutionContext ctx) {
+            recipe.getScanner(acc).visit(tree, ctx);
+        }
+
+        @Nullable Tree edit(@Nullable Tree tree, ExecutionContext ctx) {
+            return recipe.getVisitor(acc).visit(tree, ctx);
+        }
+    }
+
+    @Override
+    public Accumulator getInitialValue(ExecutionContext ctx) {
+        Accumulator acc = new Accumulator();
+        for (String artifact : Arrays.asList("mongo-java-driver", "mongodb-driver")) {
+            acc.toSync.add(new Delegate(new ChangeDependency("org.mongodb", artifact, "org.mongodb", "mongodb-driver-sync",
+                    VERSION, null, true, true), ctx));
+            acc.toLegacy.add(new Delegate(new ChangeDependency("org.mongodb", artifact, "org.mongodb", "mongodb-driver-legacy",
+                    VERSION, null, true, true), ctx));
+        }
+        for (String artifact : Arrays.asList("bson", "mongodb-driver-core", "mongodb-driver-sync", "mongodb-driver-legacy")) {
+            acc.upgrades.add(new Delegate(new UpgradeDependencyVersion("org.mongodb", artifact, VERSION, null, true, null), ctx));
+        }
+        return acc;
+    }
+
+    @Override
+    public TreeVisitor<?, ExecutionContext> getScanner(Accumulator acc) {
+        LegacyScanner scanner = new LegacyScanner(acc.usage);
+        return new TreeVisitor<Tree, ExecutionContext>() {
+            @Override
+            public @Nullable Tree visit(@Nullable Tree tree, ExecutionContext ctx) {
+                if (tree instanceof SourceFile) {
+                    scanner.visit(tree, ctx);
+                    if (isBuildFile((SourceFile) tree)) {
+                        for (Delegate d : acc.all()) {
+                            d.scan(tree, ctx);
+                        }
+                    }
+                }
+                return tree;
+            }
+        };
+    }
+
+    private static boolean isBuildFile(SourceFile sf) {
+        return sf.getMarkers().findFirst(MavenResolutionResult.class).isPresent() ||
+               sf.getMarkers().findFirst(GradleProject.class).isPresent() ||
+               sf.getSourcePath().toString().endsWith(".toml") ||
+               sf.getSourcePath().toString().endsWith(".gradle") ||
+               sf.getSourcePath().toString().endsWith(".gradle.kts") ||
+               sf.getSourcePath().toString().endsWith(".properties") && sf.getSourcePath().getFileName().toString().startsWith("gradle");
+    }
+
+    @Override
+    public TreeVisitor<?, ExecutionContext> getVisitor(Accumulator acc) {
+        return new TreeVisitor<Tree, ExecutionContext>() {
+            @Override
+            public @Nullable Tree visit(@Nullable Tree tree, ExecutionContext ctx) {
+                if (!(tree instanceof SourceFile)) {
+                    return tree;
+                }
+                LegacyUsage usage = acc.usage;
+                if (usage.modulesUsingLegacyApi.isEmpty() && !usage.declaresDriver) {
+                    return tree;
+                }
+                reportDriver(acc, ctx);
+                boolean upgrade = usage.upgradesDriver();
+                if (isBuildFile((SourceFile) tree)) {
+                    if (!upgrade) {
+                        return tree;
+                    }
+                    boolean keepsLegacyApi = false;
+                    for (String module : usage.modulesUsingLegacyApi) {
+                        if (!usage.converts(module)) {
+                            keepsLegacyApi = true;
+                            break;
+                        }
+                    }
+                    Tree t = tree;
+                    for (Delegate d : keepsLegacyApi ? acc.toLegacy : acc.toSync) {
+                        t = d.edit(t, ctx);
+                    }
+                    for (Delegate d : acc.upgrades) {
+                        t = d.edit(t, ctx);
+                    }
+                    return t;
+                }
+                if (!(tree instanceof J.CompilationUnit)) {
+                    return tree;
+                }
+                J.CompilationUnit cu = (J.CompilationUnit) tree;
+                J.CompilationUnit result = upgrade ? RemovedApiFixes.apply(cu, ctx) : cu;
+                String module = MongoClasspath.moduleKey(cu);
+                if (!usage.modulesUsingLegacyApi.contains(module)) {
+                    return result;
+                }
+                reportModule(acc, module, ctx);
+                if (!usage.converts(module)) {
+                    if (upgrade && usage.usesUuid) {
+                        return new LegacyUuidRepresentation().visitNonNull(result, ctx);
+                    }
+                    return result;
+                }
+                if (!LegacyScanner.usesLegacyApi(result)) {
+                    return result;
+                }
+                LegacyApiConverter converter = new LegacyApiConverter(false, usage.usesUuid);
+                J converted = converter.visitNonNull(result, ctx);
+                if (!converter.unsupported.isEmpty()) {
+                    // The scan found nothing untranslatable here, so this is a gap in the recipe: say so, and leave the file
+                    for (String reason : new LinkedHashSet<>(converter.unsupported)) {
+                        decisions.insertRow(ctx, new MongoDriverMigrationDecisions.Row(module, "Conversion failed",
+                                cu.getSourcePath().toString(), reason));
+                    }
+                    return result;
+                }
+                return converted;
+            }
+        };
+    }
+
+    private void reportDriver(Accumulator acc, ExecutionContext ctx) {
+        if (!acc.reported.add("\u0000driver")) {
+            return;
+        }
+        LegacyUsage usage = acc.usage;
+        if (usage.upgradesDriver()) {
+            decisions.insertRow(ctx, new MongoDriverMigrationDecisions.Row("", "Driver moved to 5", "",
+                    "The driver dependency moves to driver 5"));
+            return;
+        }
+        String why = usage.whyNotUpgraded();
+        if (usage.boundLibraries.isEmpty() && !usage.removedApiUses.isEmpty()) {
+            for (LegacyUsage.Blocker b : usage.removedApiUses) {
+                decisions.insertRow(ctx, new MongoDriverMigrationDecisions.Row(b.module, "Driver not moved to 5", b.sourcePath,
+                        "uses " + b.reason + ", which driver 5 removed and no recipe replaces"));
+            }
+        } else {
+            decisions.insertRow(ctx, new MongoDriverMigrationDecisions.Row("", "Driver not moved to 5", "",
+                    why == null ? "" : "The repository " + why));
+        }
+    }
+
+    private void reportModule(Accumulator acc, String module, ExecutionContext ctx) {
+        if (!acc.reported.add(module)) {
+            return;
+        }
+        List<String> reasons = acc.usage.blockedModules().get(module);
+        if (reasons == null) {
+            decisions.insertRow(ctx, new MongoDriverMigrationDecisions.Row(module, "Converted to the driver 5 API", "",
+                    "Every use of the legacy API has a translation"));
+            return;
+        }
+        for (String reason : new LinkedHashSet<>(reasons)) {
+            int colon = reason.indexOf(": ");
+            boolean hasPath = colon > 0 && !reason.substring(0, colon).contains(" ");
+            decisions.insertRow(ctx, new MongoDriverMigrationDecisions.Row(module, "Kept the legacy API",
+                    hasPath ? reason.substring(0, colon) : "", hasPath ? reason.substring(colon + 2) : reason));
+        }
+    }
+}
