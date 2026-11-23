@@ -187,6 +187,7 @@ recipeDependencies {
     // Current Azure SDK types the legacy Azure SDK migration recipes' templates reference.
     // Pinned, because their release lines also publish betas that a dynamic version would pick.
     parserClasspath("com.azure:azure-core:1.61.0")
+    parserClasspath("com.azure:azure-core-amqp:2.13.0")
     parserClasspath("com.azure:azure-storage-common:12.36.2")
     parserClasspath("com.azure:azure-storage-blob:12.37.2")
     parserClasspath("com.azure:azure-storage-queue:12.32.2")

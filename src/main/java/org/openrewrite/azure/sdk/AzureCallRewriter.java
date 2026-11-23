@@ -39,7 +39,7 @@ class AzureCallRewriter extends JavaVisitor<ExecutionContext> {
      * The current Azure SDK artifacts in this module's type table, which every template is compiled against.
      */
     static final String[] CLASSPATH = {
-            "azure-core-1", "azure-storage-common-12", "azure-storage-blob-12", "azure-storage-queue-12",
+            "azure-core-1", "azure-core-amqp-2", "azure-storage-common-12", "azure-storage-blob-12", "azure-storage-queue-12",
             "azure-storage-file-share-12", "azure-data-tables-12", "azure-identity-1", "azure-messaging-eventhubs-5",
             "azure-messaging-servicebus-7", "azure-security-keyvault-secrets-4", "azure-security-keyvault-keys-4",
             "msal4j-1", "reactor-core-3"
@@ -174,10 +174,10 @@ class AzureCallRewriter extends JavaVisitor<ExecutionContext> {
         if (template == null) {
             return null;
         }
-        Matcher whole = Pattern.compile("\\$(\\d+)").matcher(template);
+        Matcher whole = Pattern.compile("\\$(r|\\d+)").matcher(template);
         if (whole.matches()) {
-            Expression arg = call.args.get(Integer.parseInt(whole.group(1)));
-            return arg.withPrefix(((J) call.tree).getPrefix());
+            Expression e = "r".equals(whole.group(1)) ? call.receiver : call.args.get(Integer.parseInt(whole.group(1)));
+            return e == null ? null : e.withPrefix(((J) call.tree).getPrefix());
         }
 
         Matcher tok = TOKEN.matcher(template);

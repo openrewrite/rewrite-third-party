@@ -91,6 +91,16 @@ public final class LegacyAzureTypes {
         t.put(adal + "UserAssertion", msal + "UserAssertion");
         t.put(adal + "AuthenticationException", msal + "MsalException");
 
+        // Event Hubs v3 to v5, sending: a connection string builder is the connection string it builds
+        String eh = "com.microsoft.azure.eventhubs.";
+        String v5 = "com.azure.messaging.eventhubs.";
+        t.put(eh + "EventHubClient", v5 + "EventHubProducerClient");
+        t.put(eh + "EventData", v5 + "EventData");
+        t.put(eh + "EventDataBatch", v5 + "EventDataBatch");
+        t.put(eh + "ConnectionStringBuilder", "java.lang.String");
+        t.put(eh + "EventHubException", "com.azure.core.amqp.exception.AmqpException");
+        t.put(eh + "PayloadSizeExceededException", "com.azure.core.amqp.exception.AmqpException");
+
         TYPES = Collections.unmodifiableMap(t);
     }
 

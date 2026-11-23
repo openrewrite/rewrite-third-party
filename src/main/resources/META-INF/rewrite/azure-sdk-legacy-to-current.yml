@@ -28,6 +28,7 @@ tags:
 recipeList:
   - org.openrewrite.azure.sdk.MigrateAzureStorageBlob
   - org.openrewrite.azure.sdk.MigrateAdal4jToMsal4j
+  - org.openrewrite.azure.sdk.MigrateAzureEventHubs
   - org.openrewrite.azure.sdk.search.FindAzureSdkLegacyRemnants
   - org.openrewrite.azure.sdk.ChangeLegacyAzureTypes
   - org.openrewrite.azure.sdk.MigrateAzureSdkDependencies

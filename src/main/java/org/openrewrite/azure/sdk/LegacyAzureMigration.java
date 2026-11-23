@@ -35,6 +35,7 @@ final class LegacyAzureMigration {
         return Arrays.asList(
                 new MigrateAzureStorageBlob(),
                 new MigrateAdal4jToMsal4j(),
+                new MigrateAzureEventHubs(),
                 new ChangeLegacyAzureTypes()
         );
     }
