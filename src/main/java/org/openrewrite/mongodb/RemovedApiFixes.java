@@ -125,18 +125,16 @@ final class RemovedApiFixes {
     }
 
     /**
-     * The driver type whose {@code toJson()}, or {@code toString()} when {@code viaToString}, wrote strict extended JSON
-     * in driver 3 and writes relaxed extended JSON in driver 5, when {@code type} is one.
+     * The types whose {@code toJson()} wrote strict extended JSON in driver 3 and writes relaxed extended JSON in driver 5.
      */
-    static @Nullable String strictJsonDocument(@Nullable JavaType type, boolean viaToString) {
-        for (String document : viaToString ? new String[]{"com.mongodb.BasicDBObject", "org.bson.BsonDocument"} :
-                new String[]{"com.mongodb.BasicDBObject", "org.bson.Document", "org.bson.BsonDocument"}) {
-            if (TypeUtils.isAssignableTo(document, type)) {
-                return document;
-            }
-        }
-        return null;
-    }
+    private static final Set<String> STRICT_TO_JSON = new HashSet<>(Arrays.asList(
+            "com.mongodb.BasicDBObject", "org.bson.Document", "org.bson.BsonDocument", "org.bson.RawBsonDocument"));
+
+    /**
+     * The types whose {@code toString()} returns what their {@code toJson()} does.
+     */
+    private static final Set<String> STRICT_TO_STRING = new HashSet<>(Arrays.asList(
+            "com.mongodb.BasicDBObject", "org.bson.BsonDocument"));
 
     private static final class Calls extends JavaVisitor<ExecutionContext> {
 
@@ -195,19 +193,19 @@ final class RemovedApiFixes {
             // Driver 5 writes relaxed extended JSON where driver 3 wrote strict
             if (select != null && (args.isEmpty() || args.get(0) instanceof J.Empty) &&
                 ("toJson".equals(name) || "toString".equals(name))) {
-                String document = strictJsonDocument(select.getType(), "toString".equals(name));
-                if (document != null) {
-                    return template(mi, "#{any(" + document + ")}.toJson(JsonWriterSettings.builder().outputMode(JsonMode.STRICT).build())",
+                // Only where the driver's own method is called, not a class's override of it
+                if (("toJson".equals(name) ? STRICT_TO_JSON : STRICT_TO_STRING).contains(declaring)) {
+                    return template(mi, "#{any(" + declaring + ")}.toJson(JsonWriterSettings.builder().outputMode(JsonMode.STRICT).build())",
                             ctx, select);
                 }
             }
 
             // Driver 5 redacts the credentials and option values of the connection string that toString returns
             if ("toString".equals(name) && select != null && (args.isEmpty() || args.get(0) instanceof J.Empty)) {
-                if (MongoTypes.MONGO_CLIENT_URI.equals(receiver)) {
+                if (MongoTypes.MONGO_CLIENT_URI.equals(declaring)) {
                     return template(mi, "#{any(com.mongodb.MongoClientURI)}.getURI()", ctx, select);
                 }
-                if ("com.mongodb.ConnectionString".equals(receiver)) {
+                if ("com.mongodb.ConnectionString".equals(declaring)) {
                     return template(mi, "#{any(com.mongodb.ConnectionString)}.getConnectionString()", ctx, select);
                 }
             }

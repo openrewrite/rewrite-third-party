@@ -1279,6 +1279,17 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
                       String describe(BasicDBObject person) {
                           return person.toString();
                       }
+
+                      String label(Person person) {
+                          return person.toString();
+                      }
+                  }
+
+                  class Person extends BasicDBObject {
+                      @Override
+                      public String toString() {
+                          return getString("name");
+                      }
                   }
                   """,
                 """
@@ -1295,6 +1306,17 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
 
                       String describe(BasicDBObject person) {
                           return person.toJson(JsonWriterSettings.builder().outputMode(JsonMode.STRICT).build());
+                      }
+
+                      String label(Person person) {
+                          return person.toString();
+                      }
+                  }
+
+                  class Person extends BasicDBObject {
+                      @Override
+                      public String toString() {
+                          return getString("name");
                       }
                   }
                   """
