@@ -251,7 +251,9 @@ public class MigrateAzureStorageBlob extends Recipe {
             return null;
         }
         J.NewClass credentials = (J.NewClass) call.arg(0);
-        if (!TypeUtils.isOfClassType(credentials.getType(), S + "StorageCredentialsAccountAndKey") ||
+        // The credentials are rewritten first, being the inner call
+        if (!TypeUtils.isOfClassType(credentials.getType(), S + "StorageCredentialsAccountAndKey") &&
+            !TypeUtils.isOfClassType(credentials.getType(), "com.azure.storage.common.StorageSharedKeyCredential") ||
             credentials.getArguments().size() != 2) {
             return null;
         }
@@ -359,6 +361,7 @@ public class MigrateAzureStorageBlob extends Recipe {
             }
             permissions.append('.').append(setter).append("(true)");
         }
+        rewriter.removeImport("java.util.EnumSet");
         return apply(rewriter, call, "#{policy:any(" + V12 + "sas.BlobServiceSasSignatureValues)}.setPermissions(" + permissions + ")",
                 Collections.singletonList(call.receiver), ctx);
     }

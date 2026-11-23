@@ -142,4 +142,229 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void listingLoop() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.blob.CloudBlob;
+              import com.microsoft.azure.storage.blob.CloudBlobContainer;
+              import com.microsoft.azure.storage.blob.CloudBlockBlob;
+              import com.microsoft.azure.storage.blob.ListBlobItem;
+
+              import java.util.ArrayList;
+              import java.util.List;
+
+              class Listing {
+                  List<String> list(CloudBlobContainer container, String prefix) throws Exception {
+                      List<String> uris = new ArrayList<>();
+                      for (ListBlobItem item : container.listBlobs(prefix, true)) {
+                          if (item instanceof CloudBlob) {
+                              uris.add(item.getUri().toString());
+                              ((CloudBlob) item).delete();
+                          }
+                      }
+                      for (ListBlobItem item : container.listBlobs()) {
+                          if (item instanceof CloudBlockBlob) {
+                              CloudBlockBlob blob = (CloudBlockBlob) item;
+                              uris.add(blob.getName());
+                          }
+                      }
+                      return uris;
+                  }
+              }
+              """,
+            """
+              import com.azure.storage.blob.BlobClient;
+              import com.azure.storage.blob.BlobContainerClient;
+              import com.azure.storage.blob.models.BlobItem;
+              import com.azure.storage.blob.models.BlobType;
+              import com.azure.storage.blob.models.ListBlobsOptions;
+
+              import java.net.URI;
+              import java.util.ArrayList;
+              import java.util.List;
+
+              class Listing {
+                  List<String> list(BlobContainerClient container, String prefix) throws Exception {
+                      List<String> uris = new ArrayList<>();
+                      for (BlobItem item : container.listBlobs(new ListBlobsOptions().setPrefix(prefix), null)) {
+                          if (!Boolean.TRUE.equals(item.isPrefix())) {
+                              uris.add(URI.create(container.getBlobClient(item.getName()).getBlobUrl()).toString());
+                              container.getBlobClient(item.getName()).delete();
+                          }
+                      }
+                      for (BlobItem item : container.listBlobsByHierarchy(null)) {
+                          if (!Boolean.TRUE.equals(item.isPrefix()) && item.getProperties().getBlobType() == BlobType.BLOCK_BLOB) {
+                              BlobClient blob = container.getBlobClient(item.getName());
+                              uris.add(blob.getBlobName());
+                          }
+                      }
+                      return uris;
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void sharedAccessSignature() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.blob.CloudBlockBlob;
+              import com.microsoft.azure.storage.blob.SharedAccessBlobPermissions;
+              import com.microsoft.azure.storage.blob.SharedAccessBlobPolicy;
+
+              import java.util.Date;
+              import java.util.EnumSet;
+
+              class Sas {
+                  String sas(CloudBlockBlob blob, Date expiry) throws Exception {
+                      SharedAccessBlobPolicy policy = new SharedAccessBlobPolicy();
+                      policy.setPermissions(EnumSet.of(SharedAccessBlobPermissions.READ, SharedAccessBlobPermissions.WRITE));
+                      policy.setSharedAccessExpiryTime(expiry);
+                      return blob.getUri() + "?" + blob.generateSharedAccessSignature(policy, null);
+                  }
+              }
+              """,
+            """
+              import com.azure.storage.blob.BlobClient;
+              import com.azure.storage.blob.sas.BlobSasPermission;
+              import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
+
+              import java.net.URI;
+              import java.time.ZoneOffset;
+              import java.util.Date;
+
+              class Sas {
+                  String sas(BlobClient blob, Date expiry) throws Exception {
+                      BlobServiceSasSignatureValues policy = new BlobServiceSasSignatureValues();
+                      policy.setPermissions(new BlobSasPermission().setReadPermission(true).setWritePermission(true));
+                      policy.setExpiryTime(expiry.toInstant().atOffset(ZoneOffset.UTC));
+                      return URI.create(blob.getBlobUrl()) + "?" + blob.generateSas(policy);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void containerAccessAndMetadata() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.blob.BlobContainerPermissions;
+              import com.microsoft.azure.storage.blob.BlobContainerPublicAccessType;
+              import com.microsoft.azure.storage.blob.CloudBlobContainer;
+              import com.microsoft.azure.storage.blob.CloudBlockBlob;
+
+              import java.util.HashMap;
+
+              class Access {
+                  void open(CloudBlobContainer container, CloudBlockBlob blob, HashMap<String, String> tags) throws Exception {
+                      BlobContainerPermissions permissions = new BlobContainerPermissions();
+                      permissions.setPublicAccess(BlobContainerPublicAccessType.CONTAINER);
+                      container.uploadPermissions(permissions);
+                      container.createIfNotExists(BlobContainerPublicAccessType.BLOB, null, null);
+                      blob.setMetadata(tags);
+                      blob.uploadMetadata();
+                      HashMap<String, String> metadata = blob.getMetadata();
+                  }
+              }
+              """,
+            """
+              import com.azure.core.util.Context;
+              import com.azure.storage.blob.BlobClient;
+              import com.azure.storage.blob.BlobContainerClient;
+              import com.azure.storage.blob.models.PublicAccessType;
+              import com.azure.storage.blob.options.BlobContainerCreateOptions;
+
+              import java.util.HashMap;
+
+              class Access {
+                  void open(BlobContainerClient container, BlobClient blob, HashMap<String, String> tags) throws Exception {
+                      PublicAccessType permissions = null;
+                      permissions = PublicAccessType.CONTAINER;
+                      container.setAccessPolicy(permissions, null);
+                      container.createIfNotExistsWithResponse(new BlobContainerCreateOptions().setPublicAccessType(PublicAccessType.BLOB), null, Context.NONE).getValue();
+                      blob.setMetadata(tags);
+                      HashMap<String, String> metadata = new HashMap<>(blob.getProperties().getMetadata());
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void accountFromNameAndKey() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.CloudStorageAccount;
+              import com.microsoft.azure.storage.StorageCredentialsAccountAndKey;
+              import com.microsoft.azure.storage.blob.CloudBlobClient;
+
+              class Account {
+                  CloudBlobClient client(String name, String key) throws Exception {
+                      CloudStorageAccount account = new CloudStorageAccount(new StorageCredentialsAccountAndKey(name, key), true);
+                      return account.createCloudBlobClient();
+                  }
+              }
+              """,
+            """
+              import com.azure.storage.blob.BlobServiceClient;
+              import com.azure.storage.blob.BlobServiceClientBuilder;
+
+              class Account {
+                  BlobServiceClient client(String name, String key) throws Exception {
+                      String account = "DefaultEndpointsProtocol=https;AccountName=" + name + ";AccountKey=" + key;
+                      return new BlobServiceClientBuilder().connectionString(account).buildClient();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void marksWhatItCannotMigrate() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.OperationContext;
+              import com.microsoft.azure.storage.blob.CloudBlockBlob;
+
+              class Remnants {
+                  int read(CloudBlockBlob blob, byte[] buffer) throws Exception {
+                      OperationContext context = new OperationContext();
+                      blob.downloadAttributes();
+                      return blob.downloadToByteArray(buffer, 0);
+                  }
+              }
+              """,
+            """
+              import com.azure.storage.blob.BlobClient;
+              import com.microsoft.azure.storage.OperationContext;
+
+              class Remnants {
+                  int read(BlobClient blob, byte[] buffer) throws Exception {
+                      /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.OperationContext` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/OperationContext context = /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.OperationContext` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/new OperationContext();
+                      blob.getProperties();
+                      return /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.blob.CloudBlob.downloadToByteArray` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/blob.downloadToByteArray(buffer, 0);
+                  }
+              }
+              """
+          )
+        );
+    }
 }

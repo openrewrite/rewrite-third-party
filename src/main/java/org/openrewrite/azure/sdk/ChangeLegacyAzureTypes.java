@@ -22,7 +22,10 @@ import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
 import org.openrewrite.java.ChangeType;
 import org.openrewrite.java.search.UsesType;
+import org.openrewrite.internal.ListUtils;
+import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.NameTree;
 import org.openrewrite.staticanalysis.UnnecessaryCatch;
 
 import java.util.Map;
@@ -62,9 +65,34 @@ public class ChangeLegacyAzureTypes extends Recipe {
                     // `InvalidKeyException` and `IOException` the legacy calls declared no longer compile. Only now,
                     // once `StorageException` is retyped to an unchecked exception, so that its catches stay.
                     t = new UnnecessaryCatch(false, false).getVisitor().visit(t, ctx);
+                    t = new SingleAlternativeMultiCatch().visit(t, ctx);
                 }
                 return t;
             }
         };
+    }
+
+    /**
+     * A multi-catch that {@code UnnecessaryCatch} left with one alternative is the plain catch the parser would make.
+     */
+    private static class SingleAlternativeMultiCatch extends JavaIsoVisitor<ExecutionContext> {
+        @Override
+        public J.Try.Catch visitCatch(J.Try.Catch _catch, ExecutionContext ctx) {
+            J.Try.Catch c = super.visitCatch(_catch, ctx);
+            J.VariableDeclarations parameter = c.getParameter().getTree();
+            if (parameter.getTypeExpression() instanceof J.MultiCatch) {
+                J.MultiCatch multiCatch = (J.MultiCatch) parameter.getTypeExpression();
+                if (multiCatch.getAlternatives().size() == 1) {
+                    NameTree alternative = multiCatch.getAlternatives().get(0);
+                    parameter = parameter.withTypeExpression(alternative.withPrefix(multiCatch.getPrefix()));
+                    if (alternative.getType() != null) {
+                        parameter = parameter.withVariables(ListUtils.map(parameter.getVariables(), v ->
+                                v.withType(alternative.getType()).withName(v.getName().withType(alternative.getType()))));
+                    }
+                    c = c.withParameter(c.getParameter().withTree(parameter));
+                }
+            }
+            return c;
+        }
     }
 }

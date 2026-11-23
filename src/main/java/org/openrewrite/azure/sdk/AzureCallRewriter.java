@@ -67,6 +67,10 @@ class AzureCallRewriter extends JavaVisitor<ExecutionContext> {
         doAfterVisit(visitor);
     }
 
+    void removeImport(String type) {
+        maybeRemoveImport(type);
+    }
+
     JavaParser.Builder<?, ?> parser(ExecutionContext ctx) {
         if (parser == null) {
             parser = JavaParser.fromJavaVersion().classpathFromResources(ctx, CLASSPATH);

@@ -57,7 +57,7 @@ class ListBlobItemLoops extends JavaVisitor<ExecutionContext> {
         }
         J.VariableDeclarations.NamedVariable item = ((J.VariableDeclarations) loop.getControl().getVariable()).getVariables().get(0);
         Statement body = (Statement) new ItemUses(item.getSimpleName(), container)
-                .visitNonNull(loop.getBody(), ctx, new Cursor(getCursor(), loop));
+                .visitNonNull(loop.getBody(), ctx, new Cursor(getCursor().getParentOrThrow(), loop));
         return loop.withBody(body);
     }
 
@@ -179,8 +179,20 @@ class ListBlobItemLoops extends JavaVisitor<ExecutionContext> {
                     .javaParser(parser(ctx))
                     .build()
                     .apply(new Cursor(getCursor().getParent(), tree), coordinates, params);
-            doAfterVisit(ShortenFullyQualifiedTypeReferences.modifyOnly(result));
+            // This visitor only sees the loop body, so the imports are added by the visitor of the whole file
+            ListBlobItemLoops.this.doAfterVisit(ShortenFullyQualifiedTypeReferences.modifyOnly(result));
             return result;
+        }
+
+        @Override
+        public <T extends J> J visitParentheses(J.Parentheses<T> parens, ExecutionContext ctx) {
+            J j = super.visitParentheses(parens, ctx);
+            // `((CloudBlob) item).delete()` needed the parentheses only for the cast
+            if (j instanceof J.Parentheses && parens.getTree() instanceof J.TypeCast &&
+                ((J.Parentheses<?>) j).getTree() instanceof J.MethodInvocation) {
+                return ((J) ((J.Parentheses<?>) j).getTree()).withPrefix(j.getPrefix());
+            }
+            return j;
         }
     }
 
