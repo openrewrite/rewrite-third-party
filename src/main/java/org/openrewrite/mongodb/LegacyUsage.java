@@ -66,6 +66,18 @@ final class LegacyUsage {
     final Set<String> modulesUsingLegacyApi = ConcurrentHashMap.newKeySet();
     final Map<String, String> declaredTypeModule = new ConcurrentHashMap<>();
     final List<Blocker> blockers = Collections.synchronizedList(new ArrayList<>());
+
+    /**
+     * What the conversion cannot translate only in the code as it is, before the removed API is replaced, which is the
+     * code the conversion sees when the driver stays where it is.
+     */
+    final List<Blocker> blockersUnlessUpgraded = Collections.synchronizedList(new ArrayList<>());
+
+    /**
+     * What the conversion cannot translate only once the removed API is replaced, which is the code the conversion
+     * sees when the driver moves to 5.
+     */
+    final List<Blocker> blockersIfUpgraded = Collections.synchronizedList(new ArrayList<>());
     final List<ForeignUse> foreignUses = Collections.synchronizedList(new ArrayList<>());
     final Map<String, Set<String>> injectedLegacyTypes = new ConcurrentHashMap<>();
     final Set<String> producedLegacyTypes = ConcurrentHashMap.newKeySet();
@@ -178,7 +190,9 @@ final class LegacyUsage {
             parent.put(m, m);
         }
         Map<String, List<String>> reasons = new TreeMap<>();
-        for (Blocker b : blockers) {
+        List<Blocker> all = new ArrayList<>(blockers);
+        all.addAll(upgradesDriver() ? blockersIfUpgraded : blockersUnlessUpgraded);
+        for (Blocker b : all) {
             reasons.computeIfAbsent(b.module, k -> new ArrayList<>()).add(b.sourcePath + ": " + b.reason);
         }
         for (ForeignUse use : foreignUses) {

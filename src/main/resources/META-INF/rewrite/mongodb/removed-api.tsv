@@ -1,5 +1,7 @@
 # The public API of org.mongodb:mongo-java-driver 3.12.14 that org.mongodb:bson, mongodb-driver-core,
-# mongodb-driver-sync and mongodb-driver-legacy 5.15.0 no longer have, listed under each class that has it.
+# mongodb-driver-sync and mongodb-driver-legacy 5.15.0 no longer have, listed under each class that has it, where no
+# member of the same name takes the same arguments by widening, boxing or a supertype. Two methods whose return type
+# changed so that callers may no longer compile, ConnectionId.getLocalValue and getServerValue, are listed too.
 # kind (T type, M method, C constructor, F field), class, member, erased parameter types, static
 M	com.mongodb.AggregationOptions	getOutputMode		
 M	com.mongodb.AggregationOptions$Builder	outputMode	com.mongodb.AggregationOptions$OutputMode	
@@ -7,10 +9,8 @@ T	com.mongodb.AggregationOptions$OutputMode
 T	com.mongodb.AggregationOutput			
 F	com.mongodb.AuthenticationMechanism	MONGODB_CR		static
 M	com.mongodb.BasicDBList	containsKey	java.lang.String	
-M	com.mongodb.BasicDBObject	containsKey	java.lang.String	
 M	com.mongodb.BulkWriteResult	isModifiedCountAvailable		
 T	com.mongodb.Bytes			
-M	com.mongodb.CommandResult	containsKey	java.lang.String	
 M	com.mongodb.ConnectionString	getCredentialList		
 M	com.mongodb.ConnectionString	getRetryWrites		
 M	com.mongodb.ConnectionString	getStreamType		
@@ -270,7 +270,8 @@ C	com.mongodb.connection.ConnectionDescription	<init>	com.mongodb.connection.Con
 C	com.mongodb.connection.ConnectionDescription	<init>	com.mongodb.connection.ConnectionId,com.mongodb.connection.ServerVersion,int,com.mongodb.connection.ServerType,int,int,int,java.util.List	
 M	com.mongodb.connection.ConnectionDescription	getServerVersion		
 C	com.mongodb.connection.ConnectionId	<init>	com.mongodb.connection.ServerId,int,java.lang.Integer	
-M	com.mongodb.connection.ConnectionId	withServerValue	int	
+M	com.mongodb.connection.ConnectionId	getLocalValue		
+M	com.mongodb.connection.ConnectionId	getServerValue		
 M	com.mongodb.connection.ConnectionPoolSettings	getMaxWaitQueueSize		
 M	com.mongodb.connection.ConnectionPoolSettings$Builder	maxWaitQueueSize	int	
 T	com.mongodb.connection.DefaultClusterFactory			
@@ -280,9 +281,7 @@ M	com.mongodb.connection.ServerDescription	getVersion
 C	com.mongodb.connection.ServerDescription$Builder	<init>		
 M	com.mongodb.connection.ServerDescription$Builder	version	com.mongodb.connection.ServerVersion	
 M	com.mongodb.connection.SocketSettings	isKeepAlive		
-M	com.mongodb.connection.SocketSettings$Builder	connectTimeout	int,java.util.concurrent.TimeUnit	
 M	com.mongodb.connection.SocketSettings$Builder	keepAlive	boolean	
-M	com.mongodb.connection.SocketSettings$Builder	readTimeout	int,java.util.concurrent.TimeUnit	
 T	com.mongodb.connection.SocketStreamFactory			
 T	com.mongodb.connection.SplittablePayload			
 T	com.mongodb.connection.SplittablePayload$Type			
@@ -400,7 +399,6 @@ M	org.bson.BSON	toInt	java.lang.Object	static
 M	org.bson.BSONCallback	gotBinaryArray	java.lang.String,byte[]	
 M	org.bson.BSONObject	containsKey	java.lang.String	
 M	org.bson.BasicBSONCallback	gotBinaryArray	java.lang.String,byte[]	
-M	org.bson.BasicBSONObject	containsKey	java.lang.String	
 M	org.bson.BsonBinaryReader	mark		
 M	org.bson.BsonBinaryReader	reset		
 M	org.bson.BsonDocumentReader	mark		

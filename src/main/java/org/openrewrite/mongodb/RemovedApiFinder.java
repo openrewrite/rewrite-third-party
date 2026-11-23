@@ -176,7 +176,7 @@ abstract class RemovedApiFinder extends JavaIsoVisitor<ExecutionContext> {
             case "com.mongodb.TaggableReadPreference":
                 return "isSlaveOk".equals(name);
             case "com.mongodb.MongoClient":
-                return "getDatabaseNames".equals(name);
+                return "getDatabaseNames".equals(name) || "getAllAddress".equals(name);
             case "com.mongodb.client.MongoCollection":
                 if ("replaceOne".equals(name)) {
                     return !args.isEmpty() && RemovedApiFixes.isConvertibleUpdateOptions(args.get(args.size() - 1));
@@ -276,7 +276,7 @@ abstract class RemovedApiFinder extends JavaIsoVisitor<ExecutionContext> {
                 found(newClass, "`" + simple(cls) + "`", false);
             } else if (api.isRemoved('C', cls, "<init>", params)) {
                 boolean fixable = MongoTypes.LEGACY_MONGO_CLIENT.equals(cls) && params.size() >= 2 && params.size() <= 3 &&
-                                  "java.util.List".equals(params.get(1)) && singletonListElement(newClass.getArguments().get(1)) != null ||
+                                  "java.util.List".equals(params.get(1)) && credentialOf(newClass.getArguments().get(1)) != null ||
                                   "com.mongodb.WriteConcern".equals(cls) && params.isEmpty();
                 found(newClass, "`new " + simple(cls) + "(" + String.join(", ", simpleNames(params)) + ")`", fixable);
             }
@@ -290,6 +290,93 @@ abstract class RemovedApiFinder extends JavaIsoVisitor<ExecutionContext> {
             names.add(simple(p));
         }
         return names;
+    }
+
+    /**
+     * The credential that driver 5 takes in place of a list of credentials, or {@code null} when the list does not
+     * tell. Driver 4 and 5 authenticate with one credential at most, so a list held in a variable or an array becomes
+     * its first element, or no credential when it is empty.
+     */
+    static @Nullable Credential credentialOf(Expression list) {
+        Expression single = singletonListElement(list);
+        if (single != null) {
+            return new Credential(single, null, null);
+        }
+        if (isEmptyList(list)) {
+            return new Credential(null, null, null);
+        }
+        if (list instanceof J.MethodInvocation && isListFactory((J.MethodInvocation) list) &&
+            "asList".equals(((J.MethodInvocation) list).getSimpleName()) && ((J.MethodInvocation) list).getArguments().size() == 1) {
+            Expression array = ((J.MethodInvocation) list).getArguments().get(0);
+            if (array instanceof J.NewArray && ((J.NewArray) array).getInitializer() != null) {
+                List<Expression> elements = ((J.NewArray) array).getInitializer();
+                if (elements.size() == 1 && !(elements.get(0) instanceof J.Empty)) {
+                    return new Credential(elements.get(0), null, null);
+                }
+            }
+            if (isRepeatable(array) && array.getType() instanceof JavaType.Array &&
+                TypeUtils.isAssignableTo(MongoTypes.MONGO_CREDENTIAL, ((JavaType.Array) array.getType()).getElemType())) {
+                return new Credential(null, null, array);
+            }
+            return null;
+        }
+        if (isRepeatable(list) && list.getType() instanceof JavaType.Parameterized &&
+            TypeUtils.isAssignableTo("java.util.List", list.getType())) {
+            List<JavaType> typeParameters = ((JavaType.Parameterized) list.getType()).getTypeParameters();
+            JavaType element = typeParameters.size() == 1 ? typeParameters.get(0) : null;
+            if (element instanceof JavaType.GenericTypeVariable && ((JavaType.GenericTypeVariable) element).getBounds().size() == 1 &&
+                ((JavaType.GenericTypeVariable) element).getVariance() == JavaType.GenericTypeVariable.Variance.COVARIANT) {
+                element = ((JavaType.GenericTypeVariable) element).getBounds().get(0);
+            }
+            if (element != null && TypeUtils.isAssignableTo(MongoTypes.MONGO_CREDENTIAL, element)) {
+                return new Credential(null, list, null);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * A credential in place of a list of them: {@link #single}, or the first of {@link #list} or {@link #array} when it
+     * has one, or none when all three are {@code null}.
+     */
+    static final class Credential {
+        final @Nullable Expression single;
+        final @Nullable Expression list;
+        final @Nullable Expression array;
+
+        Credential(@Nullable Expression single, @Nullable Expression list, @Nullable Expression array) {
+            this.single = single;
+            this.list = list;
+            this.array = array;
+        }
+
+        boolean isNone() {
+            return single == null && list == null && array == null;
+        }
+    }
+
+    private static boolean isListFactory(J.MethodInvocation m) {
+        String declaring = fqn(m.getMethodType() == null ? null : m.getMethodType().getDeclaringType());
+        String name = m.getSimpleName();
+        return "java.util.Arrays".equals(declaring) && "asList".equals(name) ||
+               "java.util.Collections".equals(declaring) && ("singletonList".equals(name) || "emptyList".equals(name)) ||
+               "java.util.List".equals(declaring) && "of".equals(name) ||
+               "com.google.common.collect.Lists".equals(declaring) && "newArrayList".equals(name) ||
+               "com.google.common.collect.ImmutableList".equals(declaring) && "of".equals(name);
+    }
+
+    private static boolean isEmptyList(Expression e) {
+        if (e instanceof J.MethodInvocation) {
+            J.MethodInvocation m = (J.MethodInvocation) e;
+            return isListFactory(m) && (m.getArguments().isEmpty() || m.getArguments().get(0) instanceof J.Empty);
+        }
+        if (e instanceof J.NewClass) {
+            J.NewClass nc = (J.NewClass) e;
+            String type = fqn(nc.getType());
+            return nc.getBody() == null && ("java.util.ArrayList".equals(type) || "java.util.LinkedList".equals(type)) &&
+                   (nc.getArguments().isEmpty() || nc.getArguments().get(0) instanceof J.Empty);
+        }
+        return false;
     }
 
     /**

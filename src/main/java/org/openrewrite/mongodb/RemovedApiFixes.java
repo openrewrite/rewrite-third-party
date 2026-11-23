@@ -131,6 +131,18 @@ final class RemovedApiFixes {
                 "com.mongodb.MongoClientOptions", "com.mongodb.client.model.ReplaceOptions",
                 "com.mongodb.client.model.DBCollectionCountOptions", "java.util.ArrayList"};
 
+        /**
+         * The same expression with ids of its own, for a template that reads it twice.
+         */
+        private Expression copy(Expression e) {
+            return (Expression) new JavaVisitor<Integer>() {
+                @Override
+                public J preVisit(J tree, Integer p) {
+                    return tree.withId(Tree.randomId());
+                }
+            }.visitNonNull(e, 0);
+        }
+
         private J template(Expression tree, String code, ExecutionContext ctx, Object... args) {
             J result = JavaTemplate.builder(code)
                     .javaParser(parser(ctx))
@@ -177,6 +189,11 @@ final class RemovedApiFixes {
             if (("com.mongodb.MongoClient".equals(declaring) || "com.mongodb.Mongo".equals(declaring)) &&
                 "getDatabaseNames".equals(name) && select != null) {
                 return template(mi, "#{any(com.mongodb.MongoClient)}.listDatabaseNames().into(new ArrayList<String>())", ctx, select);
+            }
+            if (("com.mongodb.MongoClient".equals(declaring) || "com.mongodb.Mongo".equals(declaring)) &&
+                "getAllAddress".equals(name) && select != null) {
+                // Driver 3 answered with the hosts of the cluster settings too, without waiting for the cluster
+                return template(mi, "#{any(com.mongodb.MongoClient)}.getClusterDescription().getClusterSettings().getHosts()", ctx, select);
             }
             if ("forEach".equals(name) && args.size() == 1 && declaring != null && declaring.startsWith("com.mongodb.client.") &&
                 TypeUtils.isOfClassType(mt.getParameterTypes().get(0), "com.mongodb.Block")) {
@@ -416,21 +433,47 @@ final class RemovedApiFixes {
             }
             if (("com.mongodb.MongoClient".equals(type) || "com.mongodb.Mongo".equals(type)) && params.size() >= 2 &&
                 params.size() <= 3 && "java.util.List".equals(params.get(1))) {
-                Expression credential = RemovedApiFinder.singletonListElement(nc.getArguments().get(1));
+                RemovedApiFinder.Credential credential = RemovedApiFinder.credentialOf(nc.getArguments().get(1));
                 if (credential == null) {
                     return nc;
                 }
                 Expression first = nc.getArguments().get(0);
                 String firstPlaceholder = "java.util.List".equals(params.get(0)) ?
                         "#{any(java.util.List<com.mongodb.ServerAddress>)}" : "#{any(com.mongodb.ServerAddress)}";
-                if (params.size() == 3) {
-                    return template(nc, "new MongoClient(" + firstPlaceholder +
-                                        ", #{any(com.mongodb.MongoCredential)}, #{any(com.mongodb.MongoClientOptions)})",
-                            ctx, first, credential, nc.getArguments().get(2));
+                List<Object> args = new ArrayList<>();
+                args.add(first);
+                String code;
+                if (credential.isNone()) {
+                    code = "new MongoClient(" + firstPlaceholder + (params.size() == 3 ? ", #{any(com.mongodb.MongoClientOptions)})" : ")");
+                } else {
+                    String credentialCode;
+                    if (credential.single != null) {
+                        credentialCode = "#{any(com.mongodb.MongoCredential)}";
+                        args.add(credential.single);
+                    } else if (credential.list != null) {
+                        credentialCode = "#{any(java.util.List<com.mongodb.MongoCredential>)}.isEmpty() ? null : " +
+                                         "#{any(java.util.List<com.mongodb.MongoCredential>)}.get(0)";
+                        args.add(credential.list);
+                        args.add(copy(credential.list));
+                    } else {
+                        credentialCode = "#{anyArray(com.mongodb.MongoCredential)}.length == 0 ? null : " +
+                                         "#{anyArray(com.mongodb.MongoCredential)}[0]";
+                        args.add(credential.array);
+                        args.add(copy(credential.array));
+                    }
+                    code = "new MongoClient(" + firstPlaceholder + ", " + credentialCode + ", " +
+                           (params.size() == 3 ? "#{any(com.mongodb.MongoClientOptions)})" : "MongoClientOptions.builder().build())");
                 }
-                return template(nc, "new MongoClient(" + firstPlaceholder +
-                                    ", #{any(com.mongodb.MongoCredential)}, MongoClientOptions.builder().build())",
-                        ctx, first, credential);
+                if (params.size() == 3) {
+                    args.add(nc.getArguments().get(2));
+                }
+                maybeRemoveImport("java.util.Arrays");
+                maybeRemoveImport("java.util.Collections");
+                maybeRemoveImport("java.util.ArrayList");
+                maybeRemoveImport("java.util.LinkedList");
+                maybeRemoveImport("com.google.common.collect.Lists");
+                maybeRemoveImport("com.google.common.collect.ImmutableList");
+                return template(nc, code, ctx, args.toArray());
             }
             return nc;
         }

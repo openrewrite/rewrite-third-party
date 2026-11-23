@@ -689,6 +689,122 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
     }
 
     @Test
+    void takesTheCredentialOfAListAndTheSeedsOfTheSettings() {
+        rewriteRun(
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.mongodb.MongoClient;
+                  import com.mongodb.MongoClientOptions;
+                  import com.mongodb.MongoCredential;
+                  import com.mongodb.ServerAddress;
+
+                  import java.util.ArrayList;
+                  import java.util.Arrays;
+                  import java.util.List;
+
+                  class Clients {
+                      MongoClient withList(ServerAddress address, MongoCredential credential, MongoClientOptions options) {
+                          List<MongoCredential> credentials = new ArrayList<>();
+                          credentials.add(credential);
+                          return new MongoClient(address, credentials, options);
+                      }
+
+                      MongoClient withArray(List<ServerAddress> seeds, MongoCredential[] credentials) {
+                          return new MongoClient(seeds, Arrays.asList(credentials));
+                      }
+
+                      MongoClient withNone(ServerAddress address) {
+                          return new MongoClient(address, new ArrayList<MongoCredential>());
+                      }
+
+                      List<ServerAddress> seeds(MongoClient client) {
+                          return client.getAllAddress();
+                      }
+                  }
+                  """,
+                """
+                  import com.mongodb.MongoClient;
+                  import com.mongodb.MongoClientOptions;
+                  import com.mongodb.MongoCredential;
+                  import com.mongodb.ServerAddress;
+
+                  import java.util.ArrayList;
+                  import java.util.List;
+
+                  class Clients {
+                      MongoClient withList(ServerAddress address, MongoCredential credential, MongoClientOptions options) {
+                          List<MongoCredential> credentials = new ArrayList<>();
+                          credentials.add(credential);
+                          return new MongoClient(address, credentials.isEmpty() ? null : credentials.get(0), options);
+                      }
+
+                      MongoClient withArray(List<ServerAddress> seeds, MongoCredential[] credentials) {
+                          return new MongoClient(seeds, credentials.length == 0 ? null : credentials[0], MongoClientOptions.builder().build());
+                      }
+
+                      MongoClient withNone(ServerAddress address) {
+                          return new MongoClient(address);
+                      }
+
+                      List<ServerAddress> seeds(MongoClient client) {
+                          return client.getClusterDescription().getClusterSettings().getHosts();
+                      }
+                  }
+                  """
+              )
+            ),
+            pom("mongodb-driver-legacy")
+          )
+        );
+    }
+
+    @Test
+    void convertsWhatReplacingRemovedApiMakesTranslatable() {
+        rewriteRun(
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.mongodb.MongoClient;
+                  import com.mongodb.ServerAddress;
+
+                  import java.util.List;
+
+                  class Seeds {
+                      private final MongoClient client = new MongoClient("localhost", 27017);
+
+                      List<ServerAddress> seeds() {
+                          return client.getAllAddress();
+                      }
+                  }
+                  """,
+                """
+                  import com.mongodb.ServerAddress;
+                  import com.mongodb.client.MongoClient;
+                  import com.mongodb.client.MongoClients;
+
+                  import java.util.List;
+
+                  class Seeds {
+                      private final MongoClient client = MongoClients.create("mongodb://localhost:27017");
+
+                      List<ServerAddress> seeds() {
+                          return client.getClusterDescription().getClusterSettings().getHosts();
+                      }
+                  }
+                  """
+              )
+            ),
+            pom("mongodb-driver-sync")
+          )
+        );
+    }
+
+    @Test
     void findsRemovedApiWithoutReplacement() {
         rewriteRun(
           spec -> spec.recipe(new FindRemovedMongoApis(null)),

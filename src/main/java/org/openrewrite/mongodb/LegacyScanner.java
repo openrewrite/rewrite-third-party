@@ -180,10 +180,13 @@ final class LegacyScanner extends TreeVisitor<Tree, ExecutionContext> {
         }
 
         // Uses of removed API that no recipe replaces keep the driver where it is
+        boolean[] replacesRemovedApi = {false};
         new RemovedApiFinder() {
             @Override
             void found(J tree, String description, boolean fixable) {
-                if (!fixable) {
+                if (fixable) {
+                    replacesRemovedApi[0] = true;
+                } else {
                     acc.removedApiUses.add(new LegacyUsage.Blocker(module, path, description));
                 }
             }
@@ -198,15 +201,23 @@ final class LegacyScanner extends TreeVisitor<Tree, ExecutionContext> {
                                                                    ", and the driver 5 API is used with lambdas"));
         }
 
-        // What the conversion cannot translate
-        LegacyApiConverter dryRun = new LegacyApiConverter(true, false);
-        dryRun.visit(cu, ctx);
-        for (String reason : new LinkedHashSet<>(dryRun.unsupported)) {
-            acc.blockers.add(new LegacyUsage.Blocker(module, path, reason));
+        // What the conversion cannot translate. When the driver moves to 5, the conversion sees the code with the
+        // removed API replaced, which can differ in what it translates, so both are asked, and the decision takes the
+        // answer for the code that the conversion will see.
+        Set<String> asIs = untranslatable(cu, ctx);
+        Set<String> replaced = asIs;
+        if (replacesRemovedApi[0]) {
+            J.CompilationUnit fixed = RemovedApiFixes.apply(cu, ctx);
+            if (fixed != cu) {
+                replaced = untranslatable(fixed, ctx);
+            }
         }
-        if (dryRun.facts != null) {
-            for (String reason : new LinkedHashSet<>(dryRun.facts.blockers)) {
-                acc.blockers.add(new LegacyUsage.Blocker(module, path, reason));
+        for (String reason : asIs) {
+            (replaced.contains(reason) ? acc.blockers : acc.blockersUnlessUpgraded).add(new LegacyUsage.Blocker(module, path, reason));
+        }
+        for (String reason : replaced) {
+            if (!asIs.contains(reason)) {
+                acc.blockersIfUpgraded.add(new LegacyUsage.Blocker(module, path, reason));
             }
         }
         for (JavaType t : cu.getTypesInUse().getTypesInUse()) {
@@ -218,6 +229,16 @@ final class LegacyScanner extends TreeVisitor<Tree, ExecutionContext> {
         }
 
         new StructureScanner(module, path).visit(cu, ctx);
+    }
+
+    private static Set<String> untranslatable(J.CompilationUnit cu, ExecutionContext ctx) {
+        LegacyApiConverter dryRun = new LegacyApiConverter(true, false);
+        dryRun.visit(cu, ctx);
+        Set<String> reasons = new LinkedHashSet<>(dryRun.unsupported);
+        if (dryRun.facts != null) {
+            reasons.addAll(dryRun.facts.blockers);
+        }
+        return reasons;
     }
 
     private void declare(J.ClassDeclaration c, String module) {

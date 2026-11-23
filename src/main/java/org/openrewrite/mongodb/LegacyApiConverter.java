@@ -1417,6 +1417,10 @@ class LegacyApiConverter extends JavaVisitor<ExecutionContext> {
                 multiple = true;
                 hostString = "pair";
             } else if ("com.mongodb.MongoCredential".equals(t)) {
+                if (mayBeNull(oa.get(i))) {
+                    // As the removed API replacement leaves a list of credentials, which the settings do not take
+                    throw unsupported("creates a `MongoClient` with a credential that may be null, which `MongoClientSettings` does not take");
+                }
                 credential = a.get(i);
             } else if ("java.util.List".equals(t) && i == 1) {
                 credential = singleCredential(oa.get(i), a.get(i));
@@ -1477,6 +1481,20 @@ class LegacyApiConverter extends JavaVisitor<ExecutionContext> {
             return;
         }
         t.text("MongoClientSettings.builder(").any("#{any(com.mongodb.MongoClientSettings)}", options).text(")");
+    }
+
+    private static boolean mayBeNull(Expression e) {
+        Expression unwrapped = e;
+        while (unwrapped instanceof J.Parentheses) {
+            unwrapped = (Expression) ((J.Parentheses<?>) unwrapped).getTree();
+        }
+        if (unwrapped instanceof J.Literal) {
+            return ((J.Literal) unwrapped).getValue() == null;
+        }
+        if (unwrapped instanceof J.Ternary) {
+            return mayBeNull(((J.Ternary) unwrapped).getTruePart()) || mayBeNull(((J.Ternary) unwrapped).getFalsePart());
+        }
+        return false;
     }
 
     private @Nullable Expression singleCredential(Expression original, Expression converted) {

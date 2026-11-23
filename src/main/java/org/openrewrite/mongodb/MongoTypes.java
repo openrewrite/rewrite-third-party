@@ -42,6 +42,7 @@ final class MongoTypes {
     static final String MONGO_CLIENT_OPTIONS = "com.mongodb.MongoClientOptions";
     static final String MONGO_CLIENT_OPTIONS_BUILDER = "com.mongodb.MongoClientOptions$Builder";
     static final String UTIL_JSON = "com.mongodb.util.JSON";
+    static final String MONGO_CREDENTIAL = "com.mongodb.MongoCredential";
 
     static final String MONGO_CLIENTS = "com.mongodb.client.MongoClients";
     static final String MONGO_CLIENT = "com.mongodb.client.MongoClient";
