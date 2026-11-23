@@ -47,6 +47,9 @@ class ListBlobItemLoops extends JavaVisitor<ExecutionContext> {
     public J visitForEachLoop(J.ForEachLoop forLoop, ExecutionContext ctx) {
         J.ForEachLoop loop = (J.ForEachLoop) super.visitForEachLoop(forLoop, ctx);
         Expression iterable = loop.getControl().getIterable();
+        if (iterable instanceof J.Identifier) {
+            iterable = listingHeldBy((J.Identifier) iterable, forLoop);
+        }
         if (!(iterable instanceof J.MethodInvocation) || !LIST_BLOBS.matches((J.MethodInvocation) iterable)) {
             return loop;
         }
@@ -64,6 +67,46 @@ class ListBlobItemLoops extends JavaVisitor<ExecutionContext> {
         Statement body = (Statement) new ItemUses(item.getSimpleName(), container, snapshots)
                 .visitNonNull(loop.getBody(), ctx, new Cursor(getCursor().getParentOrThrow(), loop));
         return loop.withBody(body);
+    }
+
+    /**
+     * The listing a local variable holds, when the variable is declared with it in the block that holds the loop and
+     * the loop is all that reads it.
+     */
+    private @Nullable Expression listingHeldBy(J.Identifier variable, J.ForEachLoop loop) {
+        Object parent = getCursor().getParentTreeCursor().getValue();
+        if (!(parent instanceof J.Block) || variable.getFieldType() == null) {
+            return null;
+        }
+        J.Block block = (J.Block) parent;
+        Expression listing = null;
+        for (Statement statement : block.getStatements()) {
+            if (statement == loop || statement.getId().equals(loop.getId())) {
+                break;
+            }
+            if (statement instanceof J.VariableDeclarations) {
+                for (J.VariableDeclarations.NamedVariable v : ((J.VariableDeclarations) statement).getVariables()) {
+                    if (variable.getFieldType().equals(v.getVariableType())) {
+                        listing = v.getInitializer();
+                    }
+                }
+            }
+        }
+        if (listing == null) {
+            return null;
+        }
+        int[] reads = {0};
+        new JavaVisitor<int[]>() {
+            @Override
+            public J visitIdentifier(J.Identifier identifier, int[] count) {
+                if (variable.getFieldType().equals(identifier.getFieldType()) &&
+                    !(getCursor().getParentTreeCursor().getValue() instanceof J.VariableDeclarations.NamedVariable)) {
+                    count[0]++;
+                }
+                return identifier;
+            }
+        }.visit(block, reads);
+        return reads[0] == 1 ? listing : null;
     }
 
     private static boolean isPure(J.FieldAccess f) {

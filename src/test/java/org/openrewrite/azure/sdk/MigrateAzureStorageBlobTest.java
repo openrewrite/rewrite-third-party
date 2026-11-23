@@ -215,6 +215,45 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
     }
 
     @Test
+    void listingLoopOverAVariable() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.blob.CloudBlobContainer;
+              import com.microsoft.azure.storage.blob.ListBlobItem;
+
+              class Listing {
+                  void print(CloudBlobContainer container) throws Exception {
+                      Iterable<ListBlobItem> items = container.listBlobs();
+                      int prefix = container.getUri().toString().length() + 1;
+                      for (ListBlobItem item : items) {
+                          System.out.println(item.getUri().toString().substring(prefix));
+                      }
+                  }
+              }
+              """,
+            """
+              import com.azure.storage.blob.BlobContainerClient;
+              import com.azure.storage.blob.models.BlobItem;
+
+              import java.net.URI;
+
+              class Listing {
+                  void print(BlobContainerClient container) throws Exception {
+                      Iterable<BlobItem> items = container.listBlobsByHierarchy(null);
+                      int prefix = URI.create(container.getBlobContainerUrl()).toString().length() + 1;
+                      for (BlobItem item : items) {
+                          System.out.println(URI.create(container.getBlobClient(item.getName()).getBlobUrl()).toString().substring(prefix));
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void sharedAccessSignature() {
         rewriteRun(
           //language=java
