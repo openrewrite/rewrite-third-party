@@ -187,14 +187,15 @@ class MigrateAzureServiceBusTest implements RewriteTest {
               }
               """,
             """
-              import com.azure.messaging.servicebus.ServiceBusMessage;
-              import com.azure.messaging.servicebus.ServiceBusSenderClient;
+              import com.microsoft.azure.servicebus.IMessage;
+              import com.microsoft.azure.servicebus.Message;
+              import com.microsoft.azure.servicebus.QueueClient;
 
               import java.util.concurrent.CompletableFuture;
 
               class Producer {
-                  CompletableFuture<Void> send(ServiceBusSenderClient client, String body) {
-                      ServiceBusMessage message = new ServiceBusMessage(body);
+                  CompletableFuture<Void> send(QueueClient client, String body) {
+                      IMessage message = new Message(body);
                       return /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.servicebus.QueueClient.sendAsync` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/servicebus/azure-messaging-servicebus/migration-guide.md)~~>*/client.sendAsync(message);
                   }
               }

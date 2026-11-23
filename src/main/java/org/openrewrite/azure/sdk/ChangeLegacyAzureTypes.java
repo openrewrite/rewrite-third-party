@@ -50,7 +50,7 @@ public class ChangeLegacyAzureTypes extends Recipe {
         return new TreeVisitor<Tree, ExecutionContext>() {
             @Override
             public boolean isAcceptable(SourceFile sourceFile, ExecutionContext ctx) {
-                return sourceFile instanceof J.CompilationUnit && !LegacyAzureTypes.isLeftAsItIs(sourceFile);
+                return sourceFile instanceof J.CompilationUnit && !LegacyAzureMigration.isLeftAsItIs(sourceFile, ctx);
             }
 
             @Override

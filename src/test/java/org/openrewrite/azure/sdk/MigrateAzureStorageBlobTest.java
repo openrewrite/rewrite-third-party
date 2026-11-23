@@ -403,13 +403,13 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
               }
               """,
             """
-              import com.azure.storage.blob.BlobClient;
               import com.microsoft.azure.storage.OperationContext;
+              import com.microsoft.azure.storage.blob.CloudBlockBlob;
 
               class Remnants {
-                  int read(BlobClient blob, byte[] buffer) throws Exception {
+                  int read(CloudBlockBlob blob, byte[] buffer) throws Exception {
                       /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.OperationContext` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/OperationContext context = /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.OperationContext` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/new OperationContext();
-                      blob.getProperties();
+                      blob.downloadAttributes();
                       return /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.blob.CloudBlob.downloadToByteArray` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/blob.downloadToByteArray(buffer, 0);
                   }
               }
@@ -442,11 +442,6 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
                       blob.getProperties().setContentType("text/html");
                       blob.uploadFromFile(path);
                   }
-
-                  void label(CloudBlockBlob blob) {
-                      blob.getProperties().setContentType("text/plain");
-                      System.out.println(blob.getName());
-                  }
               }
               """,
             """
@@ -470,10 +465,29 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
                       BlobClient blob = container.getBlobClient(path);
                       blob.uploadFromFileWithResponse(new BlobUploadFromFileOptions(path).setHeaders(new BlobHttpHeaders().setContentType("text/html")), null, Context.NONE);
                   }
+              }
+              """
+          ),
+          // Setting a header with no upload to carry it has no counterpart, so this source is left as it is
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.blob.CloudBlockBlob;
 
-                  void label(BlobClient blob) {
+              class Labels {
+                  void label(CloudBlockBlob blob) {
+                      blob.getProperties().setContentType("text/plain");
+                      System.out.println(blob.getName());
+                  }
+              }
+              """,
+            """
+              import com.microsoft.azure.storage.blob.CloudBlockBlob;
+
+              class Labels {
+                  void label(CloudBlockBlob blob) {
                       /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.blob.BlobProperties.setContentType` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/blob.getProperties().setContentType("text/plain");
-                      System.out.println(blob.getBlobName());
+                      System.out.println(blob.getName());
                   }
               }
               """
@@ -565,6 +579,86 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
                 """,
               spec -> spec.after(pom -> {
                   assertThat(pom).doesNotContain("<artifactId>azure-storage</artifactId>");
+                  assertThat(pom).containsPattern("<artifactId>azure-storage-blob</artifactId>\\s*<version>12\\.\\d+\\.\\d+</version>");
+                  return pom;
+              })
+            )
+          )
+        );
+    }
+
+    @Test
+    void keepsTheLegacyArtifactForASourceItLeaves() {
+        rewriteRun(
+          mavenProject("app",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import com.microsoft.azure.storage.CloudStorageAccount;
+                  import com.microsoft.azure.storage.blob.CloudBlobClient;
+
+                  class Clients {
+                      CloudBlobClient blobs(String connectionString) throws Exception {
+                          return CloudStorageAccount.parse(connectionString).createCloudBlobClient();
+                      }
+                  }
+                  """,
+                """
+                  import com.azure.storage.blob.BlobServiceClient;
+                  import com.azure.storage.blob.BlobServiceClientBuilder;
+
+                  class Clients {
+                      BlobServiceClient blobs(String connectionString) throws Exception {
+                          return new BlobServiceClientBuilder().connectionString(connectionString).buildClient();
+                      }
+                  }
+                  """
+              ),
+              // Migrated around the read, which has no counterpart, it would not compile, so none of it is
+              //language=java
+              java(
+                """
+                  import com.microsoft.azure.storage.blob.CloudBlockBlob;
+
+                  class Reads {
+                      int read(CloudBlockBlob blob, byte[] buffer) throws Exception {
+                          blob.downloadAttributes();
+                          return blob.downloadToByteArray(buffer, 0);
+                      }
+                  }
+                  """,
+                """
+                  import com.microsoft.azure.storage.blob.CloudBlockBlob;
+
+                  class Reads {
+                      int read(CloudBlockBlob blob, byte[] buffer) throws Exception {
+                          blob.downloadAttributes();
+                          return /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.blob.CloudBlob.downloadToByteArray` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/blob.downloadToByteArray(buffer, 0);
+                      }
+                  }
+                  """
+              )
+            ),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.example</groupId>
+                  <artifactId>app</artifactId>
+                  <version>1.0</version>
+                  <dependencies>
+                    <dependency>
+                      <groupId>com.microsoft.azure</groupId>
+                      <artifactId>azure-storage</artifactId>
+                      <version>8.6.6</version>
+                    </dependency>
+                  </dependencies>
+                </project>
+                """,
+              spec -> spec.after(pom -> {
+                  assertThat(pom).contains("<artifactId>azure-storage</artifactId>");
                   assertThat(pom).containsPattern("<artifactId>azure-storage-blob</artifactId>\\s*<version>12\\.\\d+\\.\\d+</version>");
                   return pom;
               })
@@ -813,20 +907,19 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
               }
               """,
             """
-              import com.azure.storage.blob.BlobClient;
-              import com.azure.storage.blob.BlobContainerClient;
-              import com.azure.storage.blob.models.BlobItem;
-              import com.azure.storage.blob.models.ListBlobsOptions;
+              import com.microsoft.azure.storage.blob.CloudBlob;
+              import com.microsoft.azure.storage.blob.CloudBlobContainer;
+              import com.microsoft.azure.storage.blob.ListBlobItem;
 
               import java.util.Iterator;
 
               class Names {
-                  void print(BlobContainerClient container) {
-                      Iterator<BlobItem> items = container.listBlobs(new ListBlobsOptions().setPrefix("logs/"), null).iterator();
+                  void print(CloudBlobContainer container) {
+                      Iterator<ListBlobItem> items = container.listBlobs("logs/", true).iterator();
                       while (items.hasNext()) {
-                          BlobItem item = items.next();
-                          if (/*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.blob.ListBlobItem as com.microsoft.azure.storage.blob.CloudBlob` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/item instanceof BlobClient) {
-                              System.out.println((/*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.blob.ListBlobItem as com.microsoft.azure.storage.blob.CloudBlob` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/(BlobClient) item).getBlobName());
+                          ListBlobItem item = items.next();
+                          if (/*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.blob.ListBlobItem as com.microsoft.azure.storage.blob.CloudBlob` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/item instanceof CloudBlob) {
+                              System.out.println((/*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.blob.ListBlobItem as com.microsoft.azure.storage.blob.CloudBlob` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/(CloudBlob) item).getName());
                           }
                       }
                   }
@@ -852,11 +945,12 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
               }
               """,
             """
+              import com.microsoft.azure.storage.CloudStorageAccount;
               import com.microsoft.azure.storage.StorageCredentials;
 
               class Accounts {
-                  String account(/*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.StorageCredentials` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/StorageCredentials credentials) throws Exception {
-                      return /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.CloudStorageAccount` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/new com.microsoft.azure.storage.CloudStorageAccount(credentials, true);
+                  CloudStorageAccount account(/*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.StorageCredentials` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/StorageCredentials credentials) throws Exception {
+                      return /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.CloudStorageAccount` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/new CloudStorageAccount(credentials, true);
                   }
               }
               """
@@ -872,29 +966,21 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
           //language=java
           java(
             """
-              import com.microsoft.azure.storage.CloudStorageAccount;
-              import com.microsoft.azure.storage.blob.BlobProperties;
               import com.microsoft.azure.storage.blob.CloudBlobClient;
               import com.microsoft.azure.storage.blob.CloudBlobContainer;
               import com.microsoft.azure.storage.blob.CloudBlockBlob;
-
-              import java.util.Date;
 
               import static org.mockito.ArgumentMatchers.anyString;
               import static org.mockito.Mockito.*;
 
               class StorageTest {
                   CloudBlobClient client = mock(CloudBlobClient.class);
-                  CloudStorageAccount account = mock(CloudStorageAccount.class);
                   CloudBlobContainer container = mock(CloudBlobContainer.class);
                   CloudBlockBlob blob = mock(CloudBlockBlob.class);
-                  BlobProperties properties = mock(BlobProperties.class);
 
                   void setUp() throws Exception {
-                      when(account.createCloudBlobClient()).thenReturn(client);
                       when(client.getContainerReference(anyString())).thenReturn(container);
                       when(container.getBlockBlobReference(anyString())).thenReturn(blob);
-                      when(properties.getLastModified()).thenReturn(new Date());
                       verify(blob).exists();
                   }
               }
@@ -903,26 +989,63 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
               import com.azure.storage.blob.BlobClient;
               import com.azure.storage.blob.BlobContainerClient;
               import com.azure.storage.blob.BlobServiceClient;
-              import com.azure.storage.blob.models.BlobProperties;
-
-              import java.util.Date;
 
               import static org.mockito.ArgumentMatchers.anyString;
               import static org.mockito.Mockito.*;
 
               class StorageTest {
                   BlobServiceClient client = mock(BlobServiceClient.class);
-                  String account = mock(String.class);
                   BlobContainerClient container = mock(BlobContainerClient.class);
                   BlobClient blob = mock(BlobClient.class);
+
+                  void setUp() throws Exception {
+                      when(client.getBlobContainerClient(anyString())).thenReturn(container);
+                      when(container.getBlobClient(anyString())).thenReturn(blob);
+                      verify(blob).exists();
+                  }
+              }
+              """
+          ),
+          // A stubbing of a call that has no counterpart leaves its source as it is
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.CloudStorageAccount;
+              import com.microsoft.azure.storage.blob.BlobProperties;
+              import com.microsoft.azure.storage.blob.CloudBlobClient;
+
+              import java.util.Date;
+
+              import static org.mockito.Mockito.*;
+
+              class AccountTest {
+                  CloudBlobClient client = mock(CloudBlobClient.class);
+                  CloudStorageAccount account = mock(CloudStorageAccount.class);
+                  BlobProperties properties = mock(BlobProperties.class);
+
+                  void setUp() throws Exception {
+                      when(account.createCloudBlobClient()).thenReturn(client);
+                      when(properties.getLastModified()).thenReturn(new Date());
+                  }
+              }
+              """,
+            """
+              import com.microsoft.azure.storage.CloudStorageAccount;
+              import com.microsoft.azure.storage.blob.BlobProperties;
+              import com.microsoft.azure.storage.blob.CloudBlobClient;
+
+              import java.util.Date;
+
+              import static org.mockito.Mockito.*;
+
+              class AccountTest {
+                  CloudBlobClient client = mock(CloudBlobClient.class);
+                  CloudStorageAccount account = mock(CloudStorageAccount.class);
                   BlobProperties properties = mock(BlobProperties.class);
 
                   void setUp() throws Exception {
                       when(/*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.CloudStorageAccount.createCloudBlobClient` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/account.createCloudBlobClient()).thenReturn(client);
-                      when(client.getBlobContainerClient(anyString())).thenReturn(container);
-                      when(container.getBlobClient(anyString())).thenReturn(blob);
                       when(/*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.blob.BlobProperties.getLastModified` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/properties.getLastModified()).thenReturn(new Date());
-                      verify(blob).exists();
                   }
               }
               """

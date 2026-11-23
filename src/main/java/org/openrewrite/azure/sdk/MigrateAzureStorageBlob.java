@@ -252,7 +252,7 @@ public class MigrateAzureStorageBlob extends Recipe {
         return Preconditions.check(new UsesType<>("com.microsoft.azure.storage..*", false), new TreeVisitor<Tree, ExecutionContext>() {
             @Override
             public @Nullable Tree visit(@Nullable Tree tree, ExecutionContext ctx) {
-                if (tree == null || LegacyAzureTypes.isLeftAsItIs(tree)) {
+                if (tree == null || LegacyAzureMigration.isLeftAsItIs(tree, ctx)) {
                     return tree;
                 }
                 Tree t = new ListBlobItemLoops().visit(tree, ctx);

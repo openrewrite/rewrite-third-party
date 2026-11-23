@@ -20,38 +20,119 @@ import org.openrewrite.Recipe;
 import org.openrewrite.SourceFile;
 import org.openrewrite.Tree;
 import org.openrewrite.TreeVisitor;
+import org.openrewrite.azure.sdk.search.FindAzureSdkLegacyRemnants;
+import org.openrewrite.java.internal.TypesInUse;
+import org.openrewrite.java.tree.JavaSourceFile;
+import org.openrewrite.java.tree.JavaType;
 
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The Java edits of {@code org.openrewrite.azure.sdk.MigrateAzureSdkLegacyToCurrent}, in its order, for recipes that
- * need to know what the migration will make of a source before it runs.
+ * What {@code org.openrewrite.azure.sdk.MigrateAzureSdkLegacyToCurrent} makes of a source, for its recipes to agree on
+ * which sources they migrate and for recipes that need to know the result before it runs.
+ * <p>
+ * The migration changes a source entirely or not at all. A source with anything its rewrites can't migrate, such as a
+ * call that has no counterpart, is left as it is, since migrated around that call it would mix legacy and current
+ * types that don't convert into one another. Its module keeps the legacy artifacts it needs, so it compiles as before,
+ * and FindAzureSdkLegacyRemnants marks what stops it from being migrated. Once a person has migrated those by hand,
+ * the next run migrates the rest.
  */
-final class LegacyAzureMigration {
+public final class LegacyAzureMigration {
+
+    private static final String BLOCKERS = LegacyAzureMigration.class.getName() + ".blockers";
+    private static final String SIMULATING = LegacyAzureMigration.class.getName() + ".simulating";
 
     private LegacyAzureMigration() {
     }
 
-    static List<Recipe> javaRecipes() {
+    private static List<Recipe> callRecipes() {
         return Arrays.asList(
                 new MigrateAzureStorageBlob(),
                 new MigrateAdal4jToMsal4j(),
                 new MigrateAzureEventHubs(),
-                new MigrateAzureServiceBus(),
-                new ChangeLegacyAzureTypes()
+                new MigrateAzureServiceBus()
         );
+    }
+
+    /**
+     * Whether the migration leaves a source as it is: for one of the reasons
+     * {@link LegacyAzureTypes#isLeftAsItIs(Tree)} gives, or since its rewrites would leave something of the legacy SDK
+     * in it.
+     */
+    public static boolean isLeftAsItIs(Tree source, ExecutionContext ctx) {
+        if (!(source instanceof JavaSourceFile)) {
+            return LegacyAzureTypes.isLeftAsItIs(source);
+        }
+        if (simulating(ctx).contains(source.getId())) {
+            return false;
+        }
+        return LegacyAzureTypes.isLeftAsItIs(source) || !blockers((JavaSourceFile) source, ctx).isEmpty();
+    }
+
+    /**
+     * The ids of the trees in a source that the migration's rewrites can't migrate, as the source was when the run
+     * first asked. A rewrite keeps the id of a tree it changes, so later in the run they still name the same trees.
+     */
+    public static Set<UUID> blockers(JavaSourceFile source, ExecutionContext ctx) {
+        Map<UUID, Set<UUID>> known = ctx.computeMessageIfAbsent(BLOCKERS, k -> new ConcurrentHashMap<>());
+        Set<UUID> blockers = known.get(source.getId());
+        if (blockers == null) {
+            blockers = usesLegacy(source) ? simulateBlockers(source, ctx) : Collections.emptySet();
+            known.put(source.getId(), blockers);
+        }
+        return blockers;
+    }
+
+    private static Set<UUID> simulateBlockers(JavaSourceFile source, ExecutionContext ctx) {
+        Set<UUID> simulating = simulating(ctx);
+        simulating.add(source.getId());
+        try {
+            return FindAzureSdkLegacyRemnants.remnants(run(source, callRecipes(), ctx), ctx);
+        } finally {
+            simulating.remove(source.getId());
+        }
+    }
+
+    private static Set<UUID> simulating(ExecutionContext ctx) {
+        return ctx.computeMessageIfAbsent(SIMULATING, k -> ConcurrentHashMap.newKeySet());
+    }
+
+    private static boolean usesLegacy(JavaSourceFile source) {
+        TypesInUse typesInUse = source.getTypesInUse();
+        for (JavaType type : typesInUse.getTypesInUse()) {
+            if (LegacyAzureTypes.isLegacy(type) || LegacyAzureTypes.isBuiltOnLegacy(type)) {
+                return true;
+            }
+        }
+        for (JavaType.Method method : typesInUse.getUsedMethods()) {
+            if (LegacyAzureTypes.isLegacy(method.getDeclaringType()) || LegacyAzureTypes.isBuiltOnLegacy(method.getDeclaringType())) {
+                return true;
+            }
+        }
+        for (JavaType.Variable variable : typesInUse.getVariables()) {
+            if (LegacyAzureTypes.isLegacy(variable.getOwner())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
      * The source as the Java recipes of the migration leave it, each visiting only what a recipe run would let it.
      */
     static Tree simulate(Tree source, ExecutionContext ctx) {
-        if (LegacyAzureTypes.isLeftAsItIs(source)) {
+        if (isLeftAsItIs(source, ctx)) {
             return source;
         }
+        List<Recipe> recipes = new ArrayList<>(callRecipes());
+        recipes.add(new ChangeLegacyAzureTypes());
+        return run(source, recipes, ctx);
+    }
+
+    private static Tree run(Tree source, List<Recipe> recipes, ExecutionContext ctx) {
         Tree t = source;
-        for (Recipe recipe : javaRecipes()) {
+        for (Recipe recipe : recipes) {
             TreeVisitor<?, ExecutionContext> visitor = recipe.getVisitor();
             if (t instanceof SourceFile && !visitor.isAcceptable((SourceFile) t, ctx)) {
                 continue;

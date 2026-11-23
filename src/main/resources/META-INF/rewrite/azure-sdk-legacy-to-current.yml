@@ -20,8 +20,9 @@ displayName: Migrate from the legacy Azure SDK for Java to the current Azure SDK
 description: >-
   Migrates Java code off the legacy Azure SDK for Java (`com.microsoft.azure` libraries) and ADAL4J onto the current Azure SDK
   (`com.azure` libraries) and MSAL4J: rewrites the calls, retypes the declarations, removes catches of the checked exceptions
-  the legacy calls declared, and swaps the dependencies of each module that no longer uses a legacy library. Anything that
-  cannot be migrated is marked and listed in the `LegacyAzureSdkRemnants` data table.
+  the legacy calls declared, and swaps the dependencies of each module that no longer uses a legacy library. A source file
+  with anything that cannot be migrated is left as it is, with the legacy artifacts its module needs, and what stops it is
+  marked and listed in the `LegacyAzureSdkRemnants` data table. Once that is migrated by hand, another run migrates the rest.
 tags:
   - azure
   - sdk

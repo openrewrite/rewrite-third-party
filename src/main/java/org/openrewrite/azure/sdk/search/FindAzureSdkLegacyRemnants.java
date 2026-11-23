@@ -22,7 +22,9 @@ import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Recipe;
 import org.openrewrite.SourceFile;
+import org.openrewrite.Tree;
 import org.openrewrite.TreeVisitor;
+import org.openrewrite.azure.sdk.LegacyAzureMigration;
 import org.openrewrite.azure.sdk.LegacyAzureTypes;
 import org.openrewrite.azure.sdk.table.LegacyAzureSdkRemnants;
 import org.openrewrite.internal.ListUtils;
@@ -30,8 +32,11 @@ import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.tree.*;
 import org.openrewrite.marker.SearchResult;
 
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 @Value
 @EqualsAndHashCode(callSuper = false)
@@ -67,165 +72,226 @@ public class FindAzureSdkLegacyRemnants extends Recipe {
     final String description = "Marks the calls, constants and types of the legacy Azure SDK for Java (`com.microsoft.azure`) " +
                                "and ADAL4J that have no automatic migration to the current Azure SDK and MSAL4J, and lists " +
                                "them in the `LegacyAzureSdkRemnants` data table with the migration guide that covers them. " +
-                               "Run on its own, it lists every legacy use; after the migration, what it left.";
+                               "The migration leaves a source with any of them as it is, so only these are marked there, " +
+                               "except in a source the migration leaves for what it is, such as a class implementing a " +
+                               "legacy interface, where every legacy use is. Run on its own, it lists what the migration " +
+                               "would leave.";
 
     @Getter
     transient LegacyAzureSdkRemnants remnants = new LegacyAzureSdkRemnants(this);
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
-        return new JavaIsoVisitor<ExecutionContext>() {
-
+        return new TreeVisitor<Tree, ExecutionContext>() {
             @Override
-            public J.Import visitImport(J.Import _import, ExecutionContext ctx) {
-                return _import;
-            }
-
-            @Override
-            public J.ClassDeclaration visitClassDeclaration(J.ClassDeclaration classDecl, ExecutionContext ctx) {
-                J.ClassDeclaration c = super.visitClassDeclaration(classDecl, ctx);
-                // A supertype the migration has a counterpart for is no remnant as a type, but a class extending or
-                // implementing it is left as it is, so it is marked here. One without a counterpart is marked as a type.
-                if (c.getExtends() != null && isMappedLegacy(c.getExtends().getType())) {
-                    c = c.withExtends(supertype(c.getExtends(), ctx));
-                }
-                if (c.getImplements() != null) {
-                    c = c.withImplements(ListUtils.map(c.getImplements(), i -> isMappedLegacy(i.getType()) ? supertype(i, ctx) : i));
-                }
-                return c;
-            }
-
-            private TypeTree supertype(TypeTree supertype, ExecutionContext ctx) {
-                String type = fqn(supertype.getType());
-                return report(supertype, "supertype", type + " as a supertype", type, ctx);
-            }
-
-            private boolean isMappedLegacy(@Nullable JavaType type) {
-                JavaType.FullyQualified fq = TypeUtils.asFullyQualified(type);
-                return fq != null && LegacyAzureTypes.isLegacy(fq) && LegacyAzureTypes.current(fq.getFullyQualifiedName()) != null;
+            public boolean isAcceptable(SourceFile sourceFile, ExecutionContext ctx) {
+                return sourceFile instanceof JavaSourceFile;
             }
 
             @Override
-            public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
-                J.MethodInvocation m = super.visitMethodInvocation(method, ctx);
-                return mark(m, m.getMethodType(), ctx);
-            }
-
-            @Override
-            public J.NewClass visitNewClass(J.NewClass newClass, ExecutionContext ctx) {
-                J.NewClass n = super.visitNewClass(newClass, ctx);
-                return mark(n, n.getConstructorType(), ctx);
-            }
-
-            @Override
-            public J.MemberReference visitMemberReference(J.MemberReference memberRef, ExecutionContext ctx) {
-                J.MemberReference r = super.visitMemberReference(memberRef, ctx);
-                return mark(r, r.getMethodType(), ctx);
-            }
-
-            @Override
-            public J.FieldAccess visitFieldAccess(J.FieldAccess fieldAccess, ExecutionContext ctx) {
-                J.FieldAccess f = super.visitFieldAccess(fieldAccess, ctx);
-                JavaType.Variable field = f.getName().getFieldType();
-                if (field != null && LegacyAzureTypes.isLegacy(field.getOwner())) {
-                    String owner = fqn(field.getOwner());
-                    if ("class".equals(field.getName()) && LegacyAzureTypes.current(owner) != null) {
-                        // A class literal is retyped with its type
-                        return f;
-                    }
-                    return report(f, "constant", owner + "." + field.getName(), owner, ctx);
-                }
-                if (field == null && isTypeReference() && isUnmappedLegacy(f.getType())) {
-                    String type = fqn(f.getType());
-                    return report(f, "type", type, type, ctx);
-                }
-                return f;
-            }
-
-            @Override
-            public J.Identifier visitIdentifier(J.Identifier identifier, ExecutionContext ctx) {
-                J.Identifier i = super.visitIdentifier(identifier, ctx);
-                Object parent = getCursor().getParentTreeCursor().getValue();
-                if (i.getFieldType() == null && isTypeReference() && isUnmappedLegacy(i.getType()) &&
-                    !(parent instanceof J.FieldAccess) &&
-                    // The name a class is declared with, in the legacy SDK's own sources
-                    !(parent instanceof J.ClassDeclaration && ((J.ClassDeclaration) parent).getName() == identifier)) {
-                    String type = fqn(i.getType());
-                    return report(i, "type", type, type, ctx);
-                }
-                return i;
-            }
-
-            @Override
-            public J.TypeCast visitTypeCast(J.TypeCast typeCast, ExecutionContext ctx) {
-                J.TypeCast t = super.visitTypeCast(typeCast, ctx);
-                return conversion(t, t.getExpression().getType(), t.getClazz().getTree().getType(), ctx);
-            }
-
-            @Override
-            public J.InstanceOf visitInstanceOf(J.InstanceOf instanceOf, ExecutionContext ctx) {
-                J.InstanceOf i = super.visitInstanceOf(instanceOf, ctx);
-                return conversion(i, i.getExpression().getType(), i.getClazz() instanceof TypedTree ? ((TypedTree) i.getClazz()).getType() : null, ctx);
-            }
-
-            /**
-             * A cast or {@code instanceof} between two legacy types whose counterparts differ, such as a listed
-             * {@code ListBlobItem} to a {@code CloudBlob}, relates types that are unrelated once retyped.
-             */
-            private <J2 extends J> J2 conversion(J2 tree, @Nullable JavaType from, @Nullable JavaType to, ExecutionContext ctx) {
-                JavaType.FullyQualified fromType = TypeUtils.asFullyQualified(from);
-                JavaType.FullyQualified toType = TypeUtils.asFullyQualified(to);
-                if (fromType == null || toType == null || !LegacyAzureTypes.isLegacy(fromType) || !LegacyAzureTypes.isLegacy(toType)) {
+            public @Nullable Tree visit(@Nullable Tree tree, ExecutionContext ctx) {
+                if (!(tree instanceof JavaSourceFile)) {
                     return tree;
                 }
-                String fromCurrent = LegacyAzureTypes.current(fromType.getFullyQualifiedName());
-                String toCurrent = LegacyAzureTypes.current(toType.getFullyQualifiedName());
-                if (fromCurrent == null || toCurrent == null || fromCurrent.equals(toCurrent)) {
-                    // An unmapped type is a remnant of its own
+                if (LegacyAzureTypes.isLeftAsItIs(tree)) {
+                    // Nothing in it is migrated, so all of it is left to a person
+                    return new Finder(remnants, null, null).visit(tree, ctx);
+                }
+                Set<UUID> blockers = LegacyAzureMigration.blockers((JavaSourceFile) tree, ctx);
+                if (blockers.isEmpty()) {
                     return tree;
                 }
-                String item = fqn(fromType) + " as " + fqn(toType);
-                return report(tree, "type", item, fqn(toType), ctx);
-            }
-
-            private boolean isTypeReference() {
-                Object parent = getCursor().getParentTreeCursor().getValue();
-                return !(parent instanceof J.MethodInvocation || parent instanceof J.NewClass ||
-                         parent instanceof J.MemberReference || parent instanceof J.FieldAccess &&
-                         ((J.FieldAccess) parent).getName().getFieldType() != null ||
-                         parent instanceof J.Package);
-            }
-
-            private boolean isUnmappedLegacy(@Nullable JavaType type) {
-                JavaType.FullyQualified fq = TypeUtils.asFullyQualified(type);
-                return fq != null && !(type instanceof JavaType.Unknown) &&
-                       LegacyAzureTypes.isLegacy(fq) && LegacyAzureTypes.current(fq.getFullyQualifiedName()) == null;
-            }
-
-            private <J2 extends J> J2 mark(J2 tree, JavaType.@Nullable Method type, ExecutionContext ctx) {
-                if (type == null) {
-                    return tree;
-                }
-                // A call into a library built on the legacy SDK keeps its source as it is
-                boolean library = LegacyAzureTypes.isBuiltOnLegacy(type.getDeclaringType());
-                if (!library && !LegacyAzureTypes.isLegacy(type.getDeclaringType())) {
-                    return tree;
-                }
-                String owner = fqn(type.getDeclaringType());
-                String item = owner + ("<constructor>".equals(type.getName()) ? "" : "." + type.getName());
-                return report(tree, library ? "library" : "call", item, owner, ctx);
-            }
-
-            private <J2 extends J> J2 report(J2 tree, String kind, String item, String owner, ExecutionContext ctx) {
-                String guide = guide(owner);
-                SourceFile source = getCursor().firstEnclosing(SourceFile.class);
-                if (source != null) {
-                    remnants.insertRow(ctx, new LegacyAzureSdkRemnants.Row(source.getSourcePath().toString(), kind, item,
-                            "No automatic migration. See " + guide));
-                }
-                return SearchResult.found(tree, "Legacy Azure SDK: migrate `" + item + "` by hand, see " + guide);
+                Finder finder = new Finder(remnants, blockers, null);
+                Tree marked = finder.visit(tree, ctx);
+                // A remnant the simulated migration only met inside code it rewrote has no counterpart here
+                return finder.matched ? marked : new Finder(remnants, null, null).visit(tree, ctx);
             }
         };
+    }
+
+    /**
+     * What a source has of the legacy SDK that the migration leaves to a person, by the id of the tree that has it.
+     */
+    public static Set<UUID> remnants(Tree source, ExecutionContext ctx) {
+        Set<UUID> found = new HashSet<>();
+        new Finder(null, null, found).visit(source, ctx);
+        return found;
+    }
+
+    private static class Finder extends JavaIsoVisitor<ExecutionContext> {
+        private final @Nullable LegacyAzureSdkRemnants table;
+        private final @Nullable Set<UUID> only;
+        private final @Nullable Set<UUID> found;
+        boolean matched;
+
+        /**
+         * @param table the data table to list what it marks in
+         * @param only  the trees to mark, or every remnant when null
+         * @param found where to collect the remnants' ids instead of marking them
+         */
+        Finder(@Nullable LegacyAzureSdkRemnants table, @Nullable Set<UUID> only, @Nullable Set<UUID> found) {
+            this.table = table;
+            this.only = only;
+            this.found = found;
+        }
+
+        @Override
+        public J.Import visitImport(J.Import _import, ExecutionContext ctx) {
+            return _import;
+        }
+
+        @Override
+        public J.ClassDeclaration visitClassDeclaration(J.ClassDeclaration classDecl, ExecutionContext ctx) {
+            J.ClassDeclaration c = super.visitClassDeclaration(classDecl, ctx);
+            // A supertype the migration has a counterpart for is no remnant as a type, but a class extending or
+            // implementing it is left as it is, so it is marked here. One without a counterpart is marked as a type.
+            if (c.getExtends() != null && isMappedLegacy(c.getExtends().getType())) {
+                c = c.withExtends(supertype(c.getExtends(), ctx));
+            }
+            if (c.getImplements() != null) {
+                c = c.withImplements(ListUtils.map(c.getImplements(), i -> isMappedLegacy(i.getType()) ? supertype(i, ctx) : i));
+            }
+            return c;
+        }
+
+        private TypeTree supertype(TypeTree supertype, ExecutionContext ctx) {
+            String type = fqn(supertype.getType());
+            return report(supertype, "supertype", type + " as a supertype", type, ctx);
+        }
+
+        private boolean isMappedLegacy(@Nullable JavaType type) {
+            JavaType.FullyQualified fq = TypeUtils.asFullyQualified(type);
+            return fq != null && LegacyAzureTypes.isLegacy(fq) && LegacyAzureTypes.current(fq.getFullyQualifiedName()) != null;
+        }
+
+        @Override
+        public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
+            J.MethodInvocation m = super.visitMethodInvocation(method, ctx);
+            return mark(m, m.getMethodType(), ctx);
+        }
+
+        @Override
+        public J.NewClass visitNewClass(J.NewClass newClass, ExecutionContext ctx) {
+            J.NewClass n = super.visitNewClass(newClass, ctx);
+            return mark(n, n.getConstructorType(), ctx);
+        }
+
+        @Override
+        public J.MemberReference visitMemberReference(J.MemberReference memberRef, ExecutionContext ctx) {
+            J.MemberReference r = super.visitMemberReference(memberRef, ctx);
+            return mark(r, r.getMethodType(), ctx);
+        }
+
+        @Override
+        public J.FieldAccess visitFieldAccess(J.FieldAccess fieldAccess, ExecutionContext ctx) {
+            J.FieldAccess f = super.visitFieldAccess(fieldAccess, ctx);
+            JavaType.Variable field = f.getName().getFieldType();
+            if (field != null && LegacyAzureTypes.isLegacy(field.getOwner())) {
+                String owner = fqn(field.getOwner());
+                if ("class".equals(field.getName()) && LegacyAzureTypes.current(owner) != null) {
+                    // A class literal is retyped with its type
+                    return f;
+                }
+                return report(f, "constant", owner + "." + field.getName(), owner, ctx);
+            }
+            if (field == null && isTypeReference() && isUnmappedLegacy(f.getType())) {
+                String type = fqn(f.getType());
+                return report(f, "type", type, type, ctx);
+            }
+            return f;
+        }
+
+        @Override
+        public J.Identifier visitIdentifier(J.Identifier identifier, ExecutionContext ctx) {
+            J.Identifier i = super.visitIdentifier(identifier, ctx);
+            Object parent = getCursor().getParentTreeCursor().getValue();
+            if (i.getFieldType() == null && isTypeReference() && isUnmappedLegacy(i.getType()) &&
+                !(parent instanceof J.FieldAccess) &&
+                // The name a class is declared with, in the legacy SDK's own sources
+                !(parent instanceof J.ClassDeclaration && ((J.ClassDeclaration) parent).getName() == identifier)) {
+                String type = fqn(i.getType());
+                return report(i, "type", type, type, ctx);
+            }
+            return i;
+        }
+
+        @Override
+        public J.TypeCast visitTypeCast(J.TypeCast typeCast, ExecutionContext ctx) {
+            J.TypeCast t = super.visitTypeCast(typeCast, ctx);
+            return conversion(t, t.getExpression().getType(), t.getClazz().getTree().getType(), ctx);
+        }
+
+        @Override
+        public J.InstanceOf visitInstanceOf(J.InstanceOf instanceOf, ExecutionContext ctx) {
+            J.InstanceOf i = super.visitInstanceOf(instanceOf, ctx);
+            return conversion(i, i.getExpression().getType(), i.getClazz() instanceof TypedTree ? ((TypedTree) i.getClazz()).getType() : null, ctx);
+        }
+
+        /**
+         * A cast or {@code instanceof} between two legacy types whose counterparts differ, such as a listed
+         * {@code ListBlobItem} to a {@code CloudBlob}, relates types that are unrelated once retyped.
+         */
+        private <J2 extends J> J2 conversion(J2 tree, @Nullable JavaType from, @Nullable JavaType to, ExecutionContext ctx) {
+            JavaType.FullyQualified fromType = TypeUtils.asFullyQualified(from);
+            JavaType.FullyQualified toType = TypeUtils.asFullyQualified(to);
+            if (fromType == null || toType == null || !LegacyAzureTypes.isLegacy(fromType) || !LegacyAzureTypes.isLegacy(toType)) {
+                return tree;
+            }
+            String fromCurrent = LegacyAzureTypes.current(fromType.getFullyQualifiedName());
+            String toCurrent = LegacyAzureTypes.current(toType.getFullyQualifiedName());
+            if (fromCurrent == null || toCurrent == null || fromCurrent.equals(toCurrent)) {
+                // An unmapped type is a remnant of its own
+                return tree;
+            }
+            String item = fqn(fromType) + " as " + fqn(toType);
+            return report(tree, "type", item, fqn(toType), ctx);
+        }
+
+        private boolean isTypeReference() {
+            Object parent = getCursor().getParentTreeCursor().getValue();
+            return !(parent instanceof J.MethodInvocation || parent instanceof J.NewClass ||
+                     parent instanceof J.MemberReference || parent instanceof J.FieldAccess &&
+                     ((J.FieldAccess) parent).getName().getFieldType() != null ||
+                     parent instanceof J.Package);
+        }
+
+        private boolean isUnmappedLegacy(@Nullable JavaType type) {
+            JavaType.FullyQualified fq = TypeUtils.asFullyQualified(type);
+            return fq != null && !(type instanceof JavaType.Unknown) &&
+                   LegacyAzureTypes.isLegacy(fq) && LegacyAzureTypes.current(fq.getFullyQualifiedName()) == null;
+        }
+
+        private <J2 extends J> J2 mark(J2 tree, JavaType.@Nullable Method type, ExecutionContext ctx) {
+            if (type == null) {
+                return tree;
+            }
+            // A call into a library built on the legacy SDK keeps its source as it is
+            boolean library = LegacyAzureTypes.isBuiltOnLegacy(type.getDeclaringType());
+            if (!library && !LegacyAzureTypes.isLegacy(type.getDeclaringType())) {
+                return tree;
+            }
+            String owner = fqn(type.getDeclaringType());
+            String item = owner + ("<constructor>".equals(type.getName()) ? "" : "." + type.getName());
+            return report(tree, library ? "library" : "call", item, owner, ctx);
+        }
+
+        private <J2 extends J> J2 report(J2 tree, String kind, String item, String owner, ExecutionContext ctx) {
+            if (found != null) {
+                found.add(tree.getId());
+                return tree;
+            }
+            if (only != null && !only.contains(tree.getId())) {
+                return tree;
+            }
+            matched = true;
+            String guide = guide(owner);
+            SourceFile source = getCursor().firstEnclosing(SourceFile.class);
+            if (source != null && table != null) {
+                table.insertRow(ctx, new LegacyAzureSdkRemnants.Row(source.getSourcePath().toString(), kind, item,
+                        "No automatic migration. See " + guide));
+            }
+            return SearchResult.found(tree, "Legacy Azure SDK: migrate `" + item + "` by hand, see " + guide);
+        }
     }
 
     private static String fqn(@Nullable JavaType type) {

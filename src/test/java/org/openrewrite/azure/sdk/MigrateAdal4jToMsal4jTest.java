@@ -293,10 +293,10 @@ class MigrateAdal4jToMsal4jTest implements RewriteTest {
               class Tokens {
                   AuthenticationContext context;
 
-                  String refreshTokenOf(String resource, ClientCredential credential) throws ExecutionException, InterruptedException {
+                  String accessTokenOf(String resource, ClientCredential credential) throws ExecutionException, InterruptedException {
                       AuthenticationResult result = context.acquireToken(resource, credential, null).get();
                       long expiresIn = result.getExpiresOn();
-                      return result.getRefreshToken();
+                      return result.getAccessToken();
                   }
               }
               """,
@@ -313,10 +313,10 @@ class MigrateAdal4jToMsal4jTest implements RewriteTest {
               class Tokens {
                   String context;
 
-                  String refreshTokenOf(String resource, ConfidentialClientApplication.Builder credential) throws ExecutionException, InterruptedException {
+                  String accessTokenOf(String resource, ConfidentialClientApplication.Builder credential) throws ExecutionException, InterruptedException {
                       IAuthenticationResult result = withAuthority(credential, context).build().acquireToken(ClientCredentialParameters.builder(Collections.singleton(resource + "/.default")).build()).get();
                       long expiresIn = TimeUnit.MILLISECONDS.toSeconds(result.expiresOnDate().getTime() - System.currentTimeMillis());
-                      return /*~~(Legacy Azure SDK: migrate `com.microsoft.aad.adal4j.AuthenticationResult.getRefreshToken` by hand, see https://learn.microsoft.com/entra/msal/java/advanced/migrate-adal-msal-java)~~>*/result.getRefreshToken();
+                      return result.accessToken();
                   }
 
                   private static ConfidentialClientApplication.Builder withAuthority(ConfidentialClientApplication.Builder application, String authority) {
