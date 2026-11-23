@@ -1206,6 +1206,60 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
     }
 
     @Test
+    void keepsTheConnectionStringThatToStringReturned() {
+        rewriteRun(
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.mongodb.MongoClientURI;
+
+                  class Uris {
+                      String normalize(String text) {
+                          MongoClientURI uri = new MongoClientURI(text);
+                          return uri.toString();
+                      }
+                  }
+                  """,
+                """
+                  import com.mongodb.ConnectionString;
+
+                  class Uris {
+                      String normalize(String text) {
+                          ConnectionString uri = new ConnectionString(text);
+                          return uri.getConnectionString();
+                      }
+                  }
+                  """
+              ),
+              java(
+                """
+                  import com.mongodb.ConnectionString;
+
+                  class Connections {
+                      String describe(ConnectionString connection) {
+                          return connection.toString();
+                      }
+                  }
+                  """,
+                """
+                  import com.mongodb.ConnectionString;
+
+                  class Connections {
+                      String describe(ConnectionString connection) {
+                          return connection.getConnectionString();
+                      }
+                  }
+                  """
+              )
+            ),
+            pom("mongodb-driver-sync")
+          )
+        );
+    }
+
+    @Test
     void removesUnusedImportsThatDriver5CannotResolve() {
         rewriteRun(
           mavenProject("app",

@@ -1152,6 +1152,8 @@ class LegacyApiConverter extends JavaVisitor<ExecutionContext> {
         Expression r = receiver(mi);
         switch (mi.getSimpleName()) {
             case "getURI":
+            case "toString":
+                // Driver 5 redacts what toString returns
                 return apply(mi, tpl().any(CONN, r).text(".getConnectionString()"), ctx);
             case "getCredentials":
                 return apply(mi, tpl().any(CONN, r).text(".getCredential()"), ctx);

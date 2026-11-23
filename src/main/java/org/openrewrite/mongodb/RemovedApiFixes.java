@@ -177,6 +177,16 @@ final class RemovedApiFixes {
             Expression select = mi.getSelect();
             boolean statement = getCursor().getParentTreeCursor().getValue() instanceof J.Block;
 
+            // Driver 5 redacts the credentials and option values of the connection string that toString returns
+            if ("toString".equals(name) && select != null && (args.isEmpty() || args.get(0) instanceof J.Empty)) {
+                if (MongoTypes.MONGO_CLIENT_URI.equals(receiver)) {
+                    return template(mi, "#{any(com.mongodb.MongoClientURI)}.getURI()", ctx, select);
+                }
+                if ("com.mongodb.ConnectionString".equals(receiver)) {
+                    return template(mi, "#{any(com.mongodb.ConnectionString)}.getConnectionString()", ctx, select);
+                }
+            }
+
             if ("com.mongodb.MongoClientOptions$Builder".equals(declaring) && select != null) {
                 if (DROPPED_BUILDER_OPTIONS.contains(name)) {
                     return statement ? null : select.withPrefix(mi.getPrefix());
