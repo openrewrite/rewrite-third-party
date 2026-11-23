@@ -22,7 +22,11 @@ import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.openrewrite.java.Assertions.java;
+import static org.openrewrite.java.Assertions.mavenProject;
+import static org.openrewrite.java.Assertions.srcMainJava;
+import static org.openrewrite.maven.Assertions.pomXml;
 
 class MigrateAzureStorageBlobTest implements RewriteTest {
 
@@ -364,6 +368,62 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
                   }
               }
               """
+          )
+        );
+    }
+
+    @Test
+    void swapsMavenDependency() {
+        rewriteRun(
+          mavenProject("app",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import com.microsoft.azure.storage.CloudStorageAccount;
+                  import com.microsoft.azure.storage.blob.CloudBlobClient;
+
+                  class Clients {
+                      CloudBlobClient blobs(String connectionString) throws Exception {
+                          return CloudStorageAccount.parse(connectionString).createCloudBlobClient();
+                      }
+                  }
+                  """,
+                """
+                  import com.azure.storage.blob.BlobServiceClient;
+                  import com.azure.storage.blob.BlobServiceClientBuilder;
+
+                  class Clients {
+                      BlobServiceClient blobs(String connectionString) throws Exception {
+                          return new BlobServiceClientBuilder().connectionString(connectionString).buildClient();
+                      }
+                  }
+                  """
+              )
+            ),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.example</groupId>
+                  <artifactId>app</artifactId>
+                  <version>1.0</version>
+                  <dependencies>
+                    <dependency>
+                      <groupId>com.microsoft.azure</groupId>
+                      <artifactId>azure-storage</artifactId>
+                      <version>8.6.6</version>
+                    </dependency>
+                  </dependencies>
+                </project>
+                """,
+              spec -> spec.after(pom -> {
+                  assertThat(pom).doesNotContain("<artifactId>azure-storage</artifactId>");
+                  assertThat(pom).containsPattern("<artifactId>azure-storage-blob</artifactId>\\s*<version>12\\.\\d+\\.\\d+</version>");
+                  return pom;
+              })
+            )
           )
         );
     }
