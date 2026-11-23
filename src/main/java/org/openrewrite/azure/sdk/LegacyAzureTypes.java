@@ -101,6 +101,19 @@ public final class LegacyAzureTypes {
         t.put(eh + "EventHubException", "com.azure.core.amqp.exception.AmqpException");
         t.put(eh + "PayloadSizeExceededException", "com.azure.core.amqp.exception.AmqpException");
 
+        // Service Bus v3 to v7, sending
+        String sb = "com.microsoft.azure.servicebus.";
+        String v7 = "com.azure.messaging.servicebus.";
+        t.put(sb + "QueueClient", v7 + "ServiceBusSenderClient");
+        t.put(sb + "TopicClient", v7 + "ServiceBusSenderClient");
+        t.put(sb + "IQueueClient", v7 + "ServiceBusSenderClient");
+        t.put(sb + "ITopicClient", v7 + "ServiceBusSenderClient");
+        t.put(sb + "IMessageSender", v7 + "ServiceBusSenderClient");
+        t.put(sb + "Message", v7 + "ServiceBusMessage");
+        t.put(sb + "IMessage", v7 + "ServiceBusMessage");
+        t.put(sb + "primitives.ConnectionStringBuilder", "java.lang.String");
+        t.put(sb + "primitives.ServiceBusException", v7 + "ServiceBusException");
+
         TYPES = Collections.unmodifiableMap(t);
     }
 
