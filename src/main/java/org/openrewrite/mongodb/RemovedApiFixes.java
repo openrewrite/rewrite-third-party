@@ -124,12 +124,27 @@ final class RemovedApiFixes {
         return null;
     }
 
+    /**
+     * The driver type whose {@code toJson()}, or {@code toString()} when {@code viaToString}, wrote strict extended JSON
+     * in driver 3 and writes relaxed extended JSON in driver 5, when {@code type} is one.
+     */
+    static @Nullable String strictJsonDocument(@Nullable JavaType type, boolean viaToString) {
+        for (String document : viaToString ? new String[]{"com.mongodb.BasicDBObject", "org.bson.BsonDocument"} :
+                new String[]{"com.mongodb.BasicDBObject", "org.bson.Document", "org.bson.BsonDocument"}) {
+            if (TypeUtils.isAssignableTo(document, type)) {
+                return document;
+            }
+        }
+        return null;
+    }
+
     private static final class Calls extends JavaVisitor<ExecutionContext> {
 
         private static final String[] IMPORTS = {
                 "com.mongodb.BasicDBObject", "com.mongodb.ReadPreference", "com.mongodb.WriteConcern", "com.mongodb.MongoClient",
                 "com.mongodb.MongoClientOptions", "com.mongodb.client.model.ReplaceOptions",
-                "com.mongodb.client.model.DBCollectionCountOptions", "java.util.ArrayList"};
+                "com.mongodb.client.model.DBCollectionCountOptions", "java.util.ArrayList", "org.bson.json.JsonMode",
+                "org.bson.json.JsonWriterSettings"};
 
         /**
          * The same expression with ids of its own, for a template that reads it twice.
@@ -176,6 +191,16 @@ final class RemovedApiFixes {
             List<Expression> args = mi.getArguments();
             Expression select = mi.getSelect();
             boolean statement = getCursor().getParentTreeCursor().getValue() instanceof J.Block;
+
+            // Driver 5 writes relaxed extended JSON where driver 3 wrote strict
+            if (select != null && (args.isEmpty() || args.get(0) instanceof J.Empty) &&
+                ("toJson".equals(name) || "toString".equals(name))) {
+                String document = strictJsonDocument(select.getType(), "toString".equals(name));
+                if (document != null) {
+                    return template(mi, "#{any(" + document + ")}.toJson(JsonWriterSettings.builder().outputMode(JsonMode.STRICT).build())",
+                            ctx, select);
+                }
+            }
 
             // Driver 5 redacts the credentials and option values of the connection string that toString returns
             if ("toString".equals(name) && select != null && (args.isEmpty() || args.get(0) instanceof J.Empty)) {

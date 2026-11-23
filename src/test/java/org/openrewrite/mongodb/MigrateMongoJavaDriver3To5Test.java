@@ -1260,6 +1260,52 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
     }
 
     @Test
+    void keepsTheStrictJsonThatDriver3Wrote() {
+        rewriteRun(
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.mongodb.BasicDBObject;
+                  import com.mongodb.client.MongoCollection;
+                  import org.bson.Document;
+
+                  class Json {
+                      String first(MongoCollection<Document> people) {
+                          return people.find().first().toJson();
+                      }
+
+                      String describe(BasicDBObject person) {
+                          return person.toString();
+                      }
+                  }
+                  """,
+                """
+                  import com.mongodb.BasicDBObject;
+                  import com.mongodb.client.MongoCollection;
+                  import org.bson.Document;
+                  import org.bson.json.JsonMode;
+                  import org.bson.json.JsonWriterSettings;
+
+                  class Json {
+                      String first(MongoCollection<Document> people) {
+                          return people.find().first().toJson(JsonWriterSettings.builder().outputMode(JsonMode.STRICT).build());
+                      }
+
+                      String describe(BasicDBObject person) {
+                          return person.toJson(JsonWriterSettings.builder().outputMode(JsonMode.STRICT).build());
+                      }
+                  }
+                  """
+              )
+            ),
+            pom("mongodb-driver-sync")
+          )
+        );
+    }
+
+    @Test
     void removesUnusedImportsThatDriver5CannotResolve() {
         rewriteRun(
           mavenProject("app",
