@@ -918,6 +918,86 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
     }
 
     @Test
+    void leavesSettingsBlocksThatAreNotCallChainsOnTheirBuilder() {
+        rewriteRun(
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.mongodb.MongoClient;
+                  import com.mongodb.MongoClientSettings;
+                  import com.mongodb.ServerAddress;
+                  import com.mongodb.connection.SslSettings;
+
+                  import java.util.List;
+                  import java.util.concurrent.TimeUnit;
+
+                  class Clients {
+                      private final List<ServerAddress> cluster;
+
+                      Clients(List<ServerAddress> cluster) {
+                          this.cluster = cluster;
+                      }
+
+                      MongoClientSettings settings(boolean secure) {
+                          return MongoClientSettings.builder()
+                                  .applyToSslSettings(ssl -> configure(ssl))
+                                  .applyToSslSettings(ssl -> ssl.enabled(secure))
+                                  .applyToClusterSettings(cluster -> cluster.serverSelectionTimeout(1, TimeUnit.SECONDS))
+                                  .applyToClusterSettings(builder -> builder.hosts(cluster))
+                                  .build();
+                      }
+
+                      static void configure(SslSettings.Builder ssl) {
+                      }
+
+                      void drop() {
+                          new MongoClient("localhost").dropDatabase("test");
+                      }
+                  }
+                  """,
+                """
+                  import com.mongodb.MongoClientSettings;
+                  import com.mongodb.ServerAddress;
+                  import com.mongodb.client.MongoClients;
+                  import com.mongodb.connection.SslSettings;
+
+                  import java.util.List;
+                  import java.util.concurrent.TimeUnit;
+
+                  class Clients {
+                      private final List<ServerAddress> cluster;
+
+                      Clients(List<ServerAddress> cluster) {
+                          this.cluster = cluster;
+                      }
+
+                      MongoClientSettings settings(boolean secure) {
+                          return MongoClientSettings.builder()
+                                  .applyToSslSettings(ssl -> configure(ssl))
+                                  .applyToSslSettings(ssl -> ssl.enabled(secure))
+                                  .applyToClusterSettings(cluster -> cluster.serverSelectionTimeout(1, TimeUnit.SECONDS))
+                                  .applyToClusterSettings(builder -> builder.hosts(cluster))
+                                  .build();
+                      }
+
+                      static void configure(SslSettings.Builder ssl) {
+                      }
+
+                      void drop() {
+                          MongoClients.create("mongodb://localhost").getDatabase("test").drop();
+                      }
+                  }
+                  """
+              )
+            ),
+            pom("mongodb-driver-sync")
+          )
+        );
+    }
+
+    @Test
     void implementsTheMethodsThatDriver5AddsToItsTypes() {
         rewriteRun(
           spec -> spec.dataTable(MongoDriverMigrationDecisions.Row.class, rows -> assertThat(rows)

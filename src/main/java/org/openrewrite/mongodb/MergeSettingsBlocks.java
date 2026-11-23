@@ -49,7 +49,13 @@ final class MergeSettingsBlocks extends JavaIsoVisitor<ExecutionContext> {
             return mi;
         }
         J.Identifier param = parameter(outer);
-        if (param == null || references(outer.getBody(), param.getSimpleName()) != 1) {
+        J.Identifier innerParam = parameter(inner);
+        if (param == null || innerParam == null || references(outer.getBody(), param.getSimpleName()) != 1 ||
+            // The first block has to be a call chain on its builder, which returns the builder for the second to go on
+            replaceRoot((Expression) inner.getBody(), innerParam.getSimpleName(), innerParam) == null ||
+            !TypeUtils.isOfType(((Expression) inner.getBody()).getType(), innerParam.getType()) ||
+            // and the second must not name what the first block's parameter would hide
+            !innerParam.getSimpleName().equals(param.getSimpleName()) && references(outer.getBody(), innerParam.getSimpleName()) != 0) {
             return mi;
         }
         Expression merged = replaceRoot((Expression) outer.getBody(), param.getSimpleName(), (Expression) inner.getBody());
