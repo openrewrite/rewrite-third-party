@@ -36,6 +36,7 @@ import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.openrewrite.java.Assertions.*;
 import static org.openrewrite.maven.Assertions.pomXml;
+import static org.openrewrite.test.SourceSpecs.text;
 
 class MigrateMongoJavaDriver3To5Test implements RewriteTest {
 
@@ -1323,6 +1324,95 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
               )
             ),
             pom("mongodb-driver-sync")
+          )
+        );
+    }
+
+    @Test
+    void requiresTheModulesOfDriver5() {
+        rewriteRun(
+          mavenProject("app",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import com.mongodb.client.MongoCollection;
+                  import org.bson.Document;
+
+                  class Sessions {
+                      long count(MongoCollection<Document> sessions) {
+                          return sessions.count();
+                      }
+                  }
+                  """,
+                """
+                  import com.mongodb.client.MongoCollection;
+                  import org.bson.Document;
+
+                  class Sessions {
+                      long count(MongoCollection<Document> sessions) {
+                          return sessions.estimatedDocumentCount();
+                      }
+                  }
+                  """
+              ),
+              text(
+                """
+                  module org.example.sessions
+                  {
+                      requires transitive mongo.java.driver;
+                      requires org.mongodb.bson;
+                      requires transitive org.eclipse.jetty.server;
+                  }
+                  """,
+                """
+                  module org.example.sessions
+                  {
+                      requires transitive org.mongodb.driver.sync.client;
+                      requires transitive org.mongodb.driver.core;
+                      requires org.mongodb.bson;
+                      requires transitive org.eclipse.jetty.server;
+                  }
+                  """,
+                spec -> spec.path("module-info.java")
+              )
+            ),
+            pom("mongodb-driver-sync")
+          )
+        );
+    }
+
+    @Test
+    void leavesDriverOfAJavaModuleThatKeepsTheLegacyApi() {
+        rewriteRun(
+          spec -> spec.dataTable(MongoDriverMigrationDecisions.Row.class, rows -> assertThat(rows)
+            .extracting(MongoDriverMigrationDecisions.Row::getReason)
+            .anyMatch(r -> r.contains("declares the Java module app/src/main/java/module-info.java, which cannot read the legacy API"))),
+          mavenProject("app",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import com.mongodb.DBCollection;
+                  import com.mongodb.WriteConcern;
+
+                  class Orders {
+                      void configure(DBCollection orders) {
+                          orders.setWriteConcern(WriteConcern.ACKNOWLEDGED);
+                      }
+                  }
+                  """
+              ),
+              text(
+                """
+                  module org.example.orders {
+                      requires transitive mongo.java.driver;
+                  }
+                  """,
+                spec -> spec.path("module-info.java")
+              )
+            ),
+            pomXml(POM)
           )
         );
     }

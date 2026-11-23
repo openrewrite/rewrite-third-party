@@ -32,6 +32,7 @@ import org.openrewrite.maven.tree.ResolvedDependency;
 import org.openrewrite.quark.Quark;
 import org.openrewrite.binary.Binary;
 import org.openrewrite.remote.Remote;
+import org.openrewrite.text.PlainText;
 
 import java.util.*;
 import java.util.regex.Pattern;
@@ -102,6 +103,10 @@ final class LegacyScanner extends TreeVisitor<Tree, ExecutionContext> {
                 acc.modulesUsingLegacyApi.add(module);
                 acc.blockers.add(new LegacyUsage.Blocker(module, sf.getSourcePath().toString(),
                         "uses the legacy API in a language other than Java"));
+            }
+        } else if (sf instanceof PlainText && ModuleRequires.isDescriptor(sf)) {
+            if (ModuleRequires.requiresDriver((PlainText) sf)) {
+                acc.moduleDescriptors.add(sf.getSourcePath().toString());
             }
         } else if (!(sf instanceof Quark) && !(sf instanceof Binary) && !(sf instanceof Remote) &&
                    !sf.getMarkers().findFirst(MavenResolutionResult.class).isPresent() &&

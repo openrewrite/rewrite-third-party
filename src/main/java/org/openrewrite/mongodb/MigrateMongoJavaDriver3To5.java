@@ -28,6 +28,7 @@ import org.openrewrite.maven.AddManagedDependencyVisitor;
 import org.openrewrite.maven.tree.MavenResolutionResult;
 import org.openrewrite.maven.tree.ResolvedDependency;
 import org.openrewrite.mongodb.table.MongoDriverMigrationDecisions;
+import org.openrewrite.text.PlainText;
 import org.openrewrite.xml.tree.Xml;
 
 import java.util.*;
@@ -62,7 +63,12 @@ public class MigrateMongoJavaDriver3To5 extends ScanningRecipe<MigrateMongoJavaD
             "where it is when a library bound to driver 3, such as Spring Data MongoDB before 4.3, Morphia or Jongo, is on the " +
             "classpath, or when a use of removed API has no replacement; `FindRemovedMongoApis` marks those. Classes that " +
             "implement a driver interface to which driver 5 adds abstract methods, such as `MongoCursor.available()`, get " +
-            "those methods, throwing `UnsupportedOperationException`. Clients of " +
+            "those methods, throwing `UnsupportedOperationException`. Calls whose result driver 5 changed keep the old one: " +
+            "`toJson()`, and the `toString()` of `BasicDBObject` and `BsonDocument`, ask for the strict extended JSON that " +
+            "driver 3 wrote, and the `toString()` of `MongoClientURI` and `ConnectionString`, which driver 5 redacts, becomes " +
+            "`getURI()` or `getConnectionString()`. A `module-info.java` requires the modules of driver 5; a repository with " +
+            "a Java module stays on driver 3 when a module would keep the legacy API, which no Java module can read in " +
+            "driver 5. Clients of " +
             "repositories that use `java.util.UUID` keep the `JAVA_LEGACY` UUID representation that driver 3 used by default. " +
             "`MongoDriverMigrationDecisions` lists each module's outcome and the reasons for it.";
 
@@ -174,6 +180,10 @@ public class MigrateMongoJavaDriver3To5 extends ScanningRecipe<MigrateMongoJavaD
                         t = pinDriverParts((Xml.Document) t, ctx);
                     }
                     return t;
+                }
+                if (tree instanceof PlainText && ModuleRequires.isDescriptor((SourceFile) tree)) {
+                    // The Java parser leaves module descriptors as text
+                    return upgrade ? ModuleRequires.requireDriver5((PlainText) tree) : tree;
                 }
                 if (!(tree instanceof J.CompilationUnit)) {
                     return tree;

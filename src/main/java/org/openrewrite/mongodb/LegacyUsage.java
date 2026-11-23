@@ -121,7 +121,7 @@ final class LegacyUsage {
             synchronized (this) {
                 d = decision;
                 if (d == null) {
-                    d = decide();
+                    d = decide(upgradesDriver());
                     decision = d;
                 }
             }
@@ -167,6 +167,11 @@ final class LegacyUsage {
         if (!declaresDriver) {
             return "declares no MongoDB driver in a build file this migration can change";
         }
+        String descriptor = modularLegacyApi();
+        if (descriptor != null) {
+            return "declares the Java module " + descriptor + ", which cannot read the legacy API that a module keeps, " +
+                   "since driver 5 splits the package `com.mongodb` between `mongodb-driver-legacy` and `mongodb-driver-core`";
+        }
         return null;
     }
 
@@ -203,14 +208,52 @@ final class LegacyUsage {
         return modulesUsingLegacyApi.contains(module) && !blockedModules().containsKey(module);
     }
 
-    private Map<String, List<String>> decide() {
+    private volatile @Nullable Map<String, List<String>> decisionIfUpgraded;
+
+    /**
+     * The module descriptors ({@code module-info.java}) that require a module of the driver.
+     */
+    final Set<String> moduleDescriptors = ConcurrentHashMap.newKeySet();
+
+    /**
+     * A module descriptor that requires the driver, when moving the driver to 5 would leave a module on the legacy API,
+     * or {@code null}. Driver 5 splits the package {@code com.mongodb} between {@code mongodb-driver-legacy} and
+     * {@code mongodb-driver-core}, so that no Java module can read the legacy API.
+     */
+    private @Nullable String modularLegacyApi() {
+        if (moduleDescriptors.isEmpty()) {
+            return null;
+        }
+        Map<String, List<String>> d = decisionIfUpgraded;
+        if (d == null) {
+            synchronized (this) {
+                d = decisionIfUpgraded;
+                if (d == null) {
+                    d = decide(true);
+                    decisionIfUpgraded = d;
+                }
+            }
+        }
+        for (String module : modulesUsingLegacyApi) {
+            if (d.containsKey(module)) {
+                return new TreeSet<>(moduleDescriptors).first();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Module to the reasons it keeps the legacy API, when the driver moves to 5 or not. It does not ask whether the
+     * driver moves, since that asks it.
+     */
+    private Map<String, List<String>> decide(boolean upgrading) {
         Map<String, String> parent = new HashMap<>();
         for (String m : modulesUsingLegacyApi) {
             parent.put(m, m);
         }
         Map<String, List<String>> reasons = new TreeMap<>();
         List<Blocker> all = new ArrayList<>(blockers);
-        all.addAll(upgradesDriver() ? blockersIfUpgraded : blockersUnlessUpgraded);
+        all.addAll(upgrading ? blockersIfUpgraded : blockersUnlessUpgraded);
         for (Blocker b : all) {
             reasons.computeIfAbsent(b.module, k -> new ArrayList<>()).add(b.sourcePath + ": " + b.reason);
         }
@@ -241,7 +284,7 @@ final class LegacyUsage {
                 reasons.computeIfAbsent(m, k -> new ArrayList<>())
                         .add("is in a repository that compiles against MongoDB driver " + newer + ", newer than the 3.x these recipes migrate from");
             }
-        } else if (!upgradesDriver()) {
+        } else if (!upgrading) {
             for (String m : modulesUsingLegacyApi) {
                 String version = driverVersionByModule.get(m);
                 if (!MongoClasspath.hasModernApi(version)) {
