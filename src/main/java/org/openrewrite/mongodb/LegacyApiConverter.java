@@ -1641,6 +1641,10 @@ class LegacyApiConverter extends JavaVisitor<ExecutionContext> {
         if (legacy != null && CONVERTED.contains(legacy) && isTypeName()) {
             JavaType r = modern(ctx).replacementFor(legacy);
             if (r != null) {
+                if ("var".equals(i.getSimpleName())) {
+                    // A local declared with `var` takes the type of what it is initialized with
+                    return i.withType(r);
+                }
                 for (String imp : ModernTypes.importsFor(r)) {
                     maybeAddImport(imp);
                 }
