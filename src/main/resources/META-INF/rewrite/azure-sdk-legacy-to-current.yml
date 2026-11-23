@@ -1,0 +1,36 @@
+#
+# Copyright 2026 the original author or authors.
+# <p>
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# <p>
+# https://www.apache.org/licenses/LICENSE-2.0
+# <p>
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.azure.sdk.MigrateAzureSdkLegacyToCurrent
+displayName: Migrate from the legacy Azure SDK for Java to the current Azure SDK
+description: >-
+  Migrates Java code off the legacy Azure SDK for Java (`com.microsoft.azure` libraries) and ADAL4J onto the current Azure SDK
+  (`com.azure` libraries) and MSAL4J: rewrites the calls, retypes the declarations, removes catches of the checked exceptions
+  the legacy calls declared, and swaps the dependencies of each module that no longer uses a legacy library. A source file
+  with anything that cannot be migrated is left as it is, with the legacy artifacts its module needs, and what stops it is
+  marked and listed in the `LegacyAzureSdkRemnants` data table. Once that is migrated by hand, another run migrates the rest.
+tags:
+  - azure
+  - sdk
+recipeList:
+  - org.openrewrite.azure.sdk.MigrateAzureStorageBlob
+  - org.openrewrite.azure.sdk.MigrateAdal4jToMsal4j
+  - org.openrewrite.azure.sdk.MigrateAzureEventHubs
+  - org.openrewrite.azure.sdk.MigrateAzureServiceBus
+  - org.openrewrite.azure.sdk.search.FindAzureSdkLegacyRemnants
+  - org.openrewrite.azure.sdk.ChangeLegacyAzureTypes
+  - org.openrewrite.azure.sdk.MigrateAzureSdkDependencies
