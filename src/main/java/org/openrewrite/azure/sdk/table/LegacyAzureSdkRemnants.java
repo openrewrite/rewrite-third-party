@@ -37,9 +37,10 @@ public class LegacyAzureSdkRemnants extends DataTable<LegacyAzureSdkRemnants.Row
         @Column(displayName = "Kind",
                 description = "`call` (a method or constructor), `constant` (an enum constant or static field), `type` " +
                               "(a type without a current counterpart), `supertype` (a legacy type a class extends or " +
-                              "implements), `library` (a call into a library built on the legacy SDK) or `shared` (legacy " +
-                              "types shared with another source that has any of those). The migration leaves a source " +
-                              "with any of them as it is.")
+                              "implements), `library` (a call into a library built on the legacy SDK), `shared` (legacy " +
+                              "types shared with another source that has any of those) or `build` (no Maven or Gradle " +
+                              "build the recipe can edit compiles the source). The migration leaves a source with any of " +
+                              "them as it is.")
         String kind;
 
         @Column(displayName = "Item",

@@ -45,6 +45,7 @@ public final class LegacyAzureMigration {
     private static final String BLOCKERS = LegacyAzureMigration.class.getName() + ".blockers";
     private static final String SIMULATING = LegacyAzureMigration.class.getName() + ".simulating";
     private static final String LEFT_WITH = LegacyAzureMigration.class.getName() + ".leftWith";
+    private static final String UNBUILT = LegacyAzureMigration.class.getName() + ".unbuilt";
 
     private LegacyAzureMigration() {
     }
@@ -71,7 +72,21 @@ public final class LegacyAzureMigration {
             return false;
         }
         return LegacyAzureTypes.isLeftAsItIs(source) || !blockers((JavaSourceFile) source, ctx).isEmpty() ||
-               leftWith(source, ctx) != null;
+               leftWith(source, ctx) != null || isUnbuilt(source, ctx);
+    }
+
+    /**
+     * Whether a source is left since no build the recipe can edit compiles it, such as a Gradle subproject whose build
+     * file has a name of its own that the repository's model doesn't attribute to it, as
+     * {@code MigrateAzureSdkDependencies} found when it scanned the repository.
+     */
+    public static boolean isUnbuilt(Tree source, ExecutionContext ctx) {
+        Set<UUID> unbuilt = ctx.getMessage(UNBUILT);
+        return unbuilt != null && unbuilt.contains(source.getId());
+    }
+
+    static void leaveUnbuilt(Set<UUID> unbuilt, ExecutionContext ctx) {
+        ctx.computeMessageIfAbsent(UNBUILT, k -> ConcurrentHashMap.<UUID>newKeySet()).addAll(unbuilt);
     }
 
     /**

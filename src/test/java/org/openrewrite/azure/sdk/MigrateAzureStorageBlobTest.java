@@ -588,6 +588,51 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
     }
 
     @Test
+    void leavesASourceWhoseBuildItCannotFind() {
+        rewriteRun(
+          mavenProject("app",
+            srcMainJava(
+              // The legacy artifact comes from a build the recipe doesn't read, so it couldn't declare the current one
+              //language=java
+              java(
+                """
+                  import com.microsoft.azure.storage.CloudStorageAccount;
+                  import com.microsoft.azure.storage.blob.CloudBlobClient;
+
+                  class Clients {
+                      CloudBlobClient blobs(String connectionString) throws Exception {
+                          return CloudStorageAccount.parse(connectionString).createCloudBlobClient();
+                      }
+                  }
+                  """,
+                """
+                  import com.microsoft.azure.storage.CloudStorageAccount;
+                  import com.microsoft.azure.storage.blob.CloudBlobClient;
+
+                  /*~~(Legacy Azure SDK: left as it is, since no build the recipe can edit compiles it)~~>*/class Clients {
+                      CloudBlobClient blobs(String connectionString) throws Exception {
+                          return CloudStorageAccount.parse(connectionString).createCloudBlobClient();
+                      }
+                  }
+                  """
+              )
+            ),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.example</groupId>
+                  <artifactId>app</artifactId>
+                  <version>1.0</version>
+                </project>
+                """
+            )
+          )
+        );
+    }
+
+    @Test
     void keepsTheLegacyArtifactForASourceItLeaves() {
         rewriteRun(
           mavenProject("app",

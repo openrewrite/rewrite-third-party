@@ -100,7 +100,19 @@ public class FindAzureSdkLegacyRemnants extends Recipe {
                 Set<UUID> blockers = LegacyAzureMigration.blockers((JavaSourceFile) tree, ctx);
                 if (blockers.isEmpty()) {
                     String with = LegacyAzureMigration.leftWith(tree, ctx);
-                    return with == null ? tree : leftWith((JavaSourceFile) tree, with, ctx);
+                    if (with != null) {
+                        return markClass((JavaSourceFile) tree, "shared", with,
+                                "Shares legacy types with " + with + ", which has uses the migration can't migrate. " +
+                                "Migrate those, and the next run migrates both.",
+                                "left as it is with `" + with + "`, which shares its legacy types and has uses to migrate by hand", ctx);
+                    }
+                    if (LegacyAzureMigration.isUnbuilt(tree, ctx)) {
+                        return markClass((JavaSourceFile) tree, "build", "",
+                                "No Maven or Gradle build the recipe can edit resolves the legacy artifacts this source uses, " +
+                                "so it can't declare the current ones.",
+                                "left as it is, since no build the recipe can edit compiles it", ctx);
+                    }
+                    return tree;
                 }
                 Finder finder = new Finder(remnants, blockers, null);
                 Tree marked = finder.visit(tree, ctx);
@@ -111,9 +123,10 @@ public class FindAzureSdkLegacyRemnants extends Recipe {
     }
 
     /**
-     * Marks the first class of a source that the migration leaves with another, which it shares legacy types with.
+     * Marks the first class of a source that the migration leaves for a reason outside it.
      */
-    private JavaSourceFile leftWith(JavaSourceFile source, String with, ExecutionContext ctx) {
+    private JavaSourceFile markClass(JavaSourceFile source, String kind, String item, String detail, String message,
+                                     ExecutionContext ctx) {
         return (JavaSourceFile) new JavaIsoVisitor<ExecutionContext>() {
             boolean marked;
 
@@ -123,11 +136,8 @@ public class FindAzureSdkLegacyRemnants extends Recipe {
                     return classDecl;
                 }
                 marked = true;
-                remnants.insertRow(ctx, new LegacyAzureSdkRemnants.Row(source.getSourcePath().toString(), "shared", with,
-                        "Shares legacy types with " + with + ", which has uses the migration can't migrate. Migrate those, " +
-                        "and the next run migrates both."));
-                return SearchResult.found(classDecl, "Legacy Azure SDK: left as it is with `" + with +
-                                                     "`, which shares its legacy types and has uses to migrate by hand");
+                remnants.insertRow(ctx, new LegacyAzureSdkRemnants.Row(source.getSourcePath().toString(), kind, item, detail));
+                return SearchResult.found(classDecl, "Legacy Azure SDK: " + message);
             }
         }.visitNonNull(source, ctx);
     }

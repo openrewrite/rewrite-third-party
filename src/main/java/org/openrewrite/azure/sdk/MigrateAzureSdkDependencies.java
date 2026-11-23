@@ -105,6 +105,10 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
     public static class Accumulator {
         final Set<Path> modules = ConcurrentHashMap.newKeySet();
         /**
+         * Per module: the legacy artifacts it resolves, directly or not, when its build can take a dependency.
+         */
+        final Map<Path, Set<String>> editable = new ConcurrentHashMap<>();
+        /**
          * Per source: artifact to whether only test code needs it.
          */
         final Map<Path, Map<String, Boolean>> needed = new ConcurrentHashMap<>();
@@ -189,6 +193,7 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
                 SourceFile s = (SourceFile) tree;
                 if (isMavenPom(s) || isGradleBuild(s)) {
                     acc.modules.add(dir(s.getSourcePath()));
+                    recordBuild(s, acc);
                     return tree;
                 }
                 if (s instanceof JavaSourceFile) {
@@ -216,6 +221,48 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
                 legacyArtifacts(cu), needed(cu), legacyArtifacts(after), needed(after)));
     }
 
+    /**
+     * Records what legacy artifacts a module resolves, if its build is one the recipe can add a dependency to.
+     */
+    private static void recordBuild(SourceFile build, Accumulator acc) {
+        Map<String, String> artifacts = new HashMap<>();
+        Set<ResolvedDependency> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        if (build instanceof Xml.Document) {
+            for (List<ResolvedDependency> scope : build.getMarkers().findFirst(MavenResolutionResult.class).get().getDependencies().values()) {
+                collect(scope, artifacts, seen);
+            }
+        } else {
+            GradleProject gp = build.getMarkers().findFirst(GradleProject.class).get();
+            if (gp.getConfiguration("implementation") == null) {
+                return;
+            }
+            for (GradleDependencyConfiguration c : gp.getConfigurations()) {
+                collect(c.getDirectResolved(), artifacts, seen);
+            }
+        }
+        Set<String> legacy = new HashSet<>();
+        for (String ga : artifacts.keySet()) {
+            if (ga.startsWith("com.microsoft.azure:")) {
+                legacy.add(ga);
+            }
+        }
+        acc.editable.put(dir(build.getSourcePath()), legacy);
+    }
+
+    /**
+     * Whether the build the recipe would edit for a source is the one that compiles it: one it can add a dependency
+     * to, which resolves the legacy artifacts the source uses. In a repository with no build the recipe reads, there
+     * is none to edit, and the source is migrated as code alone.
+     */
+    private static boolean isBuilt(Path source, Set<String> usedLegacy, Accumulator acc) {
+        if (acc.modules.isEmpty()) {
+            return true;
+        }
+        Path owner = owner(source, acc.modules);
+        Set<String> resolved = owner == null ? null : acc.editable.get(owner);
+        return resolved != null && resolved.containsAll(usedLegacy);
+    }
+
     private static Map<String, Boolean> needed(JavaSourceFile source) {
         Map<String, Boolean> needed = new HashMap<>();
         boolean test = isTest(source);
@@ -238,12 +285,18 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
     public Collection<? extends SourceFile> generate(Accumulator acc, ExecutionContext ctx) {
         Map<Path, LegacyApiLinks> links = new HashMap<>();
         Set<Path> left = new HashSet<>();
+        Set<UUID> unbuilt = new HashSet<>();
         for (Map.Entry<Path, Scanned> e : acc.scanned.entrySet()) {
             links.put(e.getKey(), e.getValue().links);
             if (e.getValue().left) {
                 left.add(e.getKey());
+            } else if (!isBuilt(e.getKey(), acc.usedLegacy.getOrDefault(e.getKey(), Collections.emptySet()), acc)) {
+                // Migrated, it would use the current SDK where no build declares it
+                left.add(e.getKey());
+                unbuilt.add(e.getValue().id);
             }
         }
+        LegacyAzureMigration.leaveUnbuilt(unbuilt, ctx);
         Map<Path, Path> leftWith = LegacyApiLinks.leftWith(links, left);
         Map<UUID, String> byId = new HashMap<>();
         for (Map.Entry<Path, Path> e : leftWith.entrySet()) {
@@ -252,7 +305,7 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
         LegacyAzureMigration.leaveWith(byId, ctx);
         for (Map.Entry<Path, Scanned> e : acc.scanned.entrySet()) {
             Scanned scanned = e.getValue();
-            boolean asItIs = scanned.left || leftWith.containsKey(e.getKey());
+            boolean asItIs = left.contains(e.getKey()) || leftWith.containsKey(e.getKey());
             acc.remainingLegacy.put(e.getKey(), asItIs ? scanned.remainingAsItIs : scanned.remainingMigrated);
             acc.needed.put(e.getKey(), asItIs ? scanned.neededAsItIs : scanned.neededMigrated);
         }
