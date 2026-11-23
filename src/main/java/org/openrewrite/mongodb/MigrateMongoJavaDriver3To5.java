@@ -23,11 +23,13 @@ import org.openrewrite.*;
 import org.openrewrite.gradle.marker.GradleProject;
 import org.openrewrite.java.dependencies.ChangeDependency;
 import org.openrewrite.java.dependencies.UpgradeDependencyVersion;
+import org.openrewrite.java.format.NormalizeLineBreaksVisitor;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.maven.AddManagedDependencyVisitor;
 import org.openrewrite.maven.tree.MavenResolutionResult;
 import org.openrewrite.maven.tree.ResolvedDependency;
 import org.openrewrite.mongodb.table.MongoDriverMigrationDecisions;
+import org.openrewrite.style.GeneralFormatStyle;
 import org.openrewrite.text.PlainText;
 import org.openrewrite.xml.tree.Xml;
 
@@ -203,9 +205,33 @@ public class MigrateMongoJavaDriver3To5 extends ScanningRecipe<MigrateMongoJavaD
                                 "Added methods driver 5 requires", ((SourceFile) tree).getSourcePath().toString(), added));
                     }
                 }
-                return edited;
+                return keepLineBreaks((J.CompilationUnit) tree, edited, ctx);
             }
         };
+    }
+
+    /**
+     * The imports that the edits add take the line breaks of the style detected for the whole repository, which a file
+     * of its own can differ from, so a file whose line breaks are all of one kind keeps that kind.
+     */
+    private static J keepLineBreaks(J.CompilationUnit before, J after, ExecutionContext ctx) {
+        if (after == before) {
+            return after;
+        }
+        String text = before.printAll();
+        int breaks = 0;
+        int crlf = 0;
+        for (int i = text.indexOf('\n'); i >= 0; i = text.indexOf('\n', i + 1)) {
+            breaks++;
+            if (i > 0 && text.charAt(i - 1) == '\r') {
+                crlf++;
+            }
+        }
+        if (breaks == 0 || (crlf != 0 && crlf != breaks)) {
+            return after;
+        }
+        return new NormalizeLineBreaksVisitor<ExecutionContext>(new GeneralFormatStyle(crlf == breaks), null)
+                .visitNonNull(after, ctx);
     }
 
     /**

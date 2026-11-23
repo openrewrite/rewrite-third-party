@@ -16,6 +16,8 @@
 package org.openrewrite.mongodb;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.Tree;
@@ -23,6 +25,7 @@ import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.marker.JavaSourceSet;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.style.IntelliJ;
+import org.openrewrite.style.GeneralFormatStyle;
 import org.openrewrite.style.NamedStyles;
 import org.openrewrite.mongodb.table.MongoDriverMigrationDecisions;
 import org.openrewrite.test.RecipeSpec;
@@ -1321,6 +1324,48 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
                       }
                   }
                   """
+              )
+            ),
+            pom("mongodb-driver-sync")
+          )
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void keepsTheLineBreaksOfTheFile(boolean repositoryUsesCrlf) {
+        // The style detected for a whole repository, which lays out the imports added, can differ from a file's own
+        String fileBreak = repositoryUsesCrlf ? "\n" : "\r\n";
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+            .styles(singletonList(new NamedStyles(Tree.randomId(), "repository", "Repository", null, emptySet(),
+              List.of(IntelliJ.importLayout().withClassCountToUseStarImport(999).withNameCountToUseStarImport(999),
+                new GeneralFormatStyle(repositoryUsesCrlf)))))
+            .classpathFromResources(new InMemoryExecutionContext(), "mongo-java-driver")),
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import org.bson.Document;
+
+                  class Json {
+                      String json(Document person) {
+                          return person.toJson();
+                      }
+                  }
+                  """.replace("\n", fileBreak),
+                """
+                  import org.bson.Document;
+                  import org.bson.json.JsonMode;
+                  import org.bson.json.JsonWriterSettings;
+
+                  class Json {
+                      String json(Document person) {
+                          return person.toJson(JsonWriterSettings.builder().outputMode(JsonMode.STRICT).build());
+                      }
+                  }
+                  """.replace("\n", fileBreak)
               )
             ),
             pom("mongodb-driver-sync")
