@@ -429,6 +429,69 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
     }
 
     @Test
+    void alignsWithTheAzureSdkArtifactsTheModuleAlreadyHas() {
+        rewriteRun(
+          mavenProject("app",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import com.microsoft.azure.storage.CloudStorageAccount;
+                  import com.microsoft.azure.storage.blob.CloudBlobClient;
+
+                  class Clients {
+                      CloudBlobClient blobs(String connectionString) throws Exception {
+                          return CloudStorageAccount.parse(connectionString).createCloudBlobClient();
+                      }
+                  }
+                  """,
+                """
+                  import com.azure.storage.blob.BlobServiceClient;
+                  import com.azure.storage.blob.BlobServiceClientBuilder;
+
+                  class Clients {
+                      BlobServiceClient blobs(String connectionString) throws Exception {
+                          return new BlobServiceClientBuilder().connectionString(connectionString).buildClient();
+                      }
+                  }
+                  """
+              )
+            ),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.example</groupId>
+                  <artifactId>app</artifactId>
+                  <version>1.0</version>
+                  <dependencies>
+                    <dependency>
+                      <groupId>com.microsoft.azure</groupId>
+                      <artifactId>azure-storage</artifactId>
+                      <version>8.6.6</version>
+                    </dependency>
+                    <dependency>
+                      <groupId>com.azure</groupId>
+                      <artifactId>azure-messaging-eventhubs</artifactId>
+                      <version>5.10.3</version>
+                    </dependency>
+                  </dependencies>
+                </project>
+                """,
+              spec -> spec.after(pom -> {
+                  assertThat(pom).doesNotContain("<artifactId>azure-storage</artifactId>");
+                  assertThat(pom).containsPattern("<artifactId>azure-sdk-bom</artifactId>\\s*<version>1\\.\\d+\\.\\d+</version>\\s*<type>pom</type>\\s*<scope>import</scope>");
+                  assertThat(pom).containsPattern("<artifactId>azure-storage-blob</artifactId>\\s*</dependency>");
+                  assertThat(pom).containsPattern("<artifactId>azure-messaging-eventhubs</artifactId>\\s*</dependency>");
+                  return pom;
+              })
+            )
+          )
+        );
+    }
+
+    @Test
     void defaultOptionsListingDetailsAndAccountName() {
         rewriteRun(
           //language=java

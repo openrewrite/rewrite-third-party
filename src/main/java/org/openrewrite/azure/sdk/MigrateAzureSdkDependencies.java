@@ -28,9 +28,19 @@ import org.openrewrite.java.marker.JavaSourceSet;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaSourceFile;
 import org.openrewrite.java.tree.JavaType;
+import org.openrewrite.maven.AddManagedDependencyVisitor;
+import org.openrewrite.maven.MavenDownloadingException;
+import org.openrewrite.maven.MavenExecutionContextView;
+import org.openrewrite.maven.MavenSettings;
+import org.openrewrite.maven.RemoveRedundantDependencyVersions;
+import org.openrewrite.maven.internal.MavenPomDownloader;
 import org.openrewrite.maven.tree.Dependency;
+import org.openrewrite.maven.tree.GroupArtifact;
+import org.openrewrite.maven.tree.MavenMetadata;
 import org.openrewrite.maven.tree.MavenResolutionResult;
 import org.openrewrite.maven.tree.ResolvedPom;
+import org.openrewrite.semver.Semver;
+import org.openrewrite.semver.VersionComparator;
 import org.openrewrite.xml.tree.Xml;
 
 import java.nio.file.Path;
@@ -204,19 +214,73 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
             declared.add(resolved.getValue(d.getGroupId()) + ":" + resolved.getValue(d.getArtifactId()));
         }
         Xml.Document p = pom;
+        Set<String> azure = new TreeSet<>();
+        for (String ga : declared) {
+            if (ga.startsWith("com.azure:")) {
+                azure.add(ga);
+            }
+        }
+        for (String needed : module.needed.keySet()) {
+            String[] gav = needed.split(":");
+            if (gav[0].equals("com.azure")) {
+                azure.add(gav[0] + ":" + gav[1]);
+            }
+        }
+        boolean aligned = false;
+        if (azure.size() > 1 && resolved.getManagedVersion("com.azure", "azure-core", null, null) == null) {
+            // Maven takes the azure-core of the first com.azure artifact declared, which can be older than another
+            // needs, so the Azure SDK BOM picks one azure-core and the artifact versions released with it
+            String bom = latest("com.azure", "azure-sdk-bom", "1.x", p.getMarkers().findFirst(MavenResolutionResult.class).get(), ctx);
+            if (bom != null) {
+                p = (Xml.Document) new AddManagedDependencyVisitor("com.azure", "azure-sdk-bom", bom, "import", "pom", null, null)
+                        .visitNonNull(p, ctx);
+                resolved = p.getMarkers().findFirst(MavenResolutionResult.class).get().getPom();
+                aligned = true;
+            }
+        }
         for (Map.Entry<String, Boolean> needed : module.needed.entrySet()) {
             String[] gav = needed.getKey().split(":");
             if (declared.contains(gav[0] + ":" + gav[1])) {
                 continue;
             }
-            p = (Xml.Document) new org.openrewrite.maven.AddDependencyVisitor(gav[0], gav[1], gav[2], null,
+            String managed = resolved.getManagedVersion(gav[0], gav[1], null, null);
+            p = (Xml.Document) new org.openrewrite.maven.AddDependencyVisitor(gav[0], gav[1], managed != null ? managed : gav[2], null,
                     needed.getValue() ? "test" : null, true, null, null, null, null).visitNonNull(p, ctx);
+        }
+        if (aligned) {
+            // The artifacts the module already declared move to the BOM's versions too, never to older ones
+            p = (Xml.Document) new RemoveRedundantDependencyVersions("com.azure", "*",
+                    RemoveRedundantDependencyVersions.Comparator.GTE, null).getVisitor().visitNonNull(p, ctx);
         }
         for (String legacy : module.removable()) {
             String[] ga = legacy.split(":");
             p = (Xml.Document) new org.openrewrite.maven.RemoveDependency(ga[0], ga[1], null).getVisitor().visitNonNull(p, ctx);
         }
         return p;
+    }
+
+    /**
+     * The newest release of an artifact in a version range, from the repositories the module resolves from.
+     */
+    private static @Nullable String latest(String groupId, String artifactId, String range, MavenResolutionResult mrr, ExecutionContext ctx) {
+        VersionComparator comparator = Semver.validate(range, null).getValue();
+        if (comparator == null) {
+            return null;
+        }
+        try {
+            MavenSettings settings = MavenExecutionContextView.view(ctx).effectiveSettings(mrr);
+            MavenMetadata metadata = new MavenPomDownloader(mrr.getProjectPoms(), ctx, settings, mrr.getActiveProfiles())
+                    .downloadMetadata(new GroupArtifact(groupId, artifactId), null, mrr.getPom().getRepositories());
+            String latest = null;
+            for (String version : metadata.getVersioning().getVersions()) {
+                if (comparator.isValid(null, version) && (latest == null || comparator.compare(null, version, latest) > 0)) {
+                    latest = version;
+                }
+            }
+            return latest;
+        } catch (MavenDownloadingException e) {
+            return null;
+        }
     }
 
     private static Tree editGradle(JavaSourceFile build, Accumulator acc, ExecutionContext ctx) {
