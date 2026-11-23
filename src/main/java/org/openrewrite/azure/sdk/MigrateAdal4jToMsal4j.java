@@ -18,16 +18,20 @@ package org.openrewrite.azure.sdk;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Value;
+import org.jspecify.annotations.Nullable;
+import org.openrewrite.Cursor;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
+import org.openrewrite.java.JavaIsoVisitor;
+import org.openrewrite.java.JavaParser;
+import org.openrewrite.java.JavaTemplate;
+import org.openrewrite.java.ShortenFullyQualifiedTypeReferences;
 import org.openrewrite.java.search.UsesType;
-import org.openrewrite.java.tree.Expression;
-import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.*;
 
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -108,6 +112,11 @@ public class MigrateAdal4jToMsal4j extends Recipe {
             call(A + "AuthenticationResult getAccessTokenType()", "\"Bearer\"")
                     .when(call -> call.receiver instanceof J.Identifier || call.receiver instanceof J.FieldAccess),
             call(A + "UserInfo getDisplayableId()", "$r.username()"),
+            // Seconds until the token expires, which ADAL counted from when it was issued
+            call(A + "AuthenticationResult getExpiresOn()",
+                    "java.util.concurrent.TimeUnit.MILLISECONDS.toSeconds($r.expiresOnDate().getTime() - System.currentTimeMillis())"),
+            call(A + "AuthenticationResult getExpiresAfter()",
+                    "java.util.concurrent.TimeUnit.MILLISECONDS.toSeconds($r.expiresOnDate().getTime() - System.currentTimeMillis())"),
 
             // Exceptions
             call(A + "AuthenticationException <constructor>(Throwable)", "new " + M + "MsalException($0)"),
@@ -132,8 +141,117 @@ public class MigrateAdal4jToMsal4j extends Recipe {
                         scope(call.arg(Integer.parseInt(scope.group(1))), scope.group(1))));
             }
             scope.appendTail(params);
-            return rewriter.template(application + ".authority($r).build().acquireToken(" + params + ")", call, ctx);
-        }).when(all(argsNull(callback), handles(MALFORMED_URL)));
+            if (handled(call.cursor, MALFORMED_URL)) {
+                return rewriter.template(application + ".authority($r).build().acquireToken(" + params + ")", call, ctx);
+            }
+            // Where nothing catches or declares the MalformedURLException that MSAL's authority(String) declares, the
+            // top-level class gets a helper that rethrows it unchecked: ADAL validated the authority when it made the
+            // context, which is where its callers handled the exception
+            J.ClassDeclaration top = topLevelClass(call.cursor);
+            if (top == null || top.getType() == null || top.getKind() == J.ClassDeclaration.Kind.Type.Interface ||
+                top.getKind() == J.ClassDeclaration.Kind.Type.Annotation) {
+                return null;
+            }
+            J result = rewriter.template(application + ".authority($r).build().acquireToken(" + params + ")", call, ctx);
+            if (!(result instanceof J.MethodInvocation)) {
+                return null;
+            }
+            J.MethodInvocation build = (J.MethodInvocation) ((J.MethodInvocation) result).getSelect();
+            J.MethodInvocation authority = build == null ? null : (J.MethodInvocation) build.getSelect();
+            // The application is still typed as the ADAL credential it was made from, so the builder is what MSAL's
+            // authority(String) returns for it
+            JavaType.FullyQualified builder = authority == null || authority.getSelect() == null || authority.getMethodType() == null ? null :
+                    TypeUtils.asFullyQualified(authority.getMethodType().getReturnType());
+            if (builder == null || !builder.getFullyQualifiedName().startsWith("com.microsoft.aad.msal4j.")) {
+                return null;
+            }
+            rewriter.afterVisit(new AddAuthorityHelper(top.getId(), builder.getFullyQualifiedName().replace('$', '.')));
+            return withAuthorityHelper((J.MethodInvocation) result, top.getType(), builder);
+        }).when(argsNull(callback));
+    }
+
+    static final String HELPER = "withAuthority";
+
+    private static J.@Nullable ClassDeclaration topLevelClass(Cursor cursor) {
+        J.ClassDeclaration top = null;
+        for (Cursor c = cursor; c != null; c = c.getParent()) {
+            if (c.getValue() instanceof J.ClassDeclaration) {
+                top = c.getValue();
+            }
+        }
+        return top;
+    }
+
+    /**
+     * Replaces {@code app.authority(context)} in {@code app.authority(context).build().acquireToken(..)} with
+     * {@code withAuthority(app, context)}, the helper {@link AddAuthorityHelper} declares.
+     */
+    private static J withAuthorityHelper(J.MethodInvocation acquire, JavaType.FullyQualified owner, JavaType.FullyQualified builder) {
+        J.MethodInvocation build = (J.MethodInvocation) acquire.getSelect();
+        J.MethodInvocation authority = (J.MethodInvocation) Objects.requireNonNull(build).getSelect();
+        Expression application = Objects.requireNonNull(Objects.requireNonNull(authority).getSelect());
+        Expression authorityUrl = authority.getArguments().get(0);
+        JavaType.Method type = authority.getMethodType();
+        if (type != null) {
+            type = type.withName(HELPER)
+                    .withDeclaringType(owner)
+                    .withFlags(EnumSet.of(Flag.Private, Flag.Static))
+                    .withParameterNames(Arrays.asList("application", "authority"))
+                    .withParameterTypes(Arrays.asList(builder, authorityUrl.getType()))
+                    .withReturnType(builder)
+                    .withThrownExceptions(Collections.emptyList());
+        }
+        J.MethodInvocation helper = authority
+                .withSelect(null)
+                .withName(authority.getName().withSimpleName(HELPER).withType(type))
+                .withMethodType(type)
+                .withArguments(Arrays.asList(application.withPrefix(Space.EMPTY), authorityUrl.withPrefix(Space.SINGLE_SPACE)))
+                .withPrefix(application.getPrefix());
+        return acquire.withSelect(build.withSelect(helper));
+    }
+
+    /**
+     * Declares the {@code withAuthority} helper for one kind of application builder in a top-level class that does not
+     * have it yet.
+     */
+    private static class AddAuthorityHelper extends JavaIsoVisitor<ExecutionContext> {
+        private final UUID classId;
+        private final String builder;
+
+        AddAuthorityHelper(UUID classId, String builder) {
+            this.classId = classId;
+            this.builder = builder;
+        }
+
+        @Override
+        public J.ClassDeclaration visitClassDeclaration(J.ClassDeclaration classDecl, ExecutionContext ctx) {
+            if (!classDecl.getId().equals(classId)) {
+                return classDecl;
+            }
+            for (Statement statement : classDecl.getBody().getStatements()) {
+                if (statement instanceof J.MethodDeclaration && HELPER.equals(((J.MethodDeclaration) statement).getSimpleName())) {
+                    JavaType.Method helper = ((J.MethodDeclaration) statement).getMethodType();
+                    if (helper != null && !helper.getParameterTypes().isEmpty() &&
+                        TypeUtils.isOfClassType(helper.getParameterTypes().get(0), builder)) {
+                        return classDecl;
+                    }
+                }
+            }
+            J.ClassDeclaration c = JavaTemplate.builder(
+                            "private static " + builder + " " + HELPER + "(" + builder + " application, String authority) {\n" +
+                            "    try {\n" +
+                            "        return application.authority(authority);\n" +
+                            "    } catch (java.net.MalformedURLException e) {\n" +
+                            "        // ADAL's AuthenticationContext validated this authority when it was created\n" +
+                            "        throw new IllegalArgumentException(e);\n" +
+                            "    }\n" +
+                            "}")
+                    .javaParser(JavaParser.fromJavaVersion().classpathFromResources(ctx, AzureCallRewriter.CLASSPATH))
+                    .build()
+                    .apply(updateCursor(classDecl), classDecl.getBody().getCoordinates().lastStatement());
+            doAfterVisit(ShortenFullyQualifiedTypeReferences.modifyOnly(c.getBody().getStatements().get(c.getBody().getStatements().size() - 1)));
+            return c;
+        }
     }
 
     /**

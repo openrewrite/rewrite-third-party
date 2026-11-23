@@ -26,6 +26,8 @@ import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.ShortenFullyQualifiedTypeReferences;
 import org.openrewrite.java.tree.*;
 
+import java.util.List;
+
 /**
  * v8 listed a container as {@code ListBlobItem}s that were blobs or directories, told apart with {@code instanceof} and
  * cast to {@code CloudBlob}; v12 lists {@code BlobItem}s, which only name a blob or a prefix. In a loop over a
@@ -56,7 +58,10 @@ class ListBlobItemLoops extends JavaVisitor<ExecutionContext> {
             return loop;
         }
         J.VariableDeclarations.NamedVariable item = ((J.VariableDeclarations) loop.getControl().getVariable()).getVariables().get(0);
-        Statement body = (Statement) new ItemUses(item.getSimpleName(), container)
+        // A listing with details may list snapshots, each of which is a client of its own
+        List<Expression> listArgs = ((J.MethodInvocation) iterable).getArguments();
+        boolean snapshots = listArgs.size() > 2 && !CallRewrite.isNull(listArgs.get(2));
+        Statement body = (Statement) new ItemUses(item.getSimpleName(), container, snapshots)
                 .visitNonNull(loop.getBody(), ctx, new Cursor(getCursor().getParentOrThrow(), loop));
         return loop.withBody(body);
     }
@@ -76,10 +81,12 @@ class ListBlobItemLoops extends JavaVisitor<ExecutionContext> {
     private class ItemUses extends JavaVisitor<ExecutionContext> {
         private final String item;
         private final Expression container;
+        private final boolean snapshots;
 
-        ItemUses(String item, Expression container) {
+        ItemUses(String item, Expression container, boolean snapshots) {
             this.item = item;
             this.container = container;
+            this.snapshots = snapshots;
         }
 
         private boolean isItem(@Nullable Expression e) {
@@ -171,7 +178,8 @@ class ListBlobItemLoops extends JavaVisitor<ExecutionContext> {
                     return j;
             }
             return replace(cast, cast.getCoordinates().replace(), ctx, "#{container:any(" + CONTAINER + ")}.getBlobClient(#{item:any(" +
-                                                              ITEM + ")}.getName())" + client, copy(container), cast.getExpression());
+                                                              ITEM + ")}.getName()" + (snapshots ? ", #{item}.getSnapshot()" : "") + ")" +
+                                                              client, copy(container), cast.getExpression());
         }
 
         private J replace(J tree, JavaCoordinates coordinates, ExecutionContext ctx, String template, Object... params) {

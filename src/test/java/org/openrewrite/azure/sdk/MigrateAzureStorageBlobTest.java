@@ -427,4 +427,115 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void defaultOptionsListingDetailsAndAccountName() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.Constants;
+              import com.microsoft.azure.storage.OperationContext;
+              import com.microsoft.azure.storage.StorageException;
+              import com.microsoft.azure.storage.blob.BlobContainerPublicAccessType;
+              import com.microsoft.azure.storage.blob.BlobListingDetails;
+              import com.microsoft.azure.storage.blob.BlobRequestOptions;
+              import com.microsoft.azure.storage.blob.CloudBlob;
+              import com.microsoft.azure.storage.blob.CloudBlobContainer;
+              import com.microsoft.azure.storage.blob.ListBlobItem;
+
+              import java.util.ArrayList;
+              import java.util.EnumSet;
+              import java.util.List;
+
+              class Snapshots {
+                  List<String> snapshots(CloudBlobContainer container, String key) throws StorageException {
+                      container.createIfNotExists(BlobContainerPublicAccessType.OFF, new BlobRequestOptions(), new OperationContext());
+                      List<String> ids = new ArrayList<>();
+                      for (ListBlobItem item : container.listBlobs(key, true, EnumSet.of(BlobListingDetails.SNAPSHOTS), null, null)) {
+                          CloudBlob blob = (CloudBlob) item;
+                          ids.add(blob.getName());
+                      }
+                      ids.add(container.getServiceClient().getCredentials().getAccountName());
+                      ids.add(Constants.UTF8_CHARSET);
+                      return ids;
+                  }
+              }
+              """,
+            """
+              import com.azure.storage.blob.BlobClient;
+              import com.azure.storage.blob.BlobContainerClient;
+              import com.azure.storage.blob.models.BlobItem;
+              import com.azure.storage.blob.models.BlobListDetails;
+              import com.azure.storage.blob.models.BlobStorageException;
+              import com.azure.storage.blob.models.ListBlobsOptions;
+
+              import java.util.ArrayList;
+              import java.util.List;
+
+              class Snapshots {
+                  List<String> snapshots(BlobContainerClient container, String key) throws BlobStorageException {
+                      container.createIfNotExists();
+                      List<String> ids = new ArrayList<>();
+                      for (BlobItem item : container.listBlobs(new ListBlobsOptions().setPrefix(key).setDetails(new BlobListDetails().setRetrieveSnapshots(true)), null)) {
+                          BlobClient blob = container.getBlobClient(item.getName(), item.getSnapshot());
+                          ids.add(blob.getBlobName());
+                      }
+                      ids.add(container.getServiceClient().getAccountName());
+                      ids.add("UTF-8");
+                      return ids;
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void marksListingItemsCastOutsideALoop() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.blob.CloudBlob;
+              import com.microsoft.azure.storage.blob.CloudBlobContainer;
+              import com.microsoft.azure.storage.blob.ListBlobItem;
+
+              import java.util.Iterator;
+
+              class Names {
+                  void print(CloudBlobContainer container) {
+                      Iterator<ListBlobItem> items = container.listBlobs("logs/", true).iterator();
+                      while (items.hasNext()) {
+                          ListBlobItem item = items.next();
+                          if (item instanceof CloudBlob) {
+                              System.out.println(((CloudBlob) item).getName());
+                          }
+                      }
+                  }
+              }
+              """,
+            """
+              import com.azure.storage.blob.BlobClient;
+              import com.azure.storage.blob.BlobContainerClient;
+              import com.azure.storage.blob.models.BlobItem;
+              import com.azure.storage.blob.models.ListBlobsOptions;
+
+              import java.util.Iterator;
+
+              class Names {
+                  void print(BlobContainerClient container) {
+                      Iterator<BlobItem> items = container.listBlobs(new ListBlobsOptions().setPrefix("logs/"), null).iterator();
+                      while (items.hasNext()) {
+                          BlobItem item = items.next();
+                          if (/*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.blob.ListBlobItem as com.microsoft.azure.storage.blob.CloudBlob` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/item instanceof BlobClient) {
+                              System.out.println((/*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.blob.ListBlobItem as com.microsoft.azure.storage.blob.CloudBlob` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/(BlobClient) item).getBlobName());
+                          }
+                      }
+                  }
+              }
+              """
+          )
+        );
+    }
 }

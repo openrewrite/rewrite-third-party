@@ -22,8 +22,7 @@ import org.openrewrite.SourceFile;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.tree.*;
 
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 /**
  * One way a legacy Azure SDK call is rewritten. A template names the call's receiver {@code $r} and its arguments
@@ -87,7 +86,7 @@ final class CallRewrite {
     static Condition argsNull(int... indexes) {
         return call -> {
             for (int i : indexes) {
-                if (i < call.args.size() && !isNull(call.args.get(i))) {
+                if (i < call.args.size() && !isNull(call.args.get(i)) && !isDefault(call.args.get(i))) {
                     return false;
                 }
             }
@@ -165,6 +164,33 @@ final class CallRewrite {
         return e instanceof J.Literal && ((J.Literal) e).getValue() == null &&
                ((J.Literal) e).getType() == JavaType.Primitive.Null;
     }
+
+    /**
+     * Request options, an operation context or an access condition as freshly made, which a legacy call treats as it
+     * treats {@code null}.
+     */
+    static boolean isDefault(Expression e) {
+        if (e instanceof J.NewClass) {
+            J.NewClass n = (J.NewClass) e;
+            JavaType.FullyQualified type = TypeUtils.asFullyQualified(n.getType());
+            return n.getBody() == null && type != null && DEFAULTS.contains(type.getFullyQualifiedName()) &&
+                   n.getArguments().stream().allMatch(J.Empty.class::isInstance);
+        }
+        if (e instanceof J.MethodInvocation) {
+            J.MethodInvocation m = (J.MethodInvocation) e;
+            return m.getMethodType() != null && m.getArguments().stream().allMatch(J.Empty.class::isInstance) &&
+                   TypeUtils.isOfClassType(m.getMethodType().getDeclaringType(), "com.microsoft.azure.storage.AccessCondition") &&
+                   "generateEmptyCondition".equals(m.getSimpleName());
+        }
+        return false;
+    }
+
+    private static final Set<String> DEFAULTS = new HashSet<>(Arrays.asList(
+            "com.microsoft.azure.storage.OperationContext",
+            "com.microsoft.azure.storage.blob.BlobRequestOptions",
+            "com.microsoft.azure.storage.queue.QueueRequestOptions",
+            "com.microsoft.azure.storage.table.TableRequestOptions",
+            "com.microsoft.azure.storage.file.FileRequestOptions"));
 
     static boolean isLiteral(Expression e, Object value) {
         return e instanceof J.Literal && value.equals(((J.Literal) e).getValue());

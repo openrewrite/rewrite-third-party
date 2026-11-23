@@ -79,6 +79,20 @@ class AzureCallRewriter extends JavaVisitor<ExecutionContext> {
     }
 
     @Override
+    public J visitCompilationUnit(J.CompilationUnit cu, ExecutionContext ctx) {
+        J j = super.visitCompilationUnit(cu, ctx);
+        // The legacy types without a counterpart that only the rewritten calls used, such as request options and
+        // operation contexts. Retyping changes the imports of the others.
+        for (J.Import anImport : cu.getImports()) {
+            if (!anImport.isStatic() && !"*".equals(anImport.getQualid().getSimpleName()) &&
+                LegacyAzureTypes.isLegacy(anImport.getTypeName()) && LegacyAzureTypes.current(anImport.getTypeName()) == null) {
+                maybeRemoveImport(anImport.getTypeName());
+            }
+        }
+        return j;
+    }
+
+    @Override
     public J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
         J j = super.visitMethodInvocation(method, ctx);
         if (!(j instanceof J.MethodInvocation)) {

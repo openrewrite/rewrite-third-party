@@ -103,6 +103,10 @@ public class FindAzureSdkLegacyRemnants extends Recipe {
                 JavaType.Variable field = f.getName().getFieldType();
                 if (field != null && LegacyAzureTypes.isLegacy(field.getOwner())) {
                     String owner = fqn(field.getOwner());
+                    if ("class".equals(field.getName()) && LegacyAzureTypes.current(owner) != null) {
+                        // A class literal is retyped with its type
+                        return f;
+                    }
                     return report(f, "constant", owner + "." + field.getName(), owner, ctx);
                 }
                 if (field == null && isTypeReference() && isUnmappedLegacy(f.getType())) {
@@ -121,6 +125,38 @@ public class FindAzureSdkLegacyRemnants extends Recipe {
                     return report(i, "type", type, type, ctx);
                 }
                 return i;
+            }
+
+            @Override
+            public J.TypeCast visitTypeCast(J.TypeCast typeCast, ExecutionContext ctx) {
+                J.TypeCast t = super.visitTypeCast(typeCast, ctx);
+                return conversion(t, t.getExpression().getType(), t.getClazz().getTree().getType(), ctx);
+            }
+
+            @Override
+            public J.InstanceOf visitInstanceOf(J.InstanceOf instanceOf, ExecutionContext ctx) {
+                J.InstanceOf i = super.visitInstanceOf(instanceOf, ctx);
+                return conversion(i, i.getExpression().getType(), i.getClazz() instanceof TypedTree ? ((TypedTree) i.getClazz()).getType() : null, ctx);
+            }
+
+            /**
+             * A cast or {@code instanceof} between two legacy types whose counterparts differ, such as a listed
+             * {@code ListBlobItem} to a {@code CloudBlob}, relates types that are unrelated once retyped.
+             */
+            private <J2 extends J> J2 conversion(J2 tree, @Nullable JavaType from, @Nullable JavaType to, ExecutionContext ctx) {
+                JavaType.FullyQualified fromType = TypeUtils.asFullyQualified(from);
+                JavaType.FullyQualified toType = TypeUtils.asFullyQualified(to);
+                if (fromType == null || toType == null || !LegacyAzureTypes.isLegacy(fromType) || !LegacyAzureTypes.isLegacy(toType)) {
+                    return tree;
+                }
+                String fromCurrent = LegacyAzureTypes.current(fromType.getFullyQualifiedName());
+                String toCurrent = LegacyAzureTypes.current(toType.getFullyQualifiedName());
+                if (fromCurrent == null || toCurrent == null || fromCurrent.equals(toCurrent)) {
+                    // An unmapped type is a remnant of its own
+                    return tree;
+                }
+                String item = fqn(fromType) + " as " + fqn(toType);
+                return report(tree, "type", item, fqn(toType), ctx);
             }
 
             private boolean isTypeReference() {

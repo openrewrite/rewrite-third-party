@@ -279,7 +279,7 @@ class MigrateAdal4jToMsal4jTest implements RewriteTest {
     }
 
     @Test
-    void marksWhatItCannotMigrate() {
+    void authorityOfAContextMadeElsewhere() {
         rewriteRun(
           //language=java
           java(
@@ -295,22 +295,37 @@ class MigrateAdal4jToMsal4jTest implements RewriteTest {
 
                   String refreshTokenOf(String resource, ClientCredential credential) throws ExecutionException, InterruptedException {
                       AuthenticationResult result = context.acquireToken(resource, credential, null).get();
+                      long expiresIn = result.getExpiresOn();
                       return result.getRefreshToken();
                   }
               }
               """,
             """
+              import com.microsoft.aad.msal4j.ClientCredentialParameters;
               import com.microsoft.aad.msal4j.ConfidentialClientApplication;
               import com.microsoft.aad.msal4j.IAuthenticationResult;
 
+              import java.net.MalformedURLException;
+              import java.util.Collections;
               import java.util.concurrent.ExecutionException;
+              import java.util.concurrent.TimeUnit;
 
               class Tokens {
                   String context;
 
                   String refreshTokenOf(String resource, ConfidentialClientApplication.Builder credential) throws ExecutionException, InterruptedException {
-                      IAuthenticationResult result = /*~~(Legacy Azure SDK: migrate `com.microsoft.aad.adal4j.AuthenticationContext.acquireToken` by hand, see https://learn.microsoft.com/entra/msal/java/advanced/migrate-adal-msal-java)~~>*/context.acquireToken(resource, credential, null).get();
+                      IAuthenticationResult result = withAuthority(credential, context).build().acquireToken(ClientCredentialParameters.builder(Collections.singleton(resource + "/.default")).build()).get();
+                      long expiresIn = TimeUnit.MILLISECONDS.toSeconds(result.expiresOnDate().getTime() - System.currentTimeMillis());
                       return /*~~(Legacy Azure SDK: migrate `com.microsoft.aad.adal4j.AuthenticationResult.getRefreshToken` by hand, see https://learn.microsoft.com/entra/msal/java/advanced/migrate-adal-msal-java)~~>*/result.getRefreshToken();
+                  }
+
+                  private static ConfidentialClientApplication.Builder withAuthority(ConfidentialClientApplication.Builder application, String authority) {
+                      try {
+                          return application.authority(authority);
+                      } catch (MalformedURLException e) {
+                          // ADAL's AuthenticationContext validated this authority when it was created
+                          throw new IllegalArgumentException(e);
+                      }
                   }
               }
               """

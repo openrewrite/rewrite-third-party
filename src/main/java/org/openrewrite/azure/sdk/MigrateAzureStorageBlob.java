@@ -111,6 +111,8 @@ public class MigrateAzureStorageBlob extends Recipe {
                     .when(c -> isLiteral(c.arg(1), true)),
             call(B + "CloudBlobContainer listBlobs(String, boolean)", "$r.listBlobsByHierarchy($0)")
                     .when(c -> isLiteral(c.arg(1), false)),
+            custom(B + "CloudBlobContainer listBlobs(String, boolean, java.util.EnumSet, " + B + "BlobRequestOptions, " +
+                   S + "OperationContext)", MigrateAzureStorageBlob::listBlobsWithDetails).when(argsNull(3, 4)),
             call(B + "CloudBlobContainer downloadAttributes()", "$r.getProperties()"),
             call(B + "CloudBlobContainer getProperties()", "$r.getProperties()"),
             custom(B + "CloudBlobContainer getMetadata()", MigrateAzureStorageBlob::metadata),
@@ -134,6 +136,7 @@ public class MigrateAzureStorageBlob extends Recipe {
             call(B + "CloudBlob getUri()", "java.net.URI.create($r.getBlobUrl())"),
             call(B + "CloudBlob getContainer()", "$r.getContainerClient()"),
             call(B + "CloudBlob getServiceClient()", "$r.getContainerClient().getServiceClient()"),
+            custom(S + "StorageCredentials getAccountName()", MigrateAzureStorageBlob::accountNameOfClient),
             call(B + "CloudBlob getSnapshotID()", "$r.getSnapshotId()"),
             call(B + "CloudBlob isSnapshot()", "$r.isSnapshot()"),
             call(B + "CloudBlob exists()", "$r.exists()"),
@@ -215,6 +218,7 @@ public class MigrateAzureStorageBlob extends Recipe {
         for (String status : new String[]{"PENDING", "SUCCESS", "ABORTED", "FAILED"}) {
             c.put(B + "CopyStatus." + status, V12 + "models.CopyStatusType." + status);
         }
+        c.put(S + "Constants.UTF8_CHARSET", "\"UTF-8\"");
         CONSTANTS = Collections.unmodifiableMap(c);
     }
 
@@ -364,6 +368,95 @@ public class MigrateAzureStorageBlob extends Recipe {
         rewriter.removeImport("java.util.EnumSet");
         return apply(rewriter, call, "#{policy:any(" + V12 + "sas.BlobServiceSasSignatureValues)}.setPermissions(" + permissions + ")",
                 Collections.singletonList(call.receiver), ctx);
+    }
+
+    private static final Map<String, String> LISTING_DETAILS;
+
+    static {
+        Map<String, String> d = new LinkedHashMap<>();
+        d.put("SNAPSHOTS", "setRetrieveSnapshots");
+        d.put("METADATA", "setRetrieveMetadata");
+        d.put("UNCOMMITTED_BLOBS", "setRetrieveUncommittedBlobs");
+        d.put("COPY", "setRetrieveCopy");
+        d.put("DELETED", "setRetrieveDeletedBlobs");
+        LISTING_DETAILS = Collections.unmodifiableMap(d);
+    }
+
+    /**
+     * {@code listBlobs(prefix, flat, EnumSet.of(BlobListingDetails.SNAPSHOTS, ...), null, null)} lists with the
+     * matching {@code BlobListDetails}, flat or by the {@code /} hierarchy v8 used.
+     */
+    private static @Nullable J listBlobsWithDetails(Call call, AzureCallRewriter rewriter, ExecutionContext ctx) {
+        String details = listingDetails(call.arg(2));
+        if (details == null || !(isLiteral(call.arg(1), true) || isLiteral(call.arg(1), false))) {
+            return null;
+        }
+        String options = "new " + V12 + "models.ListBlobsOptions().setPrefix($0)" + (details.isEmpty() ? "" :
+                ".setDetails(new " + V12 + "models.BlobListDetails()" + details + ")");
+        rewriter.removeImport(B + "BlobListingDetails");
+        rewriter.removeImport("java.util.EnumSet");
+        return rewriter.template(isLiteral(call.arg(1), true) ?
+                "$r.listBlobs(" + options + ", null)" :
+                "$r.listBlobsByHierarchy(\"/\", " + options + ", null)", call, ctx);
+    }
+
+    /**
+     * The setters of {@code BlobListDetails} that an {@code EnumSet} of {@code BlobListingDetails} names, empty for
+     * none, or {@code null} for a set this cannot read.
+     */
+    private static @Nullable String listingDetails(Expression details) {
+        if (isNull(details)) {
+            return "";
+        }
+        if (!(details instanceof J.MethodInvocation) ||
+            !TypeUtils.isOfClassType(((J.MethodInvocation) details).getMethodType() == null ? null :
+                    ((J.MethodInvocation) details).getMethodType().getDeclaringType(), "java.util.EnumSet")) {
+            return null;
+        }
+        J.MethodInvocation set = (J.MethodInvocation) details;
+        StringBuilder setters = new StringBuilder();
+        switch (set.getSimpleName()) {
+            case "noneOf":
+                return "";
+            case "allOf":
+                for (String setter : LISTING_DETAILS.values()) {
+                    setters.append('.').append(setter).append("(true)");
+                }
+                return setters.toString();
+            case "of":
+                for (Expression detail : set.getArguments()) {
+                    String name = detail instanceof J.FieldAccess ? ((J.FieldAccess) detail).getSimpleName() :
+                            detail instanceof J.Identifier ? ((J.Identifier) detail).getSimpleName() : null;
+                    String setter = name == null ? null : LISTING_DETAILS.get(name);
+                    if (setter == null) {
+                        return null;
+                    }
+                    setters.append('.').append(setter).append("(true)");
+                }
+                return setters.toString();
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * {@code client.getCredentials().getAccountName()} is the account name of the client itself in v12.
+     */
+    private static @Nullable J accountNameOfClient(Call call, AzureCallRewriter rewriter, ExecutionContext ctx) {
+        if (!(call.receiver instanceof J.MethodInvocation)) {
+            return null;
+        }
+        J.MethodInvocation credentials = (J.MethodInvocation) call.receiver;
+        Expression client = credentials.getSelect();
+        if (!"getCredentials".equals(credentials.getSimpleName()) || client == null) {
+            return null;
+        }
+        String type = TypeUtils.isOfClassType(client.getType(), B + "CloudBlobClient") ||
+                      TypeUtils.isOfClassType(client.getType(), V12 + "BlobServiceClient") ? V12 + "BlobServiceClient" : null;
+        if (type == null) {
+            return null;
+        }
+        return apply(rewriter, call, "#{client:any(" + type + ")}.getAccountName()", Collections.singletonList(client), ctx);
     }
 
     private static J nullLiteral(J replaced) {
