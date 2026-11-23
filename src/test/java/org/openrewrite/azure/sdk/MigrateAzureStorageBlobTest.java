@@ -667,6 +667,172 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
         );
     }
 
+    @Test
+    void leavesASourceWithTheOneItSharesLegacyTypesWith() {
+        rewriteRun(
+          // Migrated, it would hand Reads a BlobContainerClient where Reads, which can't be migrated, takes a CloudBlobContainer
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.CloudStorageAccount;
+              import com.microsoft.azure.storage.blob.CloudBlobContainer;
+
+              class Containers {
+                  static CloudBlobContainer container(String connectionString, String name) throws Exception {
+                      return CloudStorageAccount.parse(connectionString).createCloudBlobClient().getContainerReference(name);
+                  }
+              }
+              """,
+            """
+              import com.microsoft.azure.storage.CloudStorageAccount;
+              import com.microsoft.azure.storage.blob.CloudBlobContainer;
+
+              /*~~(Legacy Azure SDK: left as it is with `Reads.java`, which shares its legacy types and has uses to migrate by hand)~~>*/class Containers {
+                  static CloudBlobContainer container(String connectionString, String name) throws Exception {
+                      return CloudStorageAccount.parse(connectionString).createCloudBlobClient().getContainerReference(name);
+                  }
+              }
+              """
+          ),
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.blob.CloudBlockBlob;
+
+              class Reads {
+                  int read(String connectionString, byte[] buffer) throws Exception {
+                      CloudBlockBlob blob = Containers.container(connectionString, "logs").getBlockBlobReference("today");
+                      return blob.downloadToByteArray(buffer, 0);
+                  }
+              }
+              """,
+            """
+              import com.microsoft.azure.storage.blob.CloudBlockBlob;
+
+              class Reads {
+                  int read(String connectionString, byte[] buffer) throws Exception {
+                      CloudBlockBlob blob = Containers.container(connectionString, "logs").getBlockBlobReference("today");
+                      return /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.blob.CloudBlob.downloadToByteArray` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/blob.downloadToByteArray(buffer, 0);
+                  }
+              }
+              """
+          ),
+          // Shares nothing with them
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.CloudStorageAccount;
+              import com.microsoft.azure.storage.blob.CloudBlobClient;
+
+              class Clients {
+                  CloudBlobClient blobs(String connectionString) throws Exception {
+                      return CloudStorageAccount.parse(connectionString).createCloudBlobClient();
+                  }
+              }
+              """,
+            """
+              import com.azure.storage.blob.BlobServiceClient;
+              import com.azure.storage.blob.BlobServiceClientBuilder;
+
+              class Clients {
+                  BlobServiceClient blobs(String connectionString) throws Exception {
+                      return new BlobServiceClientBuilder().connectionString(connectionString).buildClient();
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void leavesABeanWithWhatItIsInjectedInto() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              package org.springframework.context.annotation;
+
+              public @interface Bean {
+              }
+              """
+          ),
+          //language=java
+          java(
+            """
+              package org.springframework.stereotype;
+
+              public @interface Service {
+              }
+              """
+          ),
+          // Migrated, it would provide a BlobContainerClient bean and nothing would inject the CloudBlobContainer Reads takes
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.CloudStorageAccount;
+              import com.microsoft.azure.storage.blob.CloudBlobContainer;
+              import org.springframework.context.annotation.Bean;
+
+              class StorageConfig {
+                  @Bean
+                  CloudBlobContainer container() throws Exception {
+                      return CloudStorageAccount.parse("UseDevelopmentStorage=true").createCloudBlobClient().getContainerReference("logs");
+                  }
+              }
+              """,
+            """
+              import com.microsoft.azure.storage.CloudStorageAccount;
+              import com.microsoft.azure.storage.blob.CloudBlobContainer;
+              import org.springframework.context.annotation.Bean;
+
+              /*~~(Legacy Azure SDK: left as it is with `Reads.java`, which shares its legacy types and has uses to migrate by hand)~~>*/class StorageConfig {
+                  @Bean
+                  CloudBlobContainer container() throws Exception {
+                      return CloudStorageAccount.parse("UseDevelopmentStorage=true").createCloudBlobClient().getContainerReference("logs");
+                  }
+              }
+              """
+          ),
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.blob.CloudBlobContainer;
+              import org.springframework.stereotype.Service;
+
+              @Service
+              class Reads {
+                  private final CloudBlobContainer container;
+
+                  Reads(CloudBlobContainer container) {
+                      this.container = container;
+                  }
+
+                  int read(byte[] buffer) throws Exception {
+                      return container.getBlockBlobReference("today").downloadToByteArray(buffer, 0);
+                  }
+              }
+              """,
+            """
+              import com.microsoft.azure.storage.blob.CloudBlobContainer;
+              import org.springframework.stereotype.Service;
+
+              @Service
+              class Reads {
+                  private final CloudBlobContainer container;
+
+                  Reads(CloudBlobContainer container) {
+                      this.container = container;
+                  }
+
+                  int read(byte[] buffer) throws Exception {
+                      return /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.blob.CloudBlob.downloadToByteArray` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/container.getBlockBlobReference("today").downloadToByteArray(buffer, 0);
+                  }
+              }
+              """
+          )
+        );
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"StringUtils.isBlank(name)", "name == null"})
     void declaresWhatOnlyTheLegacyArtifactBrought(String blank) {

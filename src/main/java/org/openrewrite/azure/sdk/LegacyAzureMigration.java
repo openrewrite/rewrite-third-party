@@ -15,6 +15,7 @@
  */
 package org.openrewrite.azure.sdk;
 
+import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Recipe;
 import org.openrewrite.SourceFile;
@@ -36,12 +37,14 @@ import java.util.concurrent.ConcurrentHashMap;
  * call that has no counterpart, is left as it is, since migrated around that call it would mix legacy and current
  * types that don't convert into one another. Its module keeps the legacy artifacts it needs, so it compiles as before,
  * and FindAzureSdkLegacyRemnants marks what stops it from being migrated. Once a person has migrated those by hand,
- * the next run migrates the rest.
+ * the next run migrates the rest. A source that shares legacy types with one that is left, through a member or
+ * dependency injection, is left with it.
  */
 public final class LegacyAzureMigration {
 
     private static final String BLOCKERS = LegacyAzureMigration.class.getName() + ".blockers";
     private static final String SIMULATING = LegacyAzureMigration.class.getName() + ".simulating";
+    private static final String LEFT_WITH = LegacyAzureMigration.class.getName() + ".leftWith";
 
     private LegacyAzureMigration() {
     }
@@ -57,8 +60,8 @@ public final class LegacyAzureMigration {
 
     /**
      * Whether the migration leaves a source as it is: for one of the reasons
-     * {@link LegacyAzureTypes#isLeftAsItIs(Tree)} gives, or since its rewrites would leave something of the legacy SDK
-     * in it.
+     * {@link LegacyAzureTypes#isLeftAsItIs(Tree)} gives, since its rewrites would leave something of the legacy SDK
+     * in it, or with another source that is left.
      */
     public static boolean isLeftAsItIs(Tree source, ExecutionContext ctx) {
         if (!(source instanceof JavaSourceFile)) {
@@ -67,7 +70,28 @@ public final class LegacyAzureMigration {
         if (simulating(ctx).contains(source.getId())) {
             return false;
         }
-        return LegacyAzureTypes.isLeftAsItIs(source) || !blockers((JavaSourceFile) source, ctx).isEmpty();
+        return LegacyAzureTypes.isLeftAsItIs(source) || !blockers((JavaSourceFile) source, ctx).isEmpty() ||
+               leftWith(source, ctx) != null;
+    }
+
+    /**
+     * The path of a source that this one is left with, as {@code MigrateAzureSdkDependencies} found when it scanned
+     * the repository, or null when it is not, or when no scan ran.
+     */
+    public static @Nullable String leftWith(Tree source, ExecutionContext ctx) {
+        Map<UUID, String> leftWith = ctx.getMessage(LEFT_WITH);
+        return leftWith == null ? null : leftWith.get(source.getId());
+    }
+
+    /**
+     * Records the sources each source is left with. A source stays left in the run's later cycles, when the sources
+     * that were migrated no longer show what linked them.
+     */
+    static void leaveWith(Map<UUID, String> leftWith, ExecutionContext ctx) {
+        Map<UUID, String> known = ctx.computeMessageIfAbsent(LEFT_WITH, k -> new ConcurrentHashMap<>());
+        for (Map.Entry<UUID, String> e : leftWith.entrySet()) {
+            known.putIfAbsent(e.getKey(), e.getValue());
+        }
     }
 
     /**

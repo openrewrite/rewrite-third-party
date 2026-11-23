@@ -114,6 +114,32 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
          * Per source: the types it uses, and where its source sets say each type on its classpath comes from.
          */
         final Map<Path, Usage> usage = new ConcurrentHashMap<>();
+        /**
+         * Per source that uses the legacy SDK: what it would need left as it is and migrated, until the sources it
+         * shares legacy types with decide which.
+         */
+        final Map<Path, Scanned> scanned = new ConcurrentHashMap<>();
+    }
+
+    static final class Scanned {
+        final UUID id;
+        final boolean left;
+        final LegacyApiLinks links;
+        final Set<String> remainingAsItIs;
+        final Map<String, Boolean> neededAsItIs;
+        final Set<String> remainingMigrated;
+        final Map<String, Boolean> neededMigrated;
+
+        Scanned(UUID id, boolean left, LegacyApiLinks links, Set<String> remainingAsItIs, Map<String, Boolean> neededAsItIs,
+                Set<String> remainingMigrated, Map<String, Boolean> neededMigrated) {
+            this.id = id;
+            this.left = left;
+            this.links = links;
+            this.remainingAsItIs = remainingAsItIs;
+            this.neededAsItIs = neededAsItIs;
+            this.remainingMigrated = remainingMigrated;
+            this.neededMigrated = neededMigrated;
+        }
     }
 
     static final class Usage {
@@ -183,15 +209,17 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
             return;
         }
         acc.usedLegacy.put(cu.getSourcePath(), before);
-        Tree migrated = LegacyAzureMigration.simulate(cu, ctx);
-        if (!(migrated instanceof JavaSourceFile)) {
-            return;
-        }
-        JavaSourceFile after = (JavaSourceFile) migrated;
-        acc.remainingLegacy.put(cu.getSourcePath(), legacyArtifacts(after));
+        boolean left = LegacyAzureMigration.isLeftAsItIs(cu, ctx);
+        Tree migrated = left ? cu : LegacyAzureMigration.simulate(cu, ctx);
+        JavaSourceFile after = migrated instanceof JavaSourceFile ? (JavaSourceFile) migrated : cu;
+        acc.scanned.put(cu.getSourcePath(), new Scanned(cu.getId(), left, LegacyApiLinks.of(cu),
+                legacyArtifacts(cu), needed(cu), legacyArtifacts(after), needed(after)));
+    }
+
+    private static Map<String, Boolean> needed(JavaSourceFile source) {
         Map<String, Boolean> needed = new HashMap<>();
-        boolean test = isTest(cu);
-        for (String fqn : typesInUse(after)) {
+        boolean test = isTest(source);
+        for (String fqn : typesInUse(source)) {
             for (String[] current : CURRENT) {
                 if (fqn.startsWith(current[0])) {
                     needed.put(current[1] + ":" + current[2] + ":" + current[3], test);
@@ -199,7 +227,36 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
                 }
             }
         }
-        acc.needed.put(cu.getSourcePath(), needed);
+        return needed;
+    }
+
+    /**
+     * Once every source is scanned, and before any is edited, decides which sources are left with others, for the
+     * migration's recipes to leave them, and what each module needs accordingly.
+     */
+    @Override
+    public Collection<? extends SourceFile> generate(Accumulator acc, ExecutionContext ctx) {
+        Map<Path, LegacyApiLinks> links = new HashMap<>();
+        Set<Path> left = new HashSet<>();
+        for (Map.Entry<Path, Scanned> e : acc.scanned.entrySet()) {
+            links.put(e.getKey(), e.getValue().links);
+            if (e.getValue().left) {
+                left.add(e.getKey());
+            }
+        }
+        Map<Path, Path> leftWith = LegacyApiLinks.leftWith(links, left);
+        Map<UUID, String> byId = new HashMap<>();
+        for (Map.Entry<Path, Path> e : leftWith.entrySet()) {
+            byId.put(acc.scanned.get(e.getKey()).id, e.getValue().toString());
+        }
+        LegacyAzureMigration.leaveWith(byId, ctx);
+        for (Map.Entry<Path, Scanned> e : acc.scanned.entrySet()) {
+            Scanned scanned = e.getValue();
+            boolean asItIs = scanned.left || leftWith.containsKey(e.getKey());
+            acc.remainingLegacy.put(e.getKey(), asItIs ? scanned.remainingAsItIs : scanned.remainingMigrated);
+            acc.needed.put(e.getKey(), asItIs ? scanned.neededAsItIs : scanned.neededMigrated);
+        }
+        return Collections.emptyList();
     }
 
     /**
