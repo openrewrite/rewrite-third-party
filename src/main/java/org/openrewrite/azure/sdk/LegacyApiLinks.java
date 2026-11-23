@@ -29,7 +29,9 @@ import java.util.*;
  */
 final class LegacyApiLinks {
 
-    private static final Set<String> INJECTED = new HashSet<>(Arrays.asList("Autowired", "Inject", "Resource", "Value"));
+    private static final Set<String> INJECTED = new HashSet<>(Arrays.asList("Autowired", "Inject", "Resource", "Value",
+            // A test's mocks and spies of beans replace the beans of their type
+            "MockBean", "MockitoBean", "SpyBean", "MockitoSpyBean"));
     private static final Set<String> PRODUCES = new HashSet<>(Arrays.asList("Bean", "Produces"));
     private static final Set<String> COMPONENTS = new HashSet<>(Arrays.asList("Component", "Service", "Repository",
             "Controller", "RestController", "Configuration", "ApplicationScoped", "RequestScoped", "SessionScoped",
@@ -260,6 +262,12 @@ final class LegacyApiLinks {
         }
         for (JavaType parameter : method.getParameterTypes()) {
             if (mentionsLegacy(parameter, 0)) {
+                return true;
+            }
+        }
+        // A caller migrated around a checked legacy exception would neither catch nor declare it
+        for (JavaType thrown : method.getThrownExceptions()) {
+            if (mentionsLegacy(thrown, 0)) {
                 return true;
             }
         }

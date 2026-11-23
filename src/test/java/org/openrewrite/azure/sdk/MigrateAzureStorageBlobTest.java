@@ -745,6 +745,65 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
     }
 
     @Test
+    void leavesACallerOfAMethodThatThrowsALegacyException() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.StorageException;
+              import com.microsoft.azure.storage.blob.CloudBlockBlob;
+
+              class Audits {
+                  CloudBlockBlob blob;
+
+                  int latest(byte[] buffer) throws StorageException {
+                      return blob.downloadToByteArray(buffer, 0);
+                  }
+              }
+              """,
+            """
+              import com.microsoft.azure.storage.StorageException;
+              import com.microsoft.azure.storage.blob.CloudBlockBlob;
+
+              class Audits {
+                  CloudBlockBlob blob;
+
+                  int latest(byte[] buffer) throws StorageException {
+                      return /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.blob.CloudBlob.downloadToByteArray` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/blob.downloadToByteArray(buffer, 0);
+                  }
+              }
+              """
+          ),
+          // Migrated, it would declare BlobStorageException and leave the checked StorageException of the call undeclared
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.StorageException;
+
+              class AuditController {
+                  Audits audits;
+
+                  int latest() throws StorageException {
+                      return audits.latest(new byte[16]);
+                  }
+              }
+              """,
+            """
+              import com.microsoft.azure.storage.StorageException;
+
+              /*~~(Legacy Azure SDK: left as it is with `Audits.java`, which shares its legacy types and has uses to migrate by hand)~~>*/class AuditController {
+                  Audits audits;
+
+                  int latest() throws StorageException {
+                      return audits.latest(new byte[16]);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void leavesABeanWithWhatItIsInjectedInto() {
         rewriteRun(
           //language=java
