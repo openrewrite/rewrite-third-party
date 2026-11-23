@@ -1877,6 +1877,102 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
         );
     }
 
+    @Test
+    void keepsTheStrictJsonOnlyWhereDriver3WroteItAndListsWhereItCannot() {
+        String relaxed = " into a string, which driver 5 writes as relaxed extended JSON where driver 3 wrote strict";
+        rewriteRun(
+          spec -> spec.dataTable(MongoDriverMigrationDecisions.Row.class, rows -> assertThat(rows)
+            .filteredOn(r -> r.getReason().endsWith(relaxed))
+            .extracting(MongoDriverMigrationDecisions.Row::getReason)
+            .containsExactlyInAnyOrder(
+              "`\"q=\" + query` turns a `BasicDBObject`" + relaxed,
+              "`query.toString()` turns a `DBObject`" + relaxed,
+              "`String.valueOf(query)` turns a `BasicDBObject`" + relaxed)),
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.mongodb.BasicDBObject;
+                  import com.mongodb.DBObject;
+
+                  class Queries {
+                      String describe(BasicDBObject query) {
+                          return "q=" + query;
+                      }
+
+                      String text(DBObject query) {
+                          return query.toString();
+                      }
+
+                      String value(BasicDBObject query) {
+                          return String.valueOf(query);
+                      }
+
+                      String label(Named named) {
+                          return "named " + named + ": " + named.toString();
+                      }
+                  }
+
+                  class Named extends BasicDBObject {
+                      @Override
+                      public String toJson() {
+                          return getString("name");
+                      }
+                  }
+
+                  class Logged extends BasicDBObject {
+                      @Override
+                      public String toString() {
+                          return "logged " + super.toString();
+                      }
+                  }
+                  """,
+                """
+                  import com.mongodb.BasicDBObject;
+                  import com.mongodb.DBObject;
+                  import org.bson.json.JsonMode;
+                  import org.bson.json.JsonWriterSettings;
+
+                  class Queries {
+                      String describe(BasicDBObject query) {
+                          return "q=" + query;
+                      }
+
+                      String text(DBObject query) {
+                          return query.toString();
+                      }
+
+                      String value(BasicDBObject query) {
+                          return String.valueOf(query);
+                      }
+
+                      String label(Named named) {
+                          return "named " + named + ": " + named.toString();
+                      }
+                  }
+
+                  class Named extends BasicDBObject {
+                      @Override
+                      public String toJson() {
+                          return getString("name");
+                      }
+                  }
+
+                  class Logged extends BasicDBObject {
+                      @Override
+                      public String toString() {
+                          return "logged " + super.toJson(JsonWriterSettings.builder().outputMode(JsonMode.STRICT).build());
+                      }
+                  }
+                  """
+              )
+            ),
+            pom("mongodb-driver-sync")
+          )
+        );
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void keepsTheLineBreaksOfTheFile(boolean repositoryUsesCrlf) {

@@ -26,6 +26,7 @@ import org.openrewrite.java.tree.*;
 
 import java.util.*;
 
+import static java.util.Objects.requireNonNull;
 import static org.openrewrite.mongodb.MongoTypes.fqn;
 
 /**
@@ -133,8 +134,39 @@ final class RemovedApiFixes {
     /**
      * The types whose {@code toString()} returns what their {@code toJson()} does.
      */
-    private static final Set<String> STRICT_TO_STRING = new HashSet<>(Arrays.asList(
+    static final Set<String> STRICT_TO_STRING = new HashSet<>(Arrays.asList(
             "com.mongodb.BasicDBObject", "org.bson.BsonDocument"));
+
+    /**
+     * The driver type of {@link #STRICT_TO_STRING} whose {@code toString()} a value of {@code type} has, or {@code null}
+     * when it has none, or a class of the code between them declares {@code toString()} or the {@code toJson()} that
+     * driver 3's {@code toString()} called.
+     */
+    static @Nullable String strictToString(@Nullable JavaType type) {
+        return strictToString(type, true);
+    }
+
+    /**
+     * As {@link #strictToString(JavaType)}, where {@code ownToString} says whether a {@code toString()} that the code
+     * declares counts, which it does not for {@code super.toString()}.
+     */
+    private static @Nullable String strictToString(@Nullable JavaType type, boolean ownToString) {
+        for (JavaType.FullyQualified t = TypeUtils.asFullyQualified(type); t != null; t = t.getSupertype()) {
+            String fqn = t.getFullyQualifiedName();
+            if (STRICT_TO_STRING.contains(fqn)) {
+                return fqn;
+            }
+            if (!RemovedApiFinder.isDriverType(fqn)) {
+                for (JavaType.Method m : t.getMethods()) {
+                    if ((ownToString && "toString".equals(m.getName()) || "toJson".equals(m.getName())) &&
+                        m.getParameterTypes().isEmpty()) {
+                        return null;
+                    }
+                }
+            }
+        }
+        return null;
+    }
 
     private static final class Calls extends JavaVisitor<ExecutionContext> {
 
@@ -171,6 +203,34 @@ final class RemovedApiFixes {
             return result;
         }
 
+        private static boolean isSuper(Expression select) {
+            return select instanceof J.Identifier && "super".equals(((J.Identifier) select).getSimpleName());
+        }
+
+        /**
+         * What {@link #strictToString(JavaType)} is for {@code super.toString()} where the cursor is: driver 3's
+         * {@code toString()} called the {@code toJson()} of the class it is called in.
+         */
+        private @Nullable String superToString() {
+            Cursor c = getCursor().dropParentUntil(v -> v instanceof J.ClassDeclaration ||
+                                                        v instanceof J.NewClass && ((J.NewClass) v).getBody() != null ||
+                                                        v == Cursor.ROOT_VALUE);
+            if (c.getValue() instanceof J.ClassDeclaration) {
+                return strictToString(((J.ClassDeclaration) c.getValue()).getType(), false);
+            }
+            if (c.getValue() instanceof J.NewClass) {
+                J.NewClass n = c.getValue();
+                for (Statement s : requireNonNull(n.getBody()).getStatements()) {
+                    if (s instanceof J.MethodDeclaration && "toJson".equals(((J.MethodDeclaration) s).getSimpleName()) &&
+                        ((J.MethodDeclaration) s).getParameters().stream().allMatch(J.Empty.class::isInstance)) {
+                        return null;
+                    }
+                }
+                return n.getClazz() == null ? null : strictToString(n.getClazz().getType(), false);
+            }
+            return null;
+        }
+
         @Override
         public @Nullable J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
             J.MethodInvocation original = method;
@@ -194,7 +254,8 @@ final class RemovedApiFixes {
             if (select != null && (args.isEmpty() || args.get(0) instanceof J.Empty) &&
                 ("toJson".equals(name) || "toString".equals(name))) {
                 // Only where the driver's own method is called, not a class's override of it
-                if (("toJson".equals(name) ? STRICT_TO_JSON : STRICT_TO_STRING).contains(declaring)) {
+                if ("toJson".equals(name) ? STRICT_TO_JSON.contains(declaring) :
+                        declaring != null && declaring.equals(isSuper(select) ? superToString() : strictToString(select.getType()))) {
                     return template(mi, "#{any(" + declaring + ")}.toJson(JsonWriterSettings.builder().outputMode(JsonMode.STRICT).build())",
                             ctx, select);
                 }

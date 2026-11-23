@@ -71,7 +71,9 @@ public class MigrateMongoJavaDriver3To5 extends ScanningRecipe<MigrateMongoJavaD
             "method that overrides one driver 5 removed, such as `MongoIterable.forEach(Block)`, loses its `@Override`. " +
             "Calls whose result driver 5 changed keep the old one: " +
             "`toJson()`, and the `toString()` of `BasicDBObject` and `BsonDocument`, ask for the strict extended JSON that " +
-            "driver 3 wrote, and the `toString()` of `MongoClientURI` and `ConnectionString`, which driver 5 redacts, becomes " +
+            "driver 3 wrote; where the code turns a document into a string otherwise, by string concatenation, a logger or " +
+            "the `toString()` of a `DBObject`, driver 5 writes relaxed JSON, and `MongoDriverMigrationDecisions` lists the " +
+            "place. The `toString()` of `MongoClientURI` and `ConnectionString`, which driver 5 redacts, becomes " +
             "`getURI()` or `getConnectionString()`. A `module-info.java` requires the modules of driver 5; a repository with " +
             "a Java module stays on driver 3 when a module would keep the legacy API, which no Java module can read in " +
             "driver 5. Clients of repositories that use `java.util.UUID` keep the `JAVA_LEGACY` UUID representation that " +
@@ -207,6 +209,13 @@ public class MigrateMongoJavaDriver3To5 extends ScanningRecipe<MigrateMongoJavaD
                     for (String added : implement.added) {
                         decisions.insertRow(ctx, new MongoDriverMigrationDecisions.Row(MongoClasspath.moduleKey((SourceFile) tree),
                                 "Added methods driver 5 requires", ((SourceFile) tree).getSourcePath().toString(), added));
+                    }
+                    // Documents turned into strings where the recipe cannot ask for the strict JSON driver 3 wrote
+                    ImplicitJson json = new ImplicitJson();
+                    json.visit(edited, ctx);
+                    for (String found : new LinkedHashSet<>(json.found)) {
+                        decisions.insertRow(ctx, new MongoDriverMigrationDecisions.Row(MongoClasspath.moduleKey((SourceFile) tree),
+                                "Relaxed JSON where driver 3 wrote strict", ((SourceFile) tree).getSourcePath().toString(), found));
                     }
                 }
                 return keepLineBreaks((J.CompilationUnit) tree, edited, ctx);
