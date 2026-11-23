@@ -18,11 +18,11 @@ package org.openrewrite.azure.sdk;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.Cursor;
 import org.openrewrite.ExecutionContext;
+import org.openrewrite.SourceFile;
 import org.openrewrite.java.MethodMatcher;
-import org.openrewrite.java.tree.Expression;
-import org.openrewrite.java.tree.J;
-import org.openrewrite.java.tree.JavaType;
+import org.openrewrite.java.tree.*;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -93,6 +93,72 @@ final class CallRewrite {
             }
             return true;
         };
+    }
+
+    static Condition all(Condition... conditions) {
+        return call -> {
+            for (Condition condition : conditions) {
+                if (!condition.test(call)) {
+                    return false;
+                }
+            }
+            return true;
+        };
+    }
+
+    /**
+     * Whether a checked exception thrown in place of the call would be caught or declared where the call is.
+     *
+     * @param exceptionTypes the exception and each of its supertypes a catch or {@code throws} could name
+     */
+    static Condition handles(String... exceptionTypes) {
+        return call -> handled(call.cursor, exceptionTypes);
+    }
+
+    static boolean handled(Cursor cursor, String... exceptionTypes) {
+        Object child = cursor.getValue();
+        for (Cursor c = cursor.getParentTreeCursor(); ; c = c.getParentTreeCursor()) {
+            Object v = c.getValue();
+            if (v instanceof J.Try) {
+                J.Try t = (J.Try) v;
+                boolean guarded = child == t.getBody() || (t.getResources() != null && t.getResources().contains(child));
+                if (guarded) {
+                    for (J.Try.Catch aCatch : t.getCatches()) {
+                        TypeTree caught = aCatch.getParameter().getTree().getTypeExpression();
+                        List<? extends NameTree> alternatives = caught instanceof J.MultiCatch ?
+                                ((J.MultiCatch) caught).getAlternatives() : Collections.singletonList(caught);
+                        for (NameTree alternative : alternatives) {
+                            if (alternative != null && isAny(alternative.getType(), exceptionTypes)) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            } else if (v instanceof J.MethodDeclaration) {
+                List<NameTree> declared = ((J.MethodDeclaration) v).getThrows();
+                if (declared != null) {
+                    for (NameTree thrown : declared) {
+                        if (isAny(thrown.getType(), exceptionTypes)) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            } else if (v instanceof J.Lambda || v instanceof J.ClassDeclaration || v instanceof SourceFile ||
+                       (v instanceof J.NewClass && child == ((J.NewClass) v).getBody())) {
+                return false;
+            }
+            child = v;
+        }
+    }
+
+    private static boolean isAny(@Nullable JavaType type, String... fqns) {
+        for (String fqn : fqns) {
+            if (TypeUtils.isOfClassType(type, fqn)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static boolean isNull(Expression e) {

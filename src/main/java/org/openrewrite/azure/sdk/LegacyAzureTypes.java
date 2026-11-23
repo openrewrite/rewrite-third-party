@@ -80,6 +80,17 @@ public final class LegacyAzureTypes {
         t.put(blob + "SharedAccessBlobPolicy", v12Blob + "sas.BlobServiceSasSignatureValues");
         t.put(blob + "SharedAccessBlobPermissions", v12Blob + "sas.BlobSasPermission");
 
+        // ADAL4J to MSAL4J: a context is its authority, and a credential the builder of the application it authenticates
+        String adal = "com.microsoft.aad.adal4j.";
+        String msal = "com.microsoft.aad.msal4j.";
+        t.put(adal + "AuthenticationContext", "java.lang.String");
+        t.put(adal + "AuthenticationResult", msal + "IAuthenticationResult");
+        t.put(adal + "ClientCredential", msal + "ConfidentialClientApplication$Builder");
+        t.put(adal + "AsymmetricKeyCredential", msal + "ConfidentialClientApplication$Builder");
+        t.put(adal + "UserInfo", msal + "IAccount");
+        t.put(adal + "UserAssertion", msal + "UserAssertion");
+        t.put(adal + "AuthenticationException", msal + "MsalException");
+
         TYPES = Collections.unmodifiableMap(t);
     }
 

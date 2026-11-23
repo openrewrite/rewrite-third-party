@@ -34,6 +34,7 @@ final class LegacyAzureMigration {
     static List<Recipe> javaRecipes() {
         return Arrays.asList(
                 new MigrateAzureStorageBlob(),
+                new MigrateAdal4jToMsal4j(),
                 new ChangeLegacyAzureTypes()
         );
     }

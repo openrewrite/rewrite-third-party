@@ -43,13 +43,13 @@ public class FindAzureSdkLegacyRemnants extends Recipe {
         GUIDES.put("com.microsoft.azure.storage.blob", sdk + "storage/azure-storage-blob/migrationGuides/V8_V12.md");
         GUIDES.put("com.microsoft.azure.storage.queue", sdk + "storage/azure-storage-queue/migrationGuides/V8_V12.md");
         GUIDES.put("com.microsoft.azure.storage.file", sdk + "storage/azure-storage-file-share/migrationGuides/V8_V12.md");
-        GUIDES.put("com.microsoft.azure.storage.table", sdk + "tables/azure-data-tables/migration-guide.md");
+        GUIDES.put("com.microsoft.azure.storage.table", sdk + "tables/azure-data-tables/migration_guide.md");
         GUIDES.put("com.microsoft.azure.storage", sdk + "storage/azure-storage-blob/migrationGuides/V8_V12.md");
         GUIDES.put("com.microsoft.aad.adal4j", "https://learn.microsoft.com/entra/msal/java/advanced/migrate-adal-msal-java");
         GUIDES.put("com.microsoft.azure.eventhubs", sdk + "eventhubs/azure-messaging-eventhubs/migration-guide.md");
         GUIDES.put("com.microsoft.azure.eventprocessorhost", sdk + "eventhubs/azure-messaging-eventhubs/migration-guide.md");
         GUIDES.put("com.microsoft.azure.servicebus", sdk + "servicebus/azure-messaging-servicebus/migration-guide.md");
-        GUIDES.put("com.microsoft.azure.keyvault", sdk + "keyvault/azure-security-keyvault-secrets/migration-guide.md");
+        GUIDES.put("com.microsoft.azure.keyvault", sdk + "keyvault/azure-security-keyvault-secrets/migration_guide.md");
         GUIDES.put("com.microsoft.azure.documentdb", "https://learn.microsoft.com/azure/cosmos-db/nosql/migrate-java-v4-sdk");
         GUIDES.put("com.microsoft.azure.cosmosdb", "https://learn.microsoft.com/azure/cosmos-db/nosql/migrate-java-v4-sdk");
         GUIDES.put("com.microsoft.azure.management", sdk + "resourcemanager/docs/MIGRATION_GUIDE.md");
