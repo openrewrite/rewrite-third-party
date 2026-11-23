@@ -576,6 +576,30 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
     }
 
     @Test
+    void leavesRepositoriesWhoseBuildResolvesADriverPast3() {
+        rewriteRun(
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.mongodb.BasicDBObject;
+                  import com.mongodb.DBCollection;
+
+                  class Counts {
+                      long count(DBCollection people) {
+                          return people.count(new BasicDBObject("a", 1));
+                      }
+                  }
+                  """
+              )
+            ),
+            pomXml(POM.replace("mongo-java-driver", "mongodb-driver-legacy").replace("3.12.14", "4.11.5"))
+          )
+        );
+    }
+
+    @Test
     void migratesRemovedApiOfTheDriver5Api() {
         rewriteRun(
           mavenProject("app",

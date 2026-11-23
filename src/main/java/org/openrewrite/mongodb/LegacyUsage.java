@@ -82,6 +82,11 @@ final class LegacyUsage {
     final Map<String, Set<String>> injectedLegacyTypes = new ConcurrentHashMap<>();
     final Set<String> producedLegacyTypes = ConcurrentHashMap.newKeySet();
     final Map<String, String> driverVersionByModule = new ConcurrentHashMap<>();
+
+    /**
+     * The versions of the driver and its parts that build files resolve.
+     */
+    final Set<String> resolvedDriverVersions = ConcurrentHashMap.newKeySet();
     final Set<String> repositoryBlockers = ConcurrentHashMap.newKeySet();
     volatile boolean usesUuid;
 
@@ -172,7 +177,9 @@ final class LegacyUsage {
      */
     @Nullable String driverNewerThan3() {
         String newest = null;
-        for (String version : driverVersionByModule.values()) {
+        List<String> versions = new ArrayList<>(driverVersionByModule.values());
+        versions.addAll(resolvedDriverVersions);
+        for (String version : versions) {
             if (MongoClasspath.isAtLeast(version, "4.0") && (newest == null || MongoClasspath.isAtLeast(version, newest))) {
                 newest = version;
             }

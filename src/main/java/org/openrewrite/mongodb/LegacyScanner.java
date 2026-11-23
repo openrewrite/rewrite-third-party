@@ -28,6 +28,7 @@ import org.openrewrite.java.tree.*;
 import org.openrewrite.maven.tree.Dependency;
 import org.openrewrite.maven.tree.MavenResolutionResult;
 import org.openrewrite.maven.tree.ManagedDependency;
+import org.openrewrite.maven.tree.ResolvedDependency;
 import org.openrewrite.quark.Quark;
 import org.openrewrite.binary.Binary;
 import org.openrewrite.remote.Remote;
@@ -116,6 +117,11 @@ final class LegacyScanner extends TreeVisitor<Tree, ExecutionContext> {
     }
 
     private void scanMaven(MavenResolutionResult mrr) {
+        for (List<ResolvedDependency> deps : mrr.getDependencies().values()) {
+            for (ResolvedDependency d : deps) {
+                resolved(d);
+            }
+        }
         for (Dependency d : mrr.getPom().getRequestedDependencies()) {
             if ("org.mongodb".equals(d.getGroupId()) && DRIVER_ARTIFACTS.contains(d.getArtifactId())) {
                 acc.declaresDriver = true;
@@ -130,11 +136,24 @@ final class LegacyScanner extends TreeVisitor<Tree, ExecutionContext> {
 
     private void scanGradle(GradleProject gp) {
         for (GradleDependencyConfiguration conf : gp.getConfigurations()) {
+            for (ResolvedDependency d : conf.getResolved()) {
+                resolved(d);
+            }
             for (Dependency d : conf.getRequested()) {
                 if ("org.mongodb".equals(d.getGroupId()) && DRIVER_ARTIFACTS.contains(d.getArtifactId())) {
                     acc.declaresDriver = true;
                 }
             }
+        }
+    }
+
+    /**
+     * Records the version of a driver that a build file resolves, which tells a repository that already left driver 3
+     * when no Java source compiles against the driver.
+     */
+    private void resolved(ResolvedDependency d) {
+        if ("org.mongodb".equals(d.getGroupId()) && (DRIVER_ARTIFACTS.contains(d.getArtifactId()) || "bson".equals(d.getArtifactId()))) {
+            acc.resolvedDriverVersions.add(d.getVersion());
         }
     }
 
