@@ -38,7 +38,9 @@ import org.openrewrite.maven.tree.Dependency;
 import org.openrewrite.maven.tree.GroupArtifact;
 import org.openrewrite.maven.tree.MavenMetadata;
 import org.openrewrite.maven.tree.MavenResolutionResult;
+import org.openrewrite.maven.tree.ResolvedDependency;
 import org.openrewrite.maven.tree.ResolvedPom;
+import org.openrewrite.maven.tree.Scope;
 import org.openrewrite.semver.Semver;
 import org.openrewrite.semver.VersionComparator;
 import org.openrewrite.xml.tree.Xml;
@@ -107,6 +109,40 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
         final Map<Path, Map<String, Boolean>> needed = new ConcurrentHashMap<>();
         final Map<Path, Set<String>> usedLegacy = new ConcurrentHashMap<>();
         final Map<Path, Set<String>> remainingLegacy = new ConcurrentHashMap<>();
+        /**
+         * Per source: the types it uses, and where its source sets say each type on its classpath comes from.
+         */
+        final Map<Path, Usage> usage = new ConcurrentHashMap<>();
+    }
+
+    static final class Usage {
+        final Set<String> types;
+        final boolean test;
+        final List<Map<String, List<JavaType.FullyQualified>>> gavToTypes;
+
+        Usage(Set<String> types, boolean test, List<Map<String, List<JavaType.FullyQualified>>> gavToTypes) {
+            this.types = types;
+            this.test = test;
+            this.gavToTypes = gavToTypes;
+        }
+
+        /**
+         * @param ga {@code groupId:artifactId}
+         */
+        boolean uses(String ga) {
+            for (Map<String, List<JavaType.FullyQualified>> artifacts : gavToTypes) {
+                for (Map.Entry<String, List<JavaType.FullyQualified>> artifact : artifacts.entrySet()) {
+                    if (artifact.getKey().startsWith(ga + ":")) {
+                        for (JavaType.FullyQualified type : artifact.getValue()) {
+                            if (types.contains(type.getFullyQualifiedName())) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            return false;
+        }
     }
 
     @Override
@@ -125,7 +161,12 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
                 SourceFile s = (SourceFile) tree;
                 if (isMavenPom(s) || isGradleBuild(s)) {
                     acc.modules.add(dir(s.getSourcePath()));
-                } else if (s instanceof J.CompilationUnit) {
+                    return tree;
+                }
+                if (s instanceof JavaSourceFile) {
+                    recordUsage((JavaSourceFile) s, acc);
+                }
+                if (s instanceof J.CompilationUnit) {
                     scan((J.CompilationUnit) s, acc, ctx);
                 }
                 return tree;
@@ -156,6 +197,30 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
             }
         }
         acc.needed.put(cu.getSourcePath(), needed);
+    }
+
+    /**
+     * What a source uses of the module's other dependencies, which a legacy artifact may be the one bringing.
+     */
+    private static void recordUsage(JavaSourceFile s, Accumulator acc) {
+        List<Map<String, List<JavaType.FullyQualified>>> gavToTypes = new ArrayList<>();
+        for (JavaSourceSet sourceSet : s.getMarkers().findAll(JavaSourceSet.class)) {
+            if (sourceSet.getGavToTypes() != null && !sourceSet.getGavToTypes().isEmpty()) {
+                gavToTypes.add(sourceSet.getGavToTypes());
+            }
+        }
+        if (gavToTypes.isEmpty()) {
+            return;
+        }
+        Set<String> types = new HashSet<>();
+        for (String fqn : typesInUse(s)) {
+            if (!fqn.startsWith("java.") && !fqn.startsWith("javax.")) {
+                types.add(fqn);
+            }
+        }
+        if (!types.isEmpty()) {
+            acc.usage.put(s.getSourcePath(), new Usage(types, isTest(s), gavToTypes));
+        }
     }
 
     private static Set<String> legacyArtifacts(JavaSourceFile s) {
@@ -208,7 +273,8 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
         if (module.isEmpty()) {
             return pom;
         }
-        ResolvedPom resolved = pom.getMarkers().findFirst(MavenResolutionResult.class).get().getPom();
+        MavenResolutionResult before = pom.getMarkers().findFirst(MavenResolutionResult.class).get();
+        ResolvedPom resolved = before.getPom();
         Set<String> declared = new HashSet<>();
         for (Dependency d : resolved.getRequested().getDependencies()) {
             declared.add(resolved.getValue(d.getGroupId()) + ":" + resolved.getValue(d.getArtifactId()));
@@ -252,11 +318,67 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
             p = (Xml.Document) new RemoveRedundantDependencyVersions("com.azure", "*",
                     RemoveRedundantDependencyVersions.Comparator.GTE, null).getVisitor().visitNonNull(p, ctx);
         }
+        Map<String, String> orphans = orphans(before.getDependencies().getOrDefault(Scope.Test, Collections.emptyList()),
+                module, declared);
         for (String legacy : module.removable()) {
             String[] ga = legacy.split(":");
             p = (Xml.Document) new org.openrewrite.maven.RemoveDependency(ga[0], ga[1], null).getVisitor().visitNonNull(p, ctx);
         }
+        // What the module's own code used of what only a removed legacy artifact brought is declared at the version it
+        // had, unless the module still resolves it through another dependency
+        MavenResolutionResult after = p.getMarkers().findFirst(MavenResolutionResult.class).get();
+        for (Map.Entry<String, String> orphan : orphans.entrySet()) {
+            String[] ga = orphan.getKey().split(":");
+            boolean test = module.usedOnlyByTests(orphan.getKey());
+            if (!after.findDependencies(ga[0], ga[1], test ? Scope.Test : Scope.Compile).isEmpty()) {
+                continue;
+            }
+            p = (Xml.Document) new org.openrewrite.maven.AddDependencyVisitor(ga[0], ga[1], orphan.getValue(), null,
+                    test ? "test" : null, true, null, null, null, null).visitNonNull(p, ctx);
+        }
         return p;
+    }
+
+    /**
+     * The artifacts that the module's code uses and that only arrive through the legacy artifacts it can remove, each
+     * at the version it resolves to now.
+     *
+     * @param resolved the module's dependencies, the legacy artifacts it declares among them
+     */
+    private static Map<String, String> orphans(List<ResolvedDependency> resolved, Module module, Set<String> declared) {
+        Set<String> removable = module.removable();
+        Map<String, String> brought = new TreeMap<>();
+        Set<String> elsewhere = new HashSet<>();
+        for (ResolvedDependency d : resolved) {
+            if (d.getDepth() != 0) {
+                continue;
+            }
+            String ga = d.getGroupId() + ":" + d.getArtifactId();
+            if (removable.contains(ga)) {
+                collect(d.getDependencies(), brought, Collections.newSetFromMap(new IdentityHashMap<>()));
+            } else {
+                Map<String, String> other = new HashMap<>();
+                collect(Collections.singletonList(d), other, Collections.newSetFromMap(new IdentityHashMap<>()));
+                elsewhere.addAll(other.keySet());
+            }
+        }
+        Map<String, String> orphans = new TreeMap<>();
+        for (Map.Entry<String, String> artifact : brought.entrySet()) {
+            String ga = artifact.getKey();
+            if (!removable.contains(ga) && !declared.contains(ga) && !elsewhere.contains(ga) && module.uses(ga)) {
+                orphans.put(ga, artifact.getValue());
+            }
+        }
+        return orphans;
+    }
+
+    private static void collect(List<ResolvedDependency> dependencies, Map<String, String> artifacts, Set<ResolvedDependency> seen) {
+        for (ResolvedDependency d : dependencies) {
+            if (seen.add(d)) {
+                artifacts.putIfAbsent(d.getGroupId() + ":" + d.getArtifactId(), d.getVersion());
+                collect(d.getDependencies(), artifacts, seen);
+            }
+        }
     }
 
     /**
@@ -302,12 +424,30 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
             if (declared.contains(gav[0] + ":" + gav[1]) || gp.getConfiguration(configuration) == null) {
                 continue;
             }
-            g = (JavaSourceFile) new AddDependencyVisitor(configuration, gav[0], gav[1], gav[2], null, null, null, null,
+            g = (JavaSourceFile) new AddDependencyVisitor(gav[0], gav[1], gav[2], null, configuration, null, null, null,
                     MigrateAzureSdkDependencies::isTopLevelDependencies, null).visitNonNull(g, ctx);
+        }
+        Map<String, String> orphans = new TreeMap<>();
+        for (String classpath : new String[]{"compileClasspath", "testCompileClasspath"}) {
+            GradleDependencyConfiguration c = gp.getConfiguration(classpath);
+            if (c != null) {
+                orphans.putAll(orphans(c.getDirectResolved(), module, declared));
+            }
         }
         for (String legacy : module.removable()) {
             String[] ga = legacy.split(":");
             g = (JavaSourceFile) new RemoveDependency(ga[0], ga[1], null).getVisitor().visitNonNull(g, ctx);
+        }
+        // Gradle resolves the newest version any dependency asks for, so declaring the one the module had never
+        // downgrades what a current Azure artifact brings
+        for (Map.Entry<String, String> orphan : orphans.entrySet()) {
+            String[] ga = orphan.getKey().split(":");
+            String configuration = module.usedOnlyByTests(orphan.getKey()) ? "testImplementation" : "implementation";
+            if (gp.getConfiguration(configuration) == null) {
+                continue;
+            }
+            g = (JavaSourceFile) new AddDependencyVisitor(ga[0], ga[1], orphan.getValue(), null, configuration, null, null, null,
+                    MigrateAzureSdkDependencies::isTopLevelDependencies, null).visitNonNull(g, ctx);
         }
         return g;
     }
@@ -327,6 +467,25 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
         final Map<String, Boolean> needed = new TreeMap<>();
         final Set<String> used = new TreeSet<>();
         final Set<String> remaining = new TreeSet<>();
+        final List<Usage> usage = new ArrayList<>();
+
+        boolean uses(String ga) {
+            for (Usage u : usage) {
+                if (u.uses(ga)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        boolean usedOnlyByTests(String ga) {
+            for (Usage u : usage) {
+                if (!u.test && u.uses(ga)) {
+                    return false;
+                }
+            }
+            return true;
+        }
 
         boolean isEmpty() {
             return used.isEmpty();
@@ -344,6 +503,11 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
      */
     private static Module module(Path dir, Accumulator acc) {
         Module module = new Module();
+        for (Map.Entry<Path, Usage> usage : acc.usage.entrySet()) {
+            if (dir.equals(owner(usage.getKey(), acc.modules))) {
+                module.usage.add(usage.getValue());
+            }
+        }
         for (Map.Entry<Path, Set<String>> used : acc.usedLegacy.entrySet()) {
             Path source = used.getKey();
             if (!dir.equals(owner(source, acc.modules))) {

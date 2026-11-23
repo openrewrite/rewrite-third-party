@@ -18,9 +18,14 @@ package org.openrewrite.azure.sdk;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
+import org.openrewrite.Tree;
 import org.openrewrite.java.JavaParser;
+import org.openrewrite.java.marker.JavaSourceSet;
+import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
+
+import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.openrewrite.java.Assertions.java;
@@ -496,6 +501,93 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
               spec -> spec.after(pom -> {
                   assertThat(pom).doesNotContain("<artifactId>azure-storage</artifactId>");
                   assertThat(pom).containsPattern("<artifactId>azure-storage-blob</artifactId>\\s*<version>12\\.\\d+\\.\\d+</version>");
+                  return pom;
+              })
+            )
+          )
+        );
+    }
+
+    @Test
+    void declaresWhatOnlyTheLegacyArtifactBrought() {
+        // commons-lang3 arrives only through azure-storage, and the module's other code uses it
+        JavaSourceSet main = new JavaSourceSet(Tree.randomId(), "main", Collections.emptyList(),
+          Collections.singletonMap("org.apache.commons:commons-lang3:3.4",
+            Collections.singletonList(JavaType.ShallowClass.build("org.apache.commons.lang3.StringUtils"))));
+        rewriteRun(
+          //language=java
+          java(
+            """
+              package org.apache.commons.lang3;
+
+              public class StringUtils {
+                  public static boolean isBlank(CharSequence s) {
+                      return s == null;
+                  }
+              }
+              """
+          ),
+          mavenProject("app",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import com.microsoft.azure.storage.CloudStorageAccount;
+                  import com.microsoft.azure.storage.blob.CloudBlobClient;
+
+                  class Clients {
+                      CloudBlobClient blobs(String connectionString) throws Exception {
+                          return CloudStorageAccount.parse(connectionString).createCloudBlobClient();
+                      }
+                  }
+                  """,
+                """
+                  import com.azure.storage.blob.BlobServiceClient;
+                  import com.azure.storage.blob.BlobServiceClientBuilder;
+
+                  class Clients {
+                      BlobServiceClient blobs(String connectionString) throws Exception {
+                          return new BlobServiceClientBuilder().connectionString(connectionString).buildClient();
+                      }
+                  }
+                  """
+              ),
+              //language=java
+              java(
+                """
+                  import org.apache.commons.lang3.StringUtils;
+
+                  class Names {
+                      boolean blank(String name) {
+                          return StringUtils.isBlank(name);
+                      }
+                  }
+                  """,
+                spec -> spec.markers(main)
+              )
+            ),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.example</groupId>
+                  <artifactId>app</artifactId>
+                  <version>1.0</version>
+                  <dependencies>
+                    <dependency>
+                      <groupId>com.microsoft.azure</groupId>
+                      <artifactId>azure-storage</artifactId>
+                      <version>8.6.6</version>
+                    </dependency>
+                  </dependencies>
+                </project>
+                """,
+              spec -> spec.after(pom -> {
+                  assertThat(pom).doesNotContain("<artifactId>azure-storage</artifactId>");
+                  assertThat(pom).containsPattern("<artifactId>commons-lang3</artifactId>\\s*<version>3\\.4</version>");
+                  // jackson-core and slf4j-api, which the module does not use, come with the current artifact anyway
+                  assertThat(pom).doesNotContain("jackson-core", "slf4j-api");
                   return pom;
               })
             )
