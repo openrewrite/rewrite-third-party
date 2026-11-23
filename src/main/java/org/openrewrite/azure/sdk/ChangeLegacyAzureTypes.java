@@ -24,11 +24,13 @@ import org.openrewrite.java.ChangeType;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.JavaIsoVisitor;
-import org.openrewrite.java.tree.J;
-import org.openrewrite.java.tree.NameTree;
+import org.openrewrite.java.JavaVisitor;
+import org.openrewrite.java.tree.*;
 import org.openrewrite.staticanalysis.UnnecessaryCatch;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Value
 @EqualsAndHashCode(callSuper = false)
@@ -54,6 +56,8 @@ public class ChangeLegacyAzureTypes extends Recipe {
             @Override
             public @Nullable Tree visit(@Nullable Tree tree, ExecutionContext ctx) {
                 Tree t = tree;
+                Map<UUID, J> unmigrated = new HashMap<>();
+                new FindUnmigratedCalls().visit(t, unmigrated);
                 for (Map.Entry<String, String> mapping : LegacyAzureTypes.mappings().entrySet()) {
                     if (t instanceof J.CompilationUnit &&
                         new UsesType<>(mapping.getKey(), true).visit(t, ctx) != t) {
@@ -67,9 +71,100 @@ public class ChangeLegacyAzureTypes extends Recipe {
                     t = new UnnecessaryCatch(false, false).getVisitor().visit(t, ctx);
                     t = new SingleAlternativeMultiCatch().visit(t, ctx);
                 }
+                if (!unmigrated.isEmpty() && t != tree) {
+                    t = new RestoreUnmigratedCalls(unmigrated).visit(t, ctx);
+                    // Where the calls it restored were all that used the legacy types, nothing changed
+                    if (t instanceof SourceFile && tree instanceof SourceFile &&
+                        ((SourceFile) t).printAll().equals(((SourceFile) tree).printAll())) {
+                        return tree;
+                    }
+                }
                 return t;
             }
         };
+    }
+
+    /**
+     * Records each constructor call and static call of a retyped legacy type that no rewrite migrated, as it is with
+     * the legacy type fully qualified. Retyped, {@code new CloudStorageAccount(credentials, true)} would read as
+     * {@code new String(credentials, true)}, which hides the call FindAzureSdkLegacyRemnants marked for migrating by
+     * hand.
+     */
+    private static class FindUnmigratedCalls extends JavaIsoVisitor<Map<UUID, J>> {
+        @Override
+        public J.NewClass visitNewClass(J.NewClass newClass, Map<UUID, J> unmigrated) {
+            J.NewClass n = super.visitNewClass(newClass, unmigrated);
+            if (n.getBody() == null && n.getClazz() != null && LegacyAzureTypes.isMapped(n.getType())) {
+                unmigrated.put(n.getId(), new QualifyLegacyTypes().visitNonNull(n, 0, getCursor().getParentOrThrow()));
+            }
+            return n;
+        }
+
+        @Override
+        public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, Map<UUID, J> unmigrated) {
+            J.MethodInvocation m = super.visitMethodInvocation(method, unmigrated);
+            if (isStaticCallOfMappedType(m)) {
+                unmigrated.put(m.getId(), new QualifyLegacyTypes().visitNonNull(m, 0, getCursor().getParentOrThrow()));
+            }
+            return m;
+        }
+    }
+
+    private static boolean isStaticCallOfMappedType(J.MethodInvocation m) {
+        JavaType.Method type = m.getMethodType();
+        return type != null && type.hasFlags(Flag.Static) && m.getSelect() instanceof TypeTree &&
+               LegacyAzureTypes.isMapped(type.getDeclaringType()) &&
+               TypeUtils.isOfType(m.getSelect().getType(), type.getDeclaringType());
+    }
+
+    private static class QualifyLegacyTypes extends JavaIsoVisitor<Integer> {
+        @Override
+        public J.NewClass visitNewClass(J.NewClass newClass, Integer p) {
+            J.NewClass n = super.visitNewClass(newClass, p);
+            if (n.getBody() == null && n.getClazz() != null && LegacyAzureTypes.isMapped(n.getType())) {
+                n = n.withClazz(qualified(n.getClazz()));
+            }
+            return n;
+        }
+
+        @Override
+        public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, Integer p) {
+            J.MethodInvocation m = super.visitMethodInvocation(method, p);
+            if (isStaticCallOfMappedType(m) && m.getSelect() != null) {
+                m = m.withSelect(qualified(m.getSelect()));
+            }
+            return m;
+        }
+
+        @SuppressWarnings("unchecked")
+        private static <T extends J> T qualified(T typeName) {
+            JavaType.FullyQualified type = TypeUtils.asFullyQualified(((TypedTree) typeName).getType());
+            if (type == null) {
+                return typeName;
+            }
+            TypeTree fq = TypeTree.build(type.getFullyQualifiedName().replace('$', '.'));
+            return (T) fq.withType(type).withPrefix(typeName.getPrefix());
+        }
+    }
+
+    private static class RestoreUnmigratedCalls extends JavaVisitor<ExecutionContext> {
+        private final Map<UUID, J> unmigrated;
+
+        RestoreUnmigratedCalls(Map<UUID, J> unmigrated) {
+            this.unmigrated = unmigrated;
+        }
+
+        @Override
+        public J visitNewClass(J.NewClass newClass, ExecutionContext ctx) {
+            J original = unmigrated.get(newClass.getId());
+            return original != null ? original.withPrefix(newClass.getPrefix()) : super.visitNewClass(newClass, ctx);
+        }
+
+        @Override
+        public J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
+            J original = unmigrated.get(method.getId());
+            return original != null ? original.withPrefix(method.getPrefix()) : super.visitMethodInvocation(method, ctx);
+        }
     }
 
     /**

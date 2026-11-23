@@ -153,8 +153,10 @@ class AzureCallRewriter extends JavaVisitor<ExecutionContext> {
     }
 
     private @Nullable J rewrite(CallRewrite.Call call, ExecutionContext ctx) {
+        boolean stubbed = stubbed(call);
         for (CallRewrite rule : rules) {
-            if (!matches(rule, call) || (rule.condition != null && !rule.condition.test(call))) {
+            if (!matches(rule, call) || (rule.condition != null && !rule.condition.test(call)) ||
+                (stubbed && rule.builder != null)) {
                 continue;
             }
             if (rule.deleteStatement) {
@@ -164,11 +166,43 @@ class AzureCallRewriter extends JavaVisitor<ExecutionContext> {
                 continue;
             }
             J result = rule.builder != null ? rule.builder.build(call, this, ctx) : template(rule.template, call, ctx);
+            if (result != null && stubbed && !sameCallOnReceiver(result, call)) {
+                // A stubbing or verification only works on a call of the mock itself, so a rewrite that wraps the call
+                // or replaces its receiver is left for FindAzureSdkLegacyRemnants to report
+                return call.tree;
+            }
             if (result != null) {
                 return result;
             }
         }
         return call.tree;
+    }
+
+    /**
+     * Whether the call is the one a Mockito stubbing or verification is about: the argument of {@code when(..)} or
+     * {@code given(..)}, or a call on what {@code verify(..)}, {@code doReturn(..).when(..)} or
+     * {@code then(..).should()} returned.
+     */
+    private static boolean stubbed(CallRewrite.Call call) {
+        if (call.receiver instanceof J.MethodInvocation && isMockito(((J.MethodInvocation) call.receiver).getMethodType())) {
+            return true;
+        }
+        Object parent = call.cursor.getParentTreeCursor().getValue();
+        return parent instanceof J.MethodInvocation && isMockito(((J.MethodInvocation) parent).getMethodType()) &&
+               ((J.MethodInvocation) parent).getArguments().contains(call.tree);
+    }
+
+    private static boolean isMockito(JavaType.@Nullable Method type) {
+        JavaType.FullyQualified declaring = type == null ? null : type.getDeclaringType();
+        return declaring != null && declaring.getFullyQualifiedName().startsWith("org.mockito.");
+    }
+
+    private static boolean sameCallOnReceiver(J result, CallRewrite.Call call) {
+        if (!(result instanceof J.MethodInvocation) || call.receiver == null) {
+            return false;
+        }
+        Expression select = ((J.MethodInvocation) result).getSelect();
+        return select != null && select.getId().equals(call.receiver.getId());
     }
 
     private static boolean matches(CallRewrite rule, CallRewrite.Call call) {

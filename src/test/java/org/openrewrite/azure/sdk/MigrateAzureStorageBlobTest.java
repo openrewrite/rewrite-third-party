@@ -538,4 +538,98 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void keepsAnAccountMadeFromCredentialsItCannotMigrate() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.CloudStorageAccount;
+              import com.microsoft.azure.storage.StorageCredentials;
+
+              class Accounts {
+                  CloudStorageAccount account(StorageCredentials credentials) throws Exception {
+                      return new CloudStorageAccount(credentials, true);
+                  }
+              }
+              """,
+            """
+              import com.microsoft.azure.storage.StorageCredentials;
+
+              class Accounts {
+                  String account(/*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.StorageCredentials` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/StorageCredentials credentials) throws Exception {
+                      return /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.CloudStorageAccount` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/new com.microsoft.azure.storage.CloudStorageAccount(credentials, true);
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void stubbingsStayOnTheMock() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+            .classpathFromResources(new InMemoryExecutionContext(), "azure-storage-8", "mockito-core-5")),
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.CloudStorageAccount;
+              import com.microsoft.azure.storage.blob.BlobProperties;
+              import com.microsoft.azure.storage.blob.CloudBlobClient;
+              import com.microsoft.azure.storage.blob.CloudBlobContainer;
+              import com.microsoft.azure.storage.blob.CloudBlockBlob;
+
+              import java.util.Date;
+
+              import static org.mockito.ArgumentMatchers.anyString;
+              import static org.mockito.Mockito.*;
+
+              class StorageTest {
+                  CloudBlobClient client = mock(CloudBlobClient.class);
+                  CloudStorageAccount account = mock(CloudStorageAccount.class);
+                  CloudBlobContainer container = mock(CloudBlobContainer.class);
+                  CloudBlockBlob blob = mock(CloudBlockBlob.class);
+                  BlobProperties properties = mock(BlobProperties.class);
+
+                  void setUp() throws Exception {
+                      when(account.createCloudBlobClient()).thenReturn(client);
+                      when(client.getContainerReference(anyString())).thenReturn(container);
+                      when(container.getBlockBlobReference(anyString())).thenReturn(blob);
+                      when(properties.getLastModified()).thenReturn(new Date());
+                      verify(blob).exists();
+                  }
+              }
+              """,
+            """
+              import com.azure.storage.blob.BlobClient;
+              import com.azure.storage.blob.BlobContainerClient;
+              import com.azure.storage.blob.BlobServiceClient;
+              import com.azure.storage.blob.models.BlobProperties;
+
+              import java.util.Date;
+
+              import static org.mockito.ArgumentMatchers.anyString;
+              import static org.mockito.Mockito.*;
+
+              class StorageTest {
+                  BlobServiceClient client = mock(BlobServiceClient.class);
+                  String account = mock(String.class);
+                  BlobContainerClient container = mock(BlobContainerClient.class);
+                  BlobClient blob = mock(BlobClient.class);
+                  BlobProperties properties = mock(BlobProperties.class);
+
+                  void setUp() throws Exception {
+                      when(/*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.CloudStorageAccount.createCloudBlobClient` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/account.createCloudBlobClient()).thenReturn(client);
+                      when(client.getBlobContainerClient(anyString())).thenReturn(container);
+                      when(container.getBlobClient(anyString())).thenReturn(blob);
+                      when(/*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.blob.BlobProperties.getLastModified` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/properties.getLastModified()).thenReturn(new Date());
+                      verify(blob).exists();
+                  }
+              }
+              """
+          )
+        );
+    }
 }

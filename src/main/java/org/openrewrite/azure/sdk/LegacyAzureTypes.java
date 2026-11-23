@@ -121,6 +121,14 @@ public final class LegacyAzureTypes {
         return TYPES;
     }
 
+    /**
+     * Whether the type is a legacy type {@link ChangeLegacyAzureTypes} retypes.
+     */
+    public static boolean isMapped(@Nullable JavaType type) {
+        JavaType.FullyQualified fq = TypeUtils.asFullyQualified(type);
+        return fq != null && TYPES.containsKey(fq.getFullyQualifiedName().replace('$', '.'));
+    }
+
     public static boolean isLegacy(@Nullable String fqn) {
         return fqn != null && LEGACY.matcher(fqn.replace('$', '.')).matches();
     }
