@@ -18,9 +18,14 @@ package org.openrewrite.azure.sdk;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
+import org.openrewrite.internal.ListUtils;
+import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaParser;
+import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
+import org.openrewrite.test.TypeValidation;
 
 import static org.openrewrite.java.Assertions.java;
 import static org.openrewrite.maven.Assertions.pomXml;
@@ -276,5 +281,69 @@ class MigrateAzureServiceBusTest implements RewriteTest {
             )
           )
         );
+    }
+
+    @Test
+    void leavesASourceWhoseLegacyTypesDidNotResolve() {
+        rewriteRun(
+          spec -> spec.typeValidationOptions(TypeValidation.none()),
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.servicebus.IMessage;
+              import com.microsoft.azure.servicebus.IQueueClient;
+              import com.microsoft.azure.servicebus.primitives.ServiceBusException;
+
+              class Consumer {
+                  private IQueueClient queue;
+
+                  void send(IMessage message) throws InterruptedException, ServiceBusException {
+                      queue.send(message);
+                  }
+              }
+              """,
+            """
+              import com.microsoft.azure.servicebus.IMessage;
+              import com.microsoft.azure.servicebus.IQueueClient;
+              import com.microsoft.azure.servicebus.primitives.ServiceBusException;
+
+              /*~~(Legacy Azure SDK: left as it is, since `com.microsoft.azure.servicebus.IQueueClient` has no type here to migrate it by)~~>*/class Consumer {
+                  private IQueueClient queue;
+
+                  void send(IMessage message) throws InterruptedException, ServiceBusException {
+                      queue.send(message);
+                  }
+              }
+              """,
+            spec -> spec.mapBeforeRecipe(MigrateAzureServiceBusTest::untyped)
+          )
+        );
+    }
+
+    /**
+     * As an LST built without the legacy SDK on its classpath has it, where only the imports name their types.
+     */
+    private static J.CompilationUnit untyped(J.CompilationUnit cu) {
+        return cu.withClasses(ListUtils.map(cu.getClasses(), c -> (J.ClassDeclaration) new JavaIsoVisitor<Integer>() {
+            @Override
+            public J.Identifier visitIdentifier(J.Identifier identifier, Integer p) {
+                return identifier.withType(JavaType.Unknown.getInstance()).withFieldType(null);
+            }
+
+            @Override
+            public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, Integer p) {
+                return super.visitMethodInvocation(method, p).withMethodType(null);
+            }
+
+            @Override
+            public J.VariableDeclarations.NamedVariable visitVariable(J.VariableDeclarations.NamedVariable variable, Integer p) {
+                return super.visitVariable(variable, p).withVariableType(null);
+            }
+
+            @Override
+            public J.MethodDeclaration visitMethodDeclaration(J.MethodDeclaration method, Integer p) {
+                return super.visitMethodDeclaration(method, p).withMethodType(null);
+            }
+        }.visitNonNull(c, 0)));
     }
 }

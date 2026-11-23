@@ -97,6 +97,13 @@ public class FindAzureSdkLegacyRemnants extends Recipe {
                     // Nothing in it is migrated, so all of it is left to a person
                     return new Finder(remnants, null, null).visit(tree, ctx);
                 }
+                String unresolved = LegacyAzureTypes.unresolved(tree);
+                if (unresolved != null) {
+                    return markClass((JavaSourceFile) tree, "types", unresolved,
+                            "`" + unresolved + "` and what is used of it have no type in this source's LST, as when the " +
+                            "legacy SDK wasn't on the classpath it was built with. Build it again with its dependencies.",
+                            "left as it is, since `" + unresolved + "` has no type here to migrate it by", ctx);
+                }
                 Set<UUID> blockers = LegacyAzureMigration.blockers((JavaSourceFile) tree, ctx);
                 if (blockers.isEmpty()) {
                     String with = LegacyAzureMigration.leftWith(tree, ctx);
@@ -106,11 +113,11 @@ public class FindAzureSdkLegacyRemnants extends Recipe {
                                 "Migrate those, and the next run migrates both.",
                                 "left as it is with `" + with + "`, which shares its legacy types and has uses to migrate by hand", ctx);
                     }
-                    if (LegacyAzureMigration.isUnbuilt(tree, ctx)) {
+                    String unbuilt = LegacyAzureMigration.unbuilt(tree, ctx);
+                    if (unbuilt != null) {
                         return markClass((JavaSourceFile) tree, "build", "",
-                                "No Maven or Gradle build the recipe can edit resolves the legacy artifacts this source uses, " +
-                                "so it can't declare the current ones.",
-                                "left as it is, since no build the recipe can edit compiles it", ctx);
+                                "The current SDK can't be declared or run where this source is built: " + unbuilt + ".",
+                                "left as it is, since " + unbuilt, ctx);
                     }
                     return tree;
                 }

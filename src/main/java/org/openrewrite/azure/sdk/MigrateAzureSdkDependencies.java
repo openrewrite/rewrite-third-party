@@ -43,6 +43,7 @@ import org.openrewrite.maven.tree.MavenResolutionResult;
 import org.openrewrite.maven.tree.ResolvedDependency;
 import org.openrewrite.maven.tree.ResolvedPom;
 import org.openrewrite.maven.tree.Scope;
+import org.openrewrite.semver.LatestRelease;
 import org.openrewrite.semver.Semver;
 import org.openrewrite.semver.VersionComparator;
 import org.openrewrite.xml.tree.Xml;
@@ -108,6 +109,10 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
          * Per module: the legacy artifacts it resolves, directly or not, when its build can take a dependency.
          */
         final Map<Path, Set<String>> editable = new ConcurrentHashMap<>();
+        /**
+         * Per module whose build keeps the current SDK from running: why.
+         */
+        final Map<Path, String> unfit = new ConcurrentHashMap<>();
         /**
          * Per source: artifact to whether only test code needs it.
          */
@@ -227,9 +232,23 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
     private static void recordBuild(SourceFile build, Accumulator acc) {
         Map<String, String> artifacts = new HashMap<>();
         Set<ResolvedDependency> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        String jackson = null;
         if (build instanceof Xml.Document) {
-            for (List<ResolvedDependency> scope : build.getMarkers().findFirst(MavenResolutionResult.class).get().getDependencies().values()) {
+            MavenResolutionResult mrr = build.getMarkers().findFirst(MavenResolutionResult.class).get();
+            for (List<ResolvedDependency> scope : mrr.getDependencies().values()) {
                 collect(scope, artifacts, seen);
+            }
+            // Maven takes a managed version, then the nearest, over the one the current SDK asks for
+            for (String artifact : JACKSON) {
+                String managed = mrr.getPom().getManagedVersion(JACKSON_GROUP, artifact, null, null);
+                if (managed != null) {
+                    jackson = older(jackson, managed);
+                }
+            }
+            for (ResolvedDependency d : mrr.getDependencies().getOrDefault(Scope.Compile, Collections.emptyList())) {
+                if (d.getDepth() == 0 && JACKSON_GROUP.equals(d.getGroupId()) && JACKSON.contains(d.getArtifactId())) {
+                    jackson = older(jackson, d.getVersion());
+                }
             }
         } else {
             GradleProject gp = build.getMarkers().findFirst(GradleProject.class).get();
@@ -239,6 +258,19 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
             for (GradleDependencyConfiguration c : gp.getConfigurations()) {
                 collect(c.getDirectResolved(), artifacts, seen);
             }
+            // Gradle takes the newest version any dependency asks for, unless Spring's dependency management pins one
+            GradleDependencyConfiguration classpath = gp.getConfiguration("compileClasspath");
+            if (classpath != null && gp.getPlugins().stream().anyMatch(plugin -> "io.spring.dependency-management".equals(plugin.getId()))) {
+                for (ResolvedDependency d : classpath.getResolved()) {
+                    if (JACKSON_GROUP.equals(d.getGroupId()) && JACKSON.contains(d.getArtifactId())) {
+                        jackson = older(jackson, d.getVersion());
+                    }
+                }
+            }
+        }
+        if (jackson != null && JACKSON_COMPARATOR.compare(null, jackson, MIN_JACKSON) < 0) {
+            acc.unfit.put(dir(build.getSourcePath()), "its build pins Jackson " + jackson + ", older than the " +
+                                                      MIN_JACKSON + " the current Azure SDK needs");
         }
         Set<String> legacy = new HashSet<>();
         for (String ga : artifacts.keySet()) {
@@ -249,18 +281,34 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
         acc.editable.put(dir(build.getSourcePath()), legacy);
     }
 
+    private static final String JACKSON_GROUP = "com.fasterxml.jackson.core";
+    private static final Set<String> JACKSON = new HashSet<>(Arrays.asList("jackson-core", "jackson-databind"));
     /**
-     * Whether the build the recipe would edit for a source is the one that compiles it: one it can add a dependency
-     * to, which resolves the legacy artifacts the source uses. In a repository with no build the recipe reads, there
-     * is none to edit, and the source is migrated as code alone.
+     * azure-core checks for it when it starts, and fails to start with an older one.
      */
-    private static boolean isBuilt(Path source, Set<String> usedLegacy, Accumulator acc) {
+    private static final String MIN_JACKSON = "2.10.0";
+    private static final VersionComparator JACKSON_COMPARATOR = new LatestRelease(null);
+
+    private static String older(@Nullable String a, String b) {
+        return a == null || JACKSON_COMPARATOR.compare(null, b, a) < 0 ? b : a;
+    }
+
+    /**
+     * Why the current SDK couldn't build or run where the source is, or null when it could: the build the recipe would
+     * edit has to be one it can add a dependency to, which resolves the legacy artifacts the source uses, and has no
+     * Jackson pinned that the current SDK can't run on. In a repository with no build the recipe reads, there is none
+     * to edit, and the source is migrated as code alone.
+     */
+    private static @Nullable String unfit(Path source, Set<String> usedLegacy, Accumulator acc) {
         if (acc.modules.isEmpty()) {
-            return true;
+            return null;
         }
         Path owner = owner(source, acc.modules);
         Set<String> resolved = owner == null ? null : acc.editable.get(owner);
-        return resolved != null && resolved.containsAll(usedLegacy);
+        if (resolved == null || !resolved.containsAll(usedLegacy)) {
+            return "no build the recipe can edit compiles it";
+        }
+        return acc.unfit.get(owner);
     }
 
     private static Map<String, Boolean> needed(JavaSourceFile source) {
@@ -285,15 +333,16 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
     public Collection<? extends SourceFile> generate(Accumulator acc, ExecutionContext ctx) {
         Map<Path, LegacyApiLinks> links = new HashMap<>();
         Set<Path> left = new HashSet<>();
-        Set<UUID> unbuilt = new HashSet<>();
+        Map<UUID, String> unbuilt = new HashMap<>();
         for (Map.Entry<Path, Scanned> e : acc.scanned.entrySet()) {
             links.put(e.getKey(), e.getValue().links);
+            String unfit;
             if (e.getValue().left) {
                 left.add(e.getKey());
-            } else if (!isBuilt(e.getKey(), acc.usedLegacy.getOrDefault(e.getKey(), Collections.emptySet()), acc)) {
-                // Migrated, it would use the current SDK where no build declares it
+            } else if ((unfit = unfit(e.getKey(), acc.usedLegacy.getOrDefault(e.getKey(), Collections.emptySet()), acc)) != null) {
+                // Migrated, it would use the current SDK where no build declares it, or where it can't run
                 left.add(e.getKey());
-                unbuilt.add(e.getValue().id);
+                unbuilt.put(e.getValue().id, unfit);
             }
         }
         LegacyAzureMigration.leaveUnbuilt(unbuilt, ctx);
@@ -424,14 +473,16 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
                 azure.add(ga);
             }
         }
+        boolean adding = false;
         for (String needed : module.needed.keySet()) {
             String[] gav = needed.split(":");
             if (gav[0].equals("com.azure")) {
-                azure.add(gav[0] + ":" + gav[1]);
+                adding |= azure.add(gav[0] + ":" + gav[1]);
             }
         }
         boolean aligned = false;
-        if (azure.size() > 1 && resolved.getManagedVersion("com.azure", "azure-core", null, null) == null) {
+        // A module that gets no current artifact keeps the versions it has, which its own code was built against
+        if (adding && azure.size() > 1 && resolved.getManagedVersion("com.azure", "azure-core", null, null) == null) {
             // Maven takes the azure-core of the first com.azure artifact declared, which can be older than another
             // needs, so the Azure SDK BOM picks one azure-core and the artifact versions released with it
             String bom = latest("com.azure", "azure-sdk-bom", "1.x", p.getMarkers().findFirst(MavenResolutionResult.class).get(), ctx);

@@ -1090,6 +1090,195 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
     }
 
     @Test
+    void alignsAnArtifactWhoseVersionIsAProperty() {
+        rewriteRun(
+          mavenProject("app",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import com.microsoft.azure.storage.CloudStorageAccount;
+                  import com.microsoft.azure.storage.blob.CloudBlobClient;
+
+                  class Clients {
+                      CloudBlobClient blobs(String connectionString) throws Exception {
+                          return CloudStorageAccount.parse(connectionString).createCloudBlobClient();
+                      }
+                  }
+                  """,
+                """
+                  import com.azure.storage.blob.BlobServiceClient;
+                  import com.azure.storage.blob.BlobServiceClientBuilder;
+
+                  class Clients {
+                      BlobServiceClient blobs(String connectionString) throws Exception {
+                          return new BlobServiceClientBuilder().connectionString(connectionString).buildClient();
+                      }
+                  }
+                  """
+              )
+            ),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.example</groupId>
+                  <artifactId>app</artifactId>
+                  <version>1.0</version>
+                  <properties>
+                    <eventhubs.version>5.7.0</eventhubs.version>
+                  </properties>
+                  <dependencies>
+                    <dependency>
+                      <groupId>com.microsoft.azure</groupId>
+                      <artifactId>azure-storage</artifactId>
+                      <version>8.6.6</version>
+                    </dependency>
+                    <dependency>
+                      <groupId>com.azure</groupId>
+                      <artifactId>azure-messaging-eventhubs</artifactId>
+                      <version>${eventhubs.version}</version>
+                    </dependency>
+                  </dependencies>
+                </project>
+                """,
+              spec -> spec.after(pom -> {
+                  assertThat(pom).containsPattern("<artifactId>azure-sdk-bom</artifactId>\\s*<version>1\\.\\d+\\.\\d+</version>");
+                  // An older client pinned under the BOM would run on an azure-core-amqp it was not built for
+                  assertThat(pom).doesNotContain("5.7.0");
+                  return pom;
+              })
+            )
+          )
+        );
+    }
+
+    @Test
+    void leavesAModuleThatPinsAJacksonTheCurrentSdkCantRunOn() {
+        rewriteRun(
+          mavenProject("app",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import com.microsoft.azure.storage.CloudStorageAccount;
+                  import com.microsoft.azure.storage.blob.CloudBlobClient;
+
+                  class Clients {
+                      CloudBlobClient blobs(String connectionString) throws Exception {
+                          return CloudStorageAccount.parse(connectionString).createCloudBlobClient();
+                      }
+                  }
+                  """,
+                """
+                  import com.microsoft.azure.storage.CloudStorageAccount;
+                  import com.microsoft.azure.storage.blob.CloudBlobClient;
+
+                  /*~~(Legacy Azure SDK: left as it is, since its build pins Jackson 2.9.9, older than the 2.10.0 the current Azure SDK needs)~~>*/class Clients {
+                      CloudBlobClient blobs(String connectionString) throws Exception {
+                          return CloudStorageAccount.parse(connectionString).createCloudBlobClient();
+                      }
+                  }
+                  """
+              )
+            ),
+            // As an older Spring Boot parent does, which azure-core would fail to start on
+            //language=xml
+            pomXml(
+              """
+                <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.example</groupId>
+                  <artifactId>app</artifactId>
+                  <version>1.0</version>
+                  <dependencyManagement>
+                    <dependencies>
+                      <dependency>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-databind</artifactId>
+                        <version>2.9.9</version>
+                      </dependency>
+                    </dependencies>
+                  </dependencyManagement>
+                  <dependencies>
+                    <dependency>
+                      <groupId>com.microsoft.azure</groupId>
+                      <artifactId>azure-storage</artifactId>
+                      <version>8.6.6</version>
+                    </dependency>
+                  </dependencies>
+                </project>
+                """
+            )
+          )
+        );
+    }
+
+    @Test
+    void leavesTheVersionsOfAModuleWhoseSourcesItLeaves() {
+        rewriteRun(
+          mavenProject("app",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import com.microsoft.azure.storage.blob.CloudBlockBlob;
+
+                  class Reads {
+                      int read(CloudBlockBlob blob, byte[] buffer) throws Exception {
+                          return blob.downloadToByteArray(buffer, 0);
+                      }
+                  }
+                  """,
+                """
+                  import com.microsoft.azure.storage.blob.CloudBlockBlob;
+
+                  class Reads {
+                      int read(CloudBlockBlob blob, byte[] buffer) throws Exception {
+                          return /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.blob.CloudBlob.downloadToByteArray` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/blob.downloadToByteArray(buffer, 0);
+                      }
+                  }
+                  """
+              )
+            ),
+            // Nothing is added, so the versions of the current artifacts the module has stay as they are
+            //language=xml
+            pomXml(
+              """
+                <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.example</groupId>
+                  <artifactId>app</artifactId>
+                  <version>1.0</version>
+                  <properties>
+                    <eventhubs.version>5.7.0</eventhubs.version>
+                  </properties>
+                  <dependencies>
+                    <dependency>
+                      <groupId>com.microsoft.azure</groupId>
+                      <artifactId>azure-storage</artifactId>
+                      <version>8.6.6</version>
+                    </dependency>
+                    <dependency>
+                      <groupId>com.azure</groupId>
+                      <artifactId>azure-storage-blob</artifactId>
+                      <version>12.20.0</version>
+                    </dependency>
+                    <dependency>
+                      <groupId>com.azure</groupId>
+                      <artifactId>azure-messaging-eventhubs</artifactId>
+                      <version>${eventhubs.version}</version>
+                    </dependency>
+                  </dependencies>
+                </project>
+                """
+            )
+          )
+        );
+    }
+
+    @Test
     void defaultOptionsListingDetailsAndAccountName() {
         rewriteRun(
           //language=java

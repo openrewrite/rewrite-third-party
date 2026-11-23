@@ -71,22 +71,33 @@ public final class LegacyAzureMigration {
         if (simulating(ctx).contains(source.getId())) {
             return false;
         }
-        return LegacyAzureTypes.isLeftAsItIs(source) || !blockers((JavaSourceFile) source, ctx).isEmpty() ||
-               leftWith(source, ctx) != null || isUnbuilt(source, ctx);
+        return LegacyAzureTypes.isLeftAsItIs(source) || LegacyAzureTypes.unresolved(source) != null ||
+               !blockers((JavaSourceFile) source, ctx).isEmpty() || leftWith(source, ctx) != null || isUnbuilt(source, ctx);
     }
 
     /**
-     * Whether a source is left since no build the recipe can edit compiles it, such as a Gradle subproject whose build
-     * file has a name of its own that the repository's model doesn't attribute to it, as
+     * Whether a source is left since the current SDK couldn't build or run where it is, as
      * {@code MigrateAzureSdkDependencies} found when it scanned the repository.
      */
     public static boolean isUnbuilt(Tree source, ExecutionContext ctx) {
-        Set<UUID> unbuilt = ctx.getMessage(UNBUILT);
-        return unbuilt != null && unbuilt.contains(source.getId());
+        return unbuilt(source, ctx) != null;
     }
 
-    static void leaveUnbuilt(Set<UUID> unbuilt, ExecutionContext ctx) {
-        ctx.computeMessageIfAbsent(UNBUILT, k -> ConcurrentHashMap.<UUID>newKeySet()).addAll(unbuilt);
+    /**
+     * Why the current SDK couldn't build or run where a source is, such as in a Gradle subproject whose build file has
+     * a name of its own that the repository's model doesn't attribute to it, or in a module that pins a Jackson older
+     * than the current SDK runs on, or null when it could.
+     */
+    public static @Nullable String unbuilt(Tree source, ExecutionContext ctx) {
+        Map<UUID, String> unbuilt = ctx.getMessage(UNBUILT);
+        return unbuilt == null ? null : unbuilt.get(source.getId());
+    }
+
+    static void leaveUnbuilt(Map<UUID, String> unbuilt, ExecutionContext ctx) {
+        Map<UUID, String> known = ctx.computeMessageIfAbsent(UNBUILT, k -> new ConcurrentHashMap<>());
+        for (Map.Entry<UUID, String> e : unbuilt.entrySet()) {
+            known.putIfAbsent(e.getKey(), e.getValue());
+        }
     }
 
     /**

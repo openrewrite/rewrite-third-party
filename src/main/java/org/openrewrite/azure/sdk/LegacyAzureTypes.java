@@ -27,12 +27,14 @@ import org.openrewrite.java.tree.TypeUtils;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 /**
@@ -227,6 +229,46 @@ public final class LegacyAzureTypes {
                 return super.visitNewClass(newClass, f);
             }
         }.visit(source, found);
+        return found.get();
+    }
+
+    /**
+     * A legacy type that a source imports and names where the compiler couldn't resolve it, or null when there is
+     * none. In an LST built without the legacy SDK on its classpath, its uses have no types to be migrated by, and
+     * only the imports, which name their types, would be.
+     */
+    public static @Nullable String unresolved(Tree source) {
+        if (!(source instanceof J.CompilationUnit)) {
+            return null;
+        }
+        J.CompilationUnit cu = (J.CompilationUnit) source;
+        Map<String, String> imported = new HashMap<>();
+        for (J.Import i : cu.getImports()) {
+            if (!i.isStatic() && !"*".equals(i.getQualid().getSimpleName()) && isLegacy(i.getTypeName())) {
+                imported.put(i.getQualid().getSimpleName(), i.getTypeName());
+            }
+        }
+        if (imported.isEmpty()) {
+            return null;
+        }
+        AtomicReference<String> found = new AtomicReference<>();
+        JavaIsoVisitor<AtomicReference<String>> finder = new JavaIsoVisitor<AtomicReference<String>>() {
+            @Override
+            public J.Identifier visitIdentifier(J.Identifier identifier, AtomicReference<String> f) {
+                String fqn = imported.get(identifier.getSimpleName());
+                if (fqn != null && f.get() == null &&
+                    (identifier.getType() == null || identifier.getType() instanceof JavaType.Unknown)) {
+                    f.set(fqn);
+                }
+                return identifier;
+            }
+        };
+        for (J.ClassDeclaration c : cu.getClasses()) {
+            finder.visit(c, found);
+            if (found.get() != null) {
+                break;
+            }
+        }
         return found.get();
     }
 
