@@ -25,9 +25,12 @@ import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.TypeTree;
 import org.openrewrite.java.tree.TypeUtils;
 
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.StringJoiner;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
@@ -137,7 +140,7 @@ public final class LegacyAzureTypes {
     }
 
     public static boolean isLegacy(@Nullable String fqn) {
-        return fqn != null && LEGACY.matcher(fqn.replace('$', '.')).matches();
+        return fqn != null && LEGACY.matcher(fqn.replace('$', '.')).matches() && !isSample(fqn);
     }
 
     public static boolean isLegacy(@Nullable JavaType type) {
@@ -178,10 +181,11 @@ public final class LegacyAzureTypes {
     }
 
     /**
-     * Whether the migration leaves a source as it is: one that declares a legacy type, or a class that extends or
-     * implements one, such as a fake sender in tests or an event processor, and one that uses a library built on the
-     * legacy SDK or is in a module that has one on its classpath. Retyped, a class implementing a legacy interface would implement a final class of the current SDK
-     * and its overrides would override nothing, and code would hand current types to a library that takes legacy ones.
+     * Whether the migration leaves a source as it is: one of the legacy SDK's own, one with a class that extends or
+     * implements a legacy type, such as a fake sender in tests or an event processor, and one that uses a library
+     * built on the legacy SDK or is in a module that has one on its classpath. Retyped, a class implementing a legacy
+     * interface would implement a final class of the current SDK and its overrides would override nothing, and code
+     * would hand current types to a library that takes legacy ones.
      */
     public static boolean isLeftAsItIs(Tree source) {
         if (source instanceof JavaSourceFile) {
@@ -224,6 +228,17 @@ public final class LegacyAzureTypes {
             }
         }.visit(source, found);
         return found.get();
+    }
+
+    private static final Set<String> SAMPLE_PACKAGES = new HashSet<>(Arrays.asList(
+            "samples", "sample", "examples", "example", "demo", "demos"));
+
+    /**
+     * Whether a type in a legacy package is one of Microsoft's samples that use the SDK, which migrate like any other
+     * code, rather than the SDK's own.
+     */
+    public static boolean isSample(String fqn) {
+        return Arrays.stream(fqn.split("\\.")).anyMatch(SAMPLE_PACKAGES::contains);
     }
 
     private static boolean isLegacy(@Nullable TypeTree typeTree) {

@@ -282,4 +282,56 @@ class MigrateAzureEventHubsTest implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void migratesSamplesButNotTheSdkItself() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              package com.microsoft.azure.eventhubs.samples.send;
+
+              import com.microsoft.azure.eventhubs.EventData;
+
+              class Events {
+                  EventData of(byte[] body) {
+                      return EventData.create(body);
+                  }
+              }
+              """,
+            """
+              package com.microsoft.azure.eventhubs.samples.send;
+
+              import com.azure.messaging.eventhubs.EventData;
+
+              class Events {
+                  EventData of(byte[] body) {
+                      return new EventData(body);
+                  }
+              }
+              """
+          ),
+          //language=java
+          java(
+            """
+              package com.microsoft.azure.eventhubs;
+
+              class EventDataFactory {
+                  EventData of(byte[] body) {
+                      return EventData.create(body);
+                  }
+              }
+              """,
+            """
+              package com.microsoft.azure.eventhubs;
+
+              class EventDataFactory {
+                  EventData of(byte[] body) {
+                      return /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.eventhubs.EventData.create` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/eventhubs/azure-messaging-eventhubs/migration-guide.md)~~>*/EventData.create(body);
+                  }
+              }
+              """
+          )
+        );
+    }
 }

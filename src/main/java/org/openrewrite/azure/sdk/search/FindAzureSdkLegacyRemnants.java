@@ -145,8 +145,11 @@ public class FindAzureSdkLegacyRemnants extends Recipe {
             @Override
             public J.Identifier visitIdentifier(J.Identifier identifier, ExecutionContext ctx) {
                 J.Identifier i = super.visitIdentifier(identifier, ctx);
+                Object parent = getCursor().getParentTreeCursor().getValue();
                 if (i.getFieldType() == null && isTypeReference() && isUnmappedLegacy(i.getType()) &&
-                    !(getCursor().getParentTreeCursor().getValue() instanceof J.FieldAccess)) {
+                    !(parent instanceof J.FieldAccess) &&
+                    // The name a class is declared with, in the legacy SDK's own sources
+                    !(parent instanceof J.ClassDeclaration && ((J.ClassDeclaration) parent).getName() == identifier)) {
                     String type = fqn(i.getType());
                     return report(i, "type", type, type, ctx);
                 }

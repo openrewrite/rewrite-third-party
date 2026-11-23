@@ -239,6 +239,9 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
     private static Set<String> legacyArtifacts(JavaSourceFile s) {
         Set<String> artifacts = new HashSet<>();
         for (String fqn : typesInUse(s)) {
+            if (LegacyAzureTypes.isSample(fqn)) {
+                continue;
+            }
             for (String[] legacy : LEGACY) {
                 if (fqn.startsWith(legacy[0])) {
                     artifacts.add(legacy[1]);
