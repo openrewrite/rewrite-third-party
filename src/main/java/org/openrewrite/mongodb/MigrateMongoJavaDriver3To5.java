@@ -158,15 +158,8 @@ public class MigrateMongoJavaDriver3To5 extends ScanningRecipe<MigrateMongoJavaD
                     if (!upgrade) {
                         return tree;
                     }
-                    boolean keepsLegacyApi = false;
-                    for (String module : usage.modulesUsingLegacyApi) {
-                        if (!usage.converts(module)) {
-                            keepsLegacyApi = true;
-                            break;
-                        }
-                    }
                     Tree t = tree;
-                    for (Delegate d : keepsLegacyApi ? acc.toLegacy : acc.toSync) {
+                    for (Delegate d : usage.keepsLegacyApi() ? acc.toLegacy : acc.toSync) {
                         t = d.edit(t, ctx);
                     }
                     for (Delegate d : acc.upgrades) {
@@ -177,35 +170,44 @@ public class MigrateMongoJavaDriver3To5 extends ScanningRecipe<MigrateMongoJavaD
                 if (!(tree instanceof J.CompilationUnit)) {
                     return tree;
                 }
-                J.CompilationUnit cu = (J.CompilationUnit) tree;
-                J.CompilationUnit result = upgrade ? RemovedApiFixes.apply(cu, ctx) : cu;
-                String module = MongoClasspath.moduleKey(cu);
-                if (!usage.modulesUsingLegacyApi.contains(module)) {
-                    return result;
+                J edited = editJava((J.CompilationUnit) tree, acc, upgrade, ctx);
+                if (upgrade) {
+                    // Imports that compiled against driver 3 while nothing used them, and that driver 5 cannot resolve
+                    edited = new VanishedImports(!usage.keepsLegacyApi()).visitNonNull(edited, ctx);
                 }
-                reportModule(acc, module, ctx);
-                if (!usage.converts(module)) {
-                    if (upgrade && usage.usesUuid) {
-                        return new LegacyUuidRepresentation().visitNonNull(result, ctx);
-                    }
-                    return result;
-                }
-                if (!LegacyScanner.usesLegacyApi(result)) {
-                    return result;
-                }
-                LegacyApiConverter converter = new LegacyApiConverter(false, usage.usesUuid);
-                J converted = converter.visitNonNull(result, ctx);
-                if (!converter.unsupported.isEmpty()) {
-                    // The scan found nothing untranslatable here, so this is a gap in the recipe: say so, and leave the file
-                    for (String reason : new LinkedHashSet<>(converter.unsupported)) {
-                        decisions.insertRow(ctx, new MongoDriverMigrationDecisions.Row(module, "Conversion failed",
-                                cu.getSourcePath().toString(), reason));
-                    }
-                    return result;
-                }
-                return converted;
+                return edited;
             }
         };
+    }
+
+    private J editJava(J.CompilationUnit cu, Accumulator acc, boolean upgrade, ExecutionContext ctx) {
+        LegacyUsage usage = acc.usage;
+        J.CompilationUnit result = upgrade ? RemovedApiFixes.apply(cu, ctx) : cu;
+        String module = MongoClasspath.moduleKey(cu);
+        if (!usage.modulesUsingLegacyApi.contains(module)) {
+            return result;
+        }
+        reportModule(acc, module, ctx);
+        if (!usage.converts(module)) {
+            if (upgrade && usage.usesUuid) {
+                return new LegacyUuidRepresentation().visitNonNull(result, ctx);
+            }
+            return result;
+        }
+        if (!LegacyScanner.usesLegacyApi(result)) {
+            return result;
+        }
+        LegacyApiConverter converter = new LegacyApiConverter(false, usage.usesUuid);
+        J converted = converter.visitNonNull(result, ctx);
+        if (!converter.unsupported.isEmpty()) {
+            // The scan found nothing untranslatable here, so this is a gap in the recipe: say so, and leave the file
+            for (String reason : new LinkedHashSet<>(converter.unsupported)) {
+                decisions.insertRow(ctx, new MongoDriverMigrationDecisions.Row(module, "Conversion failed",
+                        cu.getSourcePath().toString(), reason));
+            }
+            return result;
+        }
+        return converted;
     }
 
     private void reportDriver(Accumulator acc, ExecutionContext ctx) {

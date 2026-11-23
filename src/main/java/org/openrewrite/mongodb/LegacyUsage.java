@@ -187,6 +187,18 @@ final class LegacyUsage {
         return newest;
     }
 
+    /**
+     * Whether a module keeps the legacy API, so that the build keeps {@code mongodb-driver-legacy}.
+     */
+    boolean keepsLegacyApi() {
+        for (String module : modulesUsingLegacyApi) {
+            if (!converts(module)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     boolean converts(String module) {
         return modulesUsingLegacyApi.contains(module) && !blockedModules().containsKey(module);
     }

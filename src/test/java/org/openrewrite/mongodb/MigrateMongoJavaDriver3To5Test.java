@@ -865,6 +865,58 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
     }
 
     @Test
+    void removesUnusedImportsThatDriver5CannotResolve() {
+        rewriteRun(
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.mongodb.MongoClient;
+
+                  class Cleanup {
+                      void drop(MongoClient client) {
+                          client.dropDatabase("test");
+                      }
+                  }
+                  """,
+                """
+                  import com.mongodb.client.MongoClient;
+
+                  class Cleanup {
+                      void drop(MongoClient client) {
+                          client.getDatabase("test").drop();
+                      }
+                  }
+                  """
+              ),
+              java(
+                """
+                  import com.mongodb.MongoClient;
+                  import com.mongodb.util.JSON;
+                  import com.mongodb.util.*;
+
+                  import java.util.List;
+
+                  class Leftovers {
+                      List<String> names;
+                  }
+                  """,
+                """
+                  import java.util.List;
+
+                  class Leftovers {
+                      List<String> names;
+                  }
+                  """
+              )
+            ),
+            pom("mongodb-driver-sync")
+          )
+        );
+    }
+
+    @Test
     void findsRemovedApiWithoutReplacement() {
         rewriteRun(
           spec -> spec.recipe(new FindRemovedMongoApis(null)),
