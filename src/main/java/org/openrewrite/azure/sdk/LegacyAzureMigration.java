@@ -17,7 +17,9 @@ package org.openrewrite.azure.sdk;
 
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Recipe;
+import org.openrewrite.SourceFile;
 import org.openrewrite.Tree;
+import org.openrewrite.TreeVisitor;
 
 import java.util.Arrays;
 import java.util.List;
@@ -41,10 +43,20 @@ final class LegacyAzureMigration {
         );
     }
 
+    /**
+     * The source as the Java recipes of the migration leave it, each visiting only what a recipe run would let it.
+     */
     static Tree simulate(Tree source, ExecutionContext ctx) {
+        if (LegacyAzureTypes.isLeftAsItIs(source)) {
+            return source;
+        }
         Tree t = source;
         for (Recipe recipe : javaRecipes()) {
-            Tree after = recipe.getVisitor().visit(t, ctx);
+            TreeVisitor<?, ExecutionContext> visitor = recipe.getVisitor();
+            if (t instanceof SourceFile && !visitor.isAcceptable((SourceFile) t, ctx)) {
+                continue;
+            }
+            Tree after = visitor.visit(t, ctx);
             if (after != null) {
                 t = after;
             }

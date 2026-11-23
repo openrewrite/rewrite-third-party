@@ -23,6 +23,9 @@ import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
 import static org.openrewrite.java.Assertions.java;
+import static org.openrewrite.maven.Assertions.pomXml;
+import static org.openrewrite.java.Assertions.srcMainJava;
+import static org.openrewrite.java.Assertions.mavenProject;
 
 class MigrateAzureServiceBusTest implements RewriteTest {
 
@@ -203,50 +206,73 @@ class MigrateAzureServiceBusTest implements RewriteTest {
     @Test
     void leavesAClassThatImplementsALegacyTypeToAPerson() {
         rewriteRun(
-          //language=java
-          java(
-            """
-              import com.microsoft.azure.servicebus.IMessage;
-              import com.microsoft.azure.servicebus.IMessageSender;
-              import com.microsoft.azure.servicebus.Message;
+          mavenProject("app",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  import com.microsoft.azure.servicebus.IMessage;
+                  import com.microsoft.azure.servicebus.IMessageSender;
+                  import com.microsoft.azure.servicebus.Message;
 
-              import java.util.ArrayList;
-              import java.util.List;
+                  import java.util.ArrayList;
+                  import java.util.List;
 
-              abstract class RecordingSender implements IMessageSender {
-                  final List<IMessage> sent = new ArrayList<>();
+                  abstract class RecordingSender implements IMessageSender {
+                      final List<IMessage> sent = new ArrayList<>();
 
-                  @Override
-                  public void send(IMessage message) {
-                      sent.add(message);
+                      @Override
+                      public void send(IMessage message) {
+                          sent.add(message);
+                      }
+
+                      void sendText(String body) {
+                          send(new Message(body));
+                      }
                   }
+                  """,
+                """
+                  import com.microsoft.azure.servicebus.IMessage;
+                  import com.microsoft.azure.servicebus.IMessageSender;
+                  import com.microsoft.azure.servicebus.Message;
 
-                  void sendText(String body) {
-                      send(new Message(body));
+                  import java.util.ArrayList;
+                  import java.util.List;
+
+                  abstract class RecordingSender implements /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.servicebus.IMessageSender as a supertype` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/servicebus/azure-messaging-servicebus/migration-guide.md)~~>*/IMessageSender {
+                      final List<IMessage> sent = new ArrayList<>();
+
+                      @Override
+                      public void send(IMessage message) {
+                          sent.add(message);
+                      }
+
+                      void sendText(String body) {
+                          send(/*~~(Legacy Azure SDK: migrate `com.microsoft.azure.servicebus.Message` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/servicebus/azure-messaging-servicebus/migration-guide.md)~~>*/new Message(body));
+                      }
                   }
-              }
-              """,
-            """
-              import com.microsoft.azure.servicebus.IMessage;
-              import com.microsoft.azure.servicebus.IMessageSender;
-              import com.microsoft.azure.servicebus.Message;
-
-              import java.util.ArrayList;
-              import java.util.List;
-
-              abstract class RecordingSender implements /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.servicebus.IMessageSender as a supertype` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/servicebus/azure-messaging-servicebus/migration-guide.md)~~>*/IMessageSender {
-                  final List<IMessage> sent = new ArrayList<>();
-
-                  @Override
-                  public void send(IMessage message) {
-                      sent.add(message);
-                  }
-
-                  void sendText(String body) {
-                      send(/*~~(Legacy Azure SDK: migrate `com.microsoft.azure.servicebus.Message` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/servicebus/azure-messaging-servicebus/migration-guide.md)~~>*/new Message(body));
-                  }
-              }
+                  """
+              )
+            ),
+            // The fake keeps using the legacy artifact, and nothing else needs a current one
+            //language=xml
+            pomXml(
               """
+                <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.example</groupId>
+                  <artifactId>app</artifactId>
+                  <version>1.0</version>
+                  <dependencies>
+                    <dependency>
+                      <groupId>com.microsoft.azure</groupId>
+                      <artifactId>azure-servicebus</artifactId>
+                      <version>3.6.7</version>
+                    </dependency>
+                  </dependencies>
+                </project>
+                """
+            )
           )
         );
     }
