@@ -60,7 +60,9 @@ public class MigrateMongoJavaDriver3To5 extends ScanningRecipe<MigrateMongoJavaD
             "`MongoIterable.forEach(Block)`, move to their replacements, and the driver dependency moves to " +
             "`mongodb-driver-sync` 5, or `mongodb-driver-legacy` 5 when a module keeps the legacy API. The driver stays " +
             "where it is when a library bound to driver 3, such as Spring Data MongoDB before 4.3, Morphia or Jongo, is on the " +
-            "classpath, or when a use of removed API has no replacement; `FindRemovedMongoApis` marks those. Clients of " +
+            "classpath, or when a use of removed API has no replacement; `FindRemovedMongoApis` marks those. Classes that " +
+            "implement a driver interface to which driver 5 adds abstract methods, such as `MongoCursor.available()`, get " +
+            "those methods, throwing `UnsupportedOperationException`. Clients of " +
             "repositories that use `java.util.UUID` keep the `JAVA_LEGACY` UUID representation that driver 3 used by default. " +
             "`MongoDriverMigrationDecisions` lists each module's outcome and the reasons for it.";
 
