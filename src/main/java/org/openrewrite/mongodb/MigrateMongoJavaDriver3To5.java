@@ -246,7 +246,7 @@ public class MigrateMongoJavaDriver3To5 extends ScanningRecipe<MigrateMongoJavaD
             }
             return result;
         }
-        return converted;
+        return new MergeSettingsBlocks().visitNonNull(converted, ctx);
     }
 
     private void reportDriver(Accumulator acc, ExecutionContext ctx) {

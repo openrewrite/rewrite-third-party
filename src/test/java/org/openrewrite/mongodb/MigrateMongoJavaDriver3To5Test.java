@@ -237,8 +237,7 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
                       MongoClient fromOptions(String host, int port, String user, char[] password) {
                           MongoClientSettings options = MongoClientSettings.builder()
                                   .applyToConnectionPoolSettings(pool -> pool.maxSize(50))
-                                  .applyToSocketSettings(socket -> socket.connectTimeout(1000, TimeUnit.MILLISECONDS))
-                                  .applyToSocketSettings(socket -> socket.readTimeout(2000, TimeUnit.MILLISECONDS))
+                                  .applyToSocketSettings(socket -> socket.connectTimeout(1000, TimeUnit.MILLISECONDS).readTimeout(2000, TimeUnit.MILLISECONDS))
                                   .writeConcern(WriteConcern.ACKNOWLEDGED)
                                   .build();
                           MongoCredential credential = MongoCredential.createCredential(user, "admin", password);
@@ -854,6 +853,55 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
                           var client = MongoClients.create("mongodb://" + host + ":" + port);
                           client.getDatabase("test").drop();
                           client.close();
+                      }
+                  }
+                  """
+              )
+            ),
+            pom("mongodb-driver-sync")
+          )
+        );
+    }
+
+    @Test
+    void mergesTheSettingsOfTheOptionsAndTheHosts() {
+        rewriteRun(
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.mongodb.MongoClient;
+                  import com.mongodb.MongoClientOptions;
+                  import com.mongodb.MongoCredential;
+                  import com.mongodb.ServerAddress;
+
+                  class Cleanup {
+                      void drop(String host, int port, char[] password) {
+                          try (MongoClient client = new MongoClient(new ServerAddress(host, port),
+                                  MongoCredential.createCredential("root", "admin", password),
+                                  MongoClientOptions.builder().serverSelectionTimeout(10_000).build())) {
+                              client.dropDatabase("test");
+                          }
+                      }
+                  }
+                  """,
+                """
+                  import com.mongodb.MongoClientSettings;
+                  import com.mongodb.MongoCredential;
+                  import com.mongodb.ServerAddress;
+                  import com.mongodb.client.MongoClient;
+                  import com.mongodb.client.MongoClients;
+
+                  import java.util.Collections;
+                  import java.util.concurrent.TimeUnit;
+
+                  class Cleanup {
+                      void drop(String host, int port, char[] password) {
+                          try (MongoClient client = MongoClients.create(MongoClientSettings.builder().applyToClusterSettings(cluster -> cluster.serverSelectionTimeout(10_000, TimeUnit.MILLISECONDS).hosts(Collections.singletonList(new ServerAddress(host, port)))).credential(
+                                  MongoCredential.createCredential("root", "admin", password)).build())) {
+                              client.getDatabase("test").drop();
+                          }
                       }
                   }
                   """
