@@ -35,7 +35,8 @@ public class MongoDriverMigrationDecisions extends DataTable<MongoDriverMigratio
         String module;
 
         @Column(displayName = "Outcome",
-                description = "`Converted to the driver 5 API`, `Kept the legacy API`, `Driver moved to 5` or `Driver not moved to 5`.")
+                description = "`Converted to the driver 5 API`, `Kept the legacy API`, `Added methods driver 5 requires`, " +
+                              "`Driver moved to 5` or `Driver not moved to 5`.")
         String outcome;
 
         @Column(displayName = "Source path",

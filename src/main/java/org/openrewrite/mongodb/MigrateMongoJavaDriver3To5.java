@@ -180,6 +180,13 @@ public class MigrateMongoJavaDriver3To5 extends ScanningRecipe<MigrateMongoJavaD
                 if (upgrade) {
                     // Imports that compiled against driver 3 while nothing used them, and that driver 5 cannot resolve
                     edited = new VanishedImports(!usage.keepsLegacyApi()).visitNonNull(edited, ctx);
+                    // Classes implementing driver types that driver 5 adds abstract methods to
+                    ImplementAddedMethods implement = new ImplementAddedMethods();
+                    edited = implement.visitNonNull(edited, ctx);
+                    for (String added : implement.added) {
+                        decisions.insertRow(ctx, new MongoDriverMigrationDecisions.Row(MongoClasspath.moduleKey((SourceFile) tree),
+                                "Added methods driver 5 requires", ((SourceFile) tree).getSourcePath().toString(), added));
+                    }
                 }
                 return edited;
             }

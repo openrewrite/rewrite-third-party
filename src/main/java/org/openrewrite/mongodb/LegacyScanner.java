@@ -210,6 +210,7 @@ final class LegacyScanner extends TreeVisitor<Tree, ExecutionContext> {
                 }
             }
         }.visit(cu, ctx);
+        new UnimplementableScanner(module, path).visit(cu, ctx);
 
         if (!usesLegacyApi(cu)) {
             return;
@@ -321,6 +322,58 @@ final class LegacyScanner extends TreeVisitor<Tree, ExecutionContext> {
             }
         }
         return false;
+    }
+
+    /**
+     * Classes implementing a driver type to which driver 5 adds abstract methods that cannot be written for them, which
+     * keep the driver where it is, since they would not compile against driver 5.
+     */
+    private final class UnimplementableScanner extends JavaIsoVisitor<ExecutionContext> {
+        private final String module;
+        private final String path;
+
+        UnimplementableScanner(String module, String path) {
+            this.module = module;
+            this.path = path;
+        }
+
+        private void check(String owner, List<AddedMethods.Missing> missing) {
+            for (AddedMethods.Missing m : missing) {
+                if (m.declaration == null) {
+                    acc.removedApiUses.add(new LegacyUsage.Blocker(module, path, owner + " implements `" +
+                            LegacyUsage.simpleName(m.type) + "`, to which driver 5 adds `" + m.method.label() + "`, " +
+                            (m.method.internal ? "which names a type of its internal API" : "whose type arguments the class leaves unbound")));
+                    return;
+                }
+            }
+        }
+
+        @Override
+        public J.ClassDeclaration visitClassDeclaration(J.ClassDeclaration classDecl, ExecutionContext ctx) {
+            J.ClassDeclaration c = super.visitClassDeclaration(classDecl, ctx);
+            if (c.getKind() != J.ClassDeclaration.Kind.Type.Interface && c.getKind() != J.ClassDeclaration.Kind.Type.Annotation &&
+                !c.hasModifier(J.Modifier.Type.Abstract)) {
+                check("declares `" + c.getSimpleName() + "`, which", AddedMethods.get().missing(c.getType(), Collections.emptyList()));
+            }
+            return c;
+        }
+
+        @Override
+        public J.NewClass visitNewClass(J.NewClass newClass, ExecutionContext ctx) {
+            J.NewClass n = super.visitNewClass(newClass, ctx);
+            if (n.getBody() != null && n.getClazz() != null) {
+                List<JavaType.Method> declared = new ArrayList<>();
+                for (Statement s : n.getBody().getStatements()) {
+                    if (s instanceof J.MethodDeclaration && ((J.MethodDeclaration) s).getMethodType() != null) {
+                        declared.add(((J.MethodDeclaration) s).getMethodType());
+                    }
+                }
+                JavaType.FullyQualified type = TypeUtils.asFullyQualified(n.getClazz().getType());
+                check("declares an anonymous `" + (type == null ? "" : type.getClassName()) + "`, which",
+                        AddedMethods.get().missing(type, declared));
+            }
+            return n;
+        }
     }
 
     /**

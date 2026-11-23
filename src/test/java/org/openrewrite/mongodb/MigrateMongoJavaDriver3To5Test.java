@@ -24,6 +24,7 @@ import org.openrewrite.java.marker.JavaSourceSet;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.style.IntelliJ;
 import org.openrewrite.style.NamedStyles;
+import org.openrewrite.mongodb.table.MongoDriverMigrationDecisions;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
@@ -908,6 +909,298 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
               )
             ),
             pom("mongodb-driver-sync")
+          )
+        );
+    }
+
+    @Test
+    void implementsTheMethodsThatDriver5AddsToItsTypes() {
+        rewriteRun(
+          spec -> spec.dataTable(MongoDriverMigrationDecisions.Row.class, rows -> assertThat(rows)
+            .filteredOn(r -> "Added methods driver 5 requires".equals(r.getOutcome()))
+            .extracting(MongoDriverMigrationDecisions.Row::getReason)
+            .containsExactlyInAnyOrder(
+              "`StubCursor` implements `MongoCursor`, to which driver 5 adds `available()`; the methods added throw `UnsupportedOperationException` until they are implemented",
+              "`Indexes` implements `ListIndexesIterable`, to which driver 5 adds `comment(String)`, `comment(BsonValue)`, `timeoutMode(TimeoutMode)`; the methods added throw `UnsupportedOperationException` until they are implemented")),
+          mavenProject("app",
+            //language=java
+            srcTestJava(
+              java(
+                """
+                  import com.mongodb.ServerAddress;
+                  import com.mongodb.ServerCursor;
+                  import com.mongodb.client.ListIndexesIterable;
+                  import com.mongodb.client.MongoCursor;
+                  import org.bson.Document;
+
+                  import java.util.Iterator;
+
+                  class StubCursor implements MongoCursor<Document> {
+                      private final Iterator<Document> documents;
+
+                      StubCursor(Iterator<Document> documents) {
+                          this.documents = documents;
+                      }
+
+                      @Override
+                      public void close() {
+                      }
+
+                      @Override
+                      public boolean hasNext() {
+                          return documents.hasNext();
+                      }
+
+                      @Override
+                      public Document next() {
+                          return documents.next();
+                      }
+
+                      @Override
+                      public Document tryNext() {
+                          return hasNext() ? next() : null;
+                      }
+
+                      @Override
+                      public ServerCursor getServerCursor() {
+                          return null;
+                      }
+
+                      @Override
+                      public ServerAddress getServerAddress() {
+                          return null;
+                      }
+                  }
+
+                  class Indexes<T> implements ListIndexesIterable<T> {
+                  }
+                  """,
+                """
+                  import com.mongodb.ServerAddress;
+                  import com.mongodb.ServerCursor;
+                  import com.mongodb.client.ListIndexesIterable;
+                  import com.mongodb.client.MongoCursor;
+                  import com.mongodb.client.cursor.TimeoutMode;
+                  import org.bson.BsonValue;
+                  import org.bson.Document;
+
+                  import java.util.Iterator;
+
+                  class StubCursor implements MongoCursor<Document> {
+                      private final Iterator<Document> documents;
+
+                      StubCursor(Iterator<Document> documents) {
+                          this.documents = documents;
+                      }
+
+                      @Override
+                      public void close() {
+                      }
+
+                      @Override
+                      public boolean hasNext() {
+                          return documents.hasNext();
+                      }
+
+                      @Override
+                      public Document next() {
+                          return documents.next();
+                      }
+
+                      @Override
+                      public Document tryNext() {
+                          return hasNext() ? next() : null;
+                      }
+
+                      @Override
+                      public ServerCursor getServerCursor() {
+                          return null;
+                      }
+
+                      @Override
+                      public ServerAddress getServerAddress() {
+                          return null;
+                      }
+
+                      @Override
+                      public int available() {
+                          throw new UnsupportedOperationException();
+                      }
+                  }
+
+                  class Indexes<T> implements ListIndexesIterable<T> {
+                      @Override
+                      public ListIndexesIterable<T> comment(String comment) {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public ListIndexesIterable<T> comment(BsonValue comment) {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public ListIndexesIterable<T> timeoutMode(TimeoutMode timeoutMode) {
+                          throw new UnsupportedOperationException();
+                      }
+                  }
+                  """
+              )
+            ),
+            pom("mongodb-driver-sync")
+          )
+        );
+    }
+
+    @Test
+    void implementsTheMethodsThatDriver5AddsWithTheTypeArgumentsOfTheClass() {
+        rewriteRun(
+          mavenProject("app",
+            //language=java
+            srcTestJava(
+              java(
+                """
+                  import com.mongodb.client.FindIterable;
+                  import org.bson.Document;
+
+                  abstract class Base<T> implements FindIterable<T> {
+                  }
+
+                  class Documents extends Base<Document> {
+                  }
+                  """,
+                """
+                  import com.mongodb.ExplainVerbosity;
+                  import com.mongodb.client.FindIterable;
+                  import com.mongodb.client.cursor.TimeoutMode;
+                  import org.bson.BsonValue;
+                  import org.bson.Document;
+                  import org.bson.conversions.Bson;
+
+                  abstract class Base<T> implements FindIterable<T> {
+                  }
+
+                  class Documents extends Base<Document> {
+                      @Override
+                      public FindIterable<Document> allowDiskUse(Boolean allowDiskUse) {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public FindIterable<Document> comment(BsonValue comment) {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public Document explain() {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public Document explain(ExplainVerbosity verbosity) {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public <E> E explain(Class<E> explainResultClass) {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public <E> E explain(Class<E> explainResultClass, ExplainVerbosity verbosity) {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public FindIterable<Document> let(Bson variables) {
+                          throw new UnsupportedOperationException();
+                      }
+
+                      @Override
+                      public FindIterable<Document> timeoutMode(TimeoutMode timeoutMode) {
+                          throw new UnsupportedOperationException();
+                      }
+                  }
+                  """
+              )
+            ),
+            pom("mongodb-driver-sync")
+          )
+        );
+    }
+
+    @Test
+    void implementsTheMethodsThatDriver5AddsInAnAnonymousClass() {
+        rewriteRun(
+          mavenProject("app",
+            //language=java
+            srcTestJava(
+              java(
+                """
+                  import com.mongodb.client.MongoCursor;
+                  import org.bson.Document;
+
+                  class Cursors {
+                      MongoCursor<Document> empty() {
+                          return new MongoCursor<Document>() {
+                              @Override
+                              public boolean hasNext() {
+                                  return false;
+                              }
+                          };
+                      }
+                  }
+                  """,
+                """
+                  import com.mongodb.client.MongoCursor;
+                  import org.bson.Document;
+
+                  class Cursors {
+                      MongoCursor<Document> empty() {
+                          return new MongoCursor<Document>() {
+                              @Override
+                              public boolean hasNext() {
+                                  return false;
+                              }
+
+                              @Override
+                              public int available() {
+                                  throw new UnsupportedOperationException();
+                              }
+                          };
+                      }
+                  }
+                  """
+              )
+            ),
+            pom("mongodb-driver-sync")
+          )
+        );
+    }
+
+    @Test
+    void leavesDriverWhenAClassImplementsTypesThatDriver5AddsInternalApiTo() {
+        rewriteRun(
+          spec -> spec.dataTable(MongoDriverMigrationDecisions.Row.class, rows -> assertThat(rows)
+            .extracting(MongoDriverMigrationDecisions.Row::getReason)
+            .anyMatch(r -> r.contains("declares `Stub`, which implements `ClientSession`, to which driver 5 adds") &&
+                           r.contains("which names a type of its internal API"))),
+          mavenProject("app",
+            //language=java
+            srcTestJava(
+              java(
+                """
+                  import com.mongodb.client.ClientSession;
+
+                  abstract class Session implements ClientSession {
+                  }
+
+                  class Stub extends Session {
+                  }
+                  """
+              )
+            ),
+            pomXml(POM)
           )
         );
     }
