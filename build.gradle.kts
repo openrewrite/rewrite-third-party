@@ -43,6 +43,9 @@ dependencies {
     implementation("org.openrewrite:rewrite-yaml")
     implementation("org.openrewrite:rewrite-xml")
     implementation("org.openrewrite.recipe:rewrite-java-dependencies:${rewriteVersion}")
+    // UnnecessaryCatch, run by the legacy Azure SDK migration on the files it retypes; on the runtime classpath through rewrite-migrate-java
+    compileOnly("org.openrewrite.recipe:rewrite-static-analysis:${rewriteVersion}")
+    testImplementation("org.openrewrite.recipe:rewrite-static-analysis:${rewriteVersion}")
     runtimeOnly("org.openrewrite:rewrite-templating:${rewriteVersion}")
     runtimeOnly("org.openrewrite.recipe:rewrite-migrate-java:${rewriteVersion}")
     // Required by the shaded quarkus-update-recipes, which is not resolved transitively
@@ -180,6 +183,31 @@ recipeDependencies {
 
     // `@InlineMe` methods defined in log4j-api, only generated here, not used directly
     testParserClasspath("org.apache.logging.log4j:log4j-api:2.+")
+
+    // Current Azure SDK types the legacy Azure SDK migration recipes' templates reference.
+    // Pinned, because their release lines also publish betas that a dynamic version would pick.
+    parserClasspath("com.azure:azure-core:1.61.0")
+    parserClasspath("com.azure:azure-storage-common:12.36.2")
+    parserClasspath("com.azure:azure-storage-blob:12.37.2")
+    parserClasspath("com.azure:azure-storage-queue:12.32.2")
+    parserClasspath("com.azure:azure-storage-file-share:12.33.2")
+    parserClasspath("com.azure:azure-data-tables:12.6.1")
+    parserClasspath("com.azure:azure-identity:1.19.0")
+    parserClasspath("com.azure:azure-messaging-eventhubs:5.22.1")
+    parserClasspath("com.azure:azure-messaging-servicebus:7.19.1")
+    parserClasspath("com.azure:azure-security-keyvault-secrets:4.13.1")
+    parserClasspath("com.azure:azure-security-keyvault-keys:4.12.1")
+    parserClasspath("com.microsoft.azure:msal4j:1.23.1")
+    testParserClasspath("com.microsoft.azure:azure-storage:8.6.6")
+    testParserClasspath("com.microsoft.azure:adal4j:1.6.7")
+    testParserClasspath("com.microsoft.azure:azure-eventhubs:3.3.0")
+    testParserClasspath("com.microsoft.azure:azure-eventhubs-eph:3.3.0")
+    testParserClasspath("com.microsoft.azure:azure-servicebus:3.6.7")
+    testParserClasspath("com.microsoft.azure:azure-keyvault:1.2.6")
+    testParserClasspath("com.microsoft.azure:azure-keyvault-webkey:1.2.6")
+    testParserClasspath("com.microsoft.azure:azure-client-authentication:1.7.14")
+    testParserClasspath("com.microsoft.azure:azure-client-runtime:1.7.14")
+    testParserClasspath("com.microsoft.rest:client-runtime:1.7.14")
 }
 
 tasks.jar {

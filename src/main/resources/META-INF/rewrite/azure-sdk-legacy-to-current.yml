@@ -1,0 +1,68 @@
+#
+# Copyright 2026 the original author or authors.
+# <p>
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# <p>
+# https://www.apache.org/licenses/LICENSE-2.0
+# <p>
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.azure.sdk.MigrateAzureSdkLegacyToCurrent
+displayName: Migrate from the legacy Azure SDK for Java to the current Azure SDK
+description: >-
+  Migrates Java code off the legacy Azure SDK for Java (`com.microsoft.azure` libraries) and ADAL4J onto the current Azure SDK
+  (`com.azure` libraries) and MSAL4J: rewrites the calls, retypes the declarations, removes catches of the checked exceptions
+  the legacy calls declared, and swaps the dependencies of each module that no longer uses a legacy library. Anything that
+  cannot be migrated is marked and listed in the `LegacyAzureSdkRemnants` data table.
+tags:
+  - azure
+  - sdk
+recipeList:
+  - org.openrewrite.azure.sdk.MigrateAzureStorageBlob
+  - org.openrewrite.azure.sdk.search.FindAzureSdkLegacyRemnants
+  - org.openrewrite.azure.sdk.ChangeLegacyAzureTypes
+  - org.openrewrite.azure.sdk.MigrateAzureSdkDependencies
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.azure.sdk.MigrateAzureSdkDependencies
+displayName: Swap legacy Azure SDK dependencies for current ones
+description: >-
+  Adds the current Azure SDK and MSAL4J artifacts each module's code now uses, and removes the legacy `com.microsoft.azure`
+  artifacts and ADAL4J from modules that no longer use them.
+recipeList:
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: com.azure
+      artifactId: azure-storage-blob
+      version: 12.x
+      onlyIfUsing: com.azure.storage.blob..*
+      acceptTransitive: true
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: com.azure
+      artifactId: azure-storage-queue
+      version: 12.x
+      onlyIfUsing: com.azure.storage.queue..*
+      acceptTransitive: true
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: com.azure
+      artifactId: azure-storage-file-share
+      version: 12.x
+      onlyIfUsing: com.azure.storage.file.share..*
+      acceptTransitive: true
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: com.azure
+      artifactId: azure-data-tables
+      version: 12.x
+      onlyIfUsing: com.azure.data.tables..*
+      acceptTransitive: true
+  - org.openrewrite.java.dependencies.RemoveDependency:
+      groupId: com.microsoft.azure
+      artifactId: azure-storage
+      unlessUsing: com.microsoft.azure.storage..*
