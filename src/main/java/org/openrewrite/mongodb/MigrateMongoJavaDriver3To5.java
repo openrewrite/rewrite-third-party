@@ -68,9 +68,12 @@ public class MigrateMongoJavaDriver3To5 extends ScanningRecipe<MigrateMongoJavaD
             "driver 3 wrote, and the `toString()` of `MongoClientURI` and `ConnectionString`, which driver 5 redacts, becomes " +
             "`getURI()` or `getConnectionString()`. A `module-info.java` requires the modules of driver 5; a repository with " +
             "a Java module stays on driver 3 when a module would keep the legacy API, which no Java module can read in " +
-            "driver 5. Clients of " +
-            "repositories that use `java.util.UUID` keep the `JAVA_LEGACY` UUID representation that driver 3 used by default. " +
-            "`MongoDriverMigrationDecisions` lists each module's outcome and the reasons for it.";
+            "driver 5. Clients of repositories that use `java.util.UUID` keep the `JAVA_LEGACY` UUID representation that " +
+            "driver 3 used by default. One change cannot be kept: driver 3 refused with an `IllegalArgumentException` a field " +
+            "name that contains `.` or starts with `$` in a document it inserted or replaced, and driver 5 leaves that to the " +
+            "server, except for a `$` at the top level of a replacement, so code that relied on the refusal needs a check of " +
+            "its own. `MongoDriverMigrationDecisions` lists each " +
+            "module's outcome and the reasons for it.";
 
     transient MongoDriverMigrationDecisions decisions = new MongoDriverMigrationDecisions(this);
 
