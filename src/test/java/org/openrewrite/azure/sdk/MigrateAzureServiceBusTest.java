@@ -199,4 +199,55 @@ class MigrateAzureServiceBusTest implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void leavesAClassThatImplementsALegacyTypeToAPerson() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.servicebus.IMessage;
+              import com.microsoft.azure.servicebus.IMessageSender;
+              import com.microsoft.azure.servicebus.Message;
+
+              import java.util.ArrayList;
+              import java.util.List;
+
+              abstract class RecordingSender implements IMessageSender {
+                  final List<IMessage> sent = new ArrayList<>();
+
+                  @Override
+                  public void send(IMessage message) {
+                      sent.add(message);
+                  }
+
+                  void sendText(String body) {
+                      send(new Message(body));
+                  }
+              }
+              """,
+            """
+              import com.microsoft.azure.servicebus.IMessage;
+              import com.microsoft.azure.servicebus.IMessageSender;
+              import com.microsoft.azure.servicebus.Message;
+
+              import java.util.ArrayList;
+              import java.util.List;
+
+              abstract class RecordingSender implements /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.servicebus.IMessageSender as a supertype` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/servicebus/azure-messaging-servicebus/migration-guide.md)~~>*/IMessageSender {
+                  final List<IMessage> sent = new ArrayList<>();
+
+                  @Override
+                  public void send(IMessage message) {
+                      sent.add(message);
+                  }
+
+                  void sendText(String body) {
+                      send(/*~~(Legacy Azure SDK: migrate `com.microsoft.azure.servicebus.Message` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/servicebus/azure-messaging-servicebus/migration-guide.md)~~>*/new Message(body));
+                  }
+              }
+              """
+          )
+        );
+    }
 }

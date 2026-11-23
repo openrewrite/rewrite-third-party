@@ -16,13 +16,18 @@
 package org.openrewrite.azure.sdk;
 
 import org.jspecify.annotations.Nullable;
+import org.openrewrite.Tree;
+import org.openrewrite.java.JavaIsoVisitor;
+import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType;
+import org.openrewrite.java.tree.TypeTree;
 import org.openrewrite.java.tree.TypeUtils;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.StringJoiner;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
 /**
@@ -136,6 +141,40 @@ public final class LegacyAzureTypes {
     public static boolean isLegacy(@Nullable JavaType type) {
         JavaType.FullyQualified fq = TypeUtils.asFullyQualified(type);
         return fq != null && isLegacy(fq.getFullyQualifiedName());
+    }
+
+    /**
+     * Whether a source declares a legacy type, or a class that extends or implements one, such as a fake sender in
+     * tests or an event processor. The migration leaves such a source as it is, since retyped, a class implementing a
+     * legacy interface would implement a final class of the current SDK, and its overrides would override nothing.
+     */
+    public static boolean declaresLegacySubtype(Tree source) {
+        AtomicBoolean found = new AtomicBoolean();
+        new JavaIsoVisitor<AtomicBoolean>() {
+            @Override
+            public J.ClassDeclaration visitClassDeclaration(J.ClassDeclaration classDecl, AtomicBoolean f) {
+                if (isLegacy(classDecl.getType()) || isLegacy(classDecl.getExtends()) ||
+                    classDecl.getImplements() != null && classDecl.getImplements().stream().anyMatch(LegacyAzureTypes::isLegacy)) {
+                    f.set(true);
+                    return classDecl;
+                }
+                return super.visitClassDeclaration(classDecl, f);
+            }
+
+            @Override
+            public J.NewClass visitNewClass(J.NewClass newClass, AtomicBoolean f) {
+                if (newClass.getBody() != null && isLegacy(newClass.getClazz())) {
+                    f.set(true);
+                    return newClass;
+                }
+                return super.visitNewClass(newClass, f);
+            }
+        }.visit(source, found);
+        return found.get();
+    }
+
+    private static boolean isLegacy(@Nullable TypeTree typeTree) {
+        return typeTree != null && isLegacy(typeTree.getType());
     }
 
     /**

@@ -25,6 +25,7 @@ import org.openrewrite.SourceFile;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.azure.sdk.LegacyAzureTypes;
 import org.openrewrite.azure.sdk.table.LegacyAzureSdkRemnants;
+import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.tree.*;
 import org.openrewrite.marker.SearchResult;
@@ -77,6 +78,30 @@ public class FindAzureSdkLegacyRemnants extends Recipe {
             @Override
             public J.Import visitImport(J.Import _import, ExecutionContext ctx) {
                 return _import;
+            }
+
+            @Override
+            public J.ClassDeclaration visitClassDeclaration(J.ClassDeclaration classDecl, ExecutionContext ctx) {
+                J.ClassDeclaration c = super.visitClassDeclaration(classDecl, ctx);
+                // A supertype the migration has a counterpart for is no remnant as a type, but a class extending or
+                // implementing it is left as it is, so it is marked here. One without a counterpart is marked as a type.
+                if (c.getExtends() != null && isMappedLegacy(c.getExtends().getType())) {
+                    c = c.withExtends(supertype(c.getExtends(), ctx));
+                }
+                if (c.getImplements() != null) {
+                    c = c.withImplements(ListUtils.map(c.getImplements(), i -> isMappedLegacy(i.getType()) ? supertype(i, ctx) : i));
+                }
+                return c;
+            }
+
+            private TypeTree supertype(TypeTree supertype, ExecutionContext ctx) {
+                String type = fqn(supertype.getType());
+                return report(supertype, "supertype", type + " as a supertype", type, ctx);
+            }
+
+            private boolean isMappedLegacy(@Nullable JavaType type) {
+                JavaType.FullyQualified fq = TypeUtils.asFullyQualified(type);
+                return fq != null && LegacyAzureTypes.isLegacy(fq) && LegacyAzureTypes.current(fq.getFullyQualifiedName()) != null;
             }
 
             @Override

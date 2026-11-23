@@ -18,6 +18,7 @@ package org.openrewrite.azure.sdk;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.Cursor;
 import org.openrewrite.ExecutionContext;
+import org.openrewrite.SourceFile;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.JavaTemplate;
@@ -61,6 +62,11 @@ class AzureCallRewriter extends JavaVisitor<ExecutionContext> {
     AzureCallRewriter(List<CallRewrite> rules, Map<String, String> constants) {
         this.rules = rules;
         this.constants = constants;
+    }
+
+    @Override
+    public boolean isAcceptable(SourceFile sourceFile, ExecutionContext ctx) {
+        return super.isAcceptable(sourceFile, ctx) && !LegacyAzureTypes.declaresLegacySubtype(sourceFile);
     }
 
     void afterVisit(TreeVisitor<?, ExecutionContext> visitor) {
