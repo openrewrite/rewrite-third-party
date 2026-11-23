@@ -16,6 +16,8 @@
 package org.openrewrite.azure.sdk;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.Tree;
@@ -571,9 +573,11 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
         );
     }
 
-    @Test
-    void declaresWhatOnlyTheLegacyArtifactBrought() {
-        // commons-lang3 arrives only through azure-storage, and the module's other code uses it
+    @ParameterizedTest
+    @ValueSource(strings = {"StringUtils.isBlank(name)", "name == null"})
+    void declaresWhatOnlyTheLegacyArtifactBrought(String blank) {
+        // commons-lang3 arrives only through azure-storage, and the module's other code uses it, or only imports it,
+        // which javac needs resolved all the same
         JavaSourceSet main = new JavaSourceSet(Tree.randomId(), "main", Collections.emptyList(),
           Collections.singletonMap("org.apache.commons:commons-lang3:3.4",
             Collections.singletonList(JavaType.ShallowClass.build("org.apache.commons.lang3.StringUtils"))));
@@ -622,10 +626,10 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
 
                   class Names {
                       boolean blank(String name) {
-                          return StringUtils.isBlank(name);
+                          return %s;
                       }
                   }
-                  """,
+                  """.formatted(blank),
                 spec -> spec.markers(main)
               )
             ),

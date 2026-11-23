@@ -25,6 +25,7 @@ import org.openrewrite.gradle.RemoveDependency;
 import org.openrewrite.gradle.marker.GradleDependencyConfiguration;
 import org.openrewrite.gradle.marker.GradleProject;
 import org.openrewrite.java.marker.JavaSourceSet;
+import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaSourceFile;
 import org.openrewrite.java.tree.JavaType;
@@ -134,7 +135,8 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
                 for (Map.Entry<String, List<JavaType.FullyQualified>> artifact : artifacts.entrySet()) {
                     if (artifact.getKey().startsWith(ga + ":")) {
                         for (JavaType.FullyQualified type : artifact.getValue()) {
-                            if (types.contains(type.getFullyQualifiedName())) {
+                            if (types.contains(type.getFullyQualifiedName().replace('$', '.')) ||
+                                types.contains(type.getPackageName() + ".*")) {
                                 return true;
                             }
                         }
@@ -214,10 +216,20 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
         }
         Set<String> types = new HashSet<>();
         for (String fqn : typesInUse(s)) {
-            if (!fqn.startsWith("java.") && !fqn.startsWith("javax.")) {
-                types.add(fqn);
-            }
+            types.add(fqn.replace('$', '.'));
         }
+        // An import the code never uses still has to resolve, so it counts too
+        for (J.Import imp : s.getImports()) {
+            String name = name(imp.getQualid());
+            if (name.indexOf('.') < 1) {
+                continue;
+            }
+            if (imp.isStatic() || name.endsWith(".*") && Character.isUpperCase(simpleName(name.substring(0, name.length() - 2)).charAt(0))) {
+                name = name.substring(0, name.lastIndexOf('.'));
+            }
+            types.add(name);
+        }
+        types.removeIf(fqn -> fqn.startsWith("java.") || fqn.startsWith("javax."));
         if (!types.isEmpty()) {
             acc.usage.put(s.getSourcePath(), new Usage(types, isTest(s), gavToTypes));
         }
@@ -247,6 +259,18 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
             fqns.add(m.getDeclaringType().getFullyQualifiedName());
         }
         return fqns;
+    }
+
+    private static String name(Expression qualid) {
+        if (qualid instanceof J.FieldAccess) {
+            J.FieldAccess f = (J.FieldAccess) qualid;
+            return name(f.getTarget()) + "." + f.getSimpleName();
+        }
+        return qualid instanceof J.Identifier ? ((J.Identifier) qualid).getSimpleName() : "";
+    }
+
+    private static String simpleName(String name) {
+        return name.substring(name.lastIndexOf('.') + 1);
     }
 
     @Override
