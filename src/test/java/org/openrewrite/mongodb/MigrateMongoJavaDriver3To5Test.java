@@ -529,6 +529,10 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
     @Test
     void leavesDriverWhenARemovedApiHasNoReplacement() {
         rewriteRun(
+          spec -> spec.dataTable(MongoDriverMigrationDecisions.Row.class, rows -> assertThat(rows)
+            .filteredOn(r -> "Driver not moved to 5".equals(r.getOutcome()))
+            .extracting(MongoDriverMigrationDecisions.Row::getReason)
+            .containsExactly("uses `DB.eval`, which driver 5 removed and no recipe replaces")),
           mavenProject("app",
             //language=java
             srcMainJava(
@@ -540,6 +544,7 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
                   class Scripts {
                       Object run(MongoClient client) {
                           DB db = client.getDB("app");
+                          db.eval("var warm = 1");
                           return db.eval("return 1");
                       }
                   }
