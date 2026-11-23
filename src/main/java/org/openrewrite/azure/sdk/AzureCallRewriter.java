@@ -42,7 +42,7 @@ class AzureCallRewriter extends JavaVisitor<ExecutionContext> {
             "azure-core-1", "azure-core-amqp-2", "azure-storage-common-12", "azure-storage-blob-12", "azure-storage-queue-12",
             "azure-storage-file-share-12", "azure-data-tables-12", "azure-identity-1", "azure-messaging-eventhubs-5",
             "azure-messaging-servicebus-7", "azure-security-keyvault-secrets-4", "azure-security-keyvault-keys-4",
-            "msal4j-1", "reactor-core-3"
+            "msal4j-1", "reactor-core-3", "reactive-streams-1"
     };
 
     private static final Pattern TOKEN = Pattern.compile("\\$(r|\\d+)");

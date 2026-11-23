@@ -417,6 +417,69 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
     }
 
     @Test
+    void headersSetBeforeAnUpload() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.blob.CloudBlobContainer;
+              import com.microsoft.azure.storage.blob.CloudBlockBlob;
+
+              import java.io.InputStream;
+
+              class Uploads {
+                  void save(CloudBlobContainer container, String name, InputStream in, long length, String type) throws Exception {
+                      CloudBlockBlob blob = container.getBlockBlobReference(name);
+                      blob.getProperties().setContentType(type);
+                      blob.getProperties().setCacheControl("max-age=60");
+                      blob.upload(in, length);
+                  }
+
+                  void save(CloudBlobContainer container, String path) throws Exception {
+                      CloudBlockBlob blob = container.getBlockBlobReference(path);
+                      blob.getProperties().setContentType("text/html");
+                      blob.uploadFromFile(path);
+                  }
+
+                  void label(CloudBlockBlob blob) {
+                      blob.getProperties().setContentType("text/plain");
+                      System.out.println(blob.getName());
+                  }
+              }
+              """,
+            """
+              import com.azure.core.util.BinaryData;
+              import com.azure.core.util.Context;
+              import com.azure.storage.blob.BlobClient;
+              import com.azure.storage.blob.BlobContainerClient;
+              import com.azure.storage.blob.models.BlobHttpHeaders;
+              import com.azure.storage.blob.options.BlobParallelUploadOptions;
+              import com.azure.storage.blob.options.BlobUploadFromFileOptions;
+
+              import java.io.InputStream;
+
+              class Uploads {
+                  void save(BlobContainerClient container, String name, InputStream in, long length, String type) throws Exception {
+                      BlobClient blob = container.getBlobClient(name);
+                      blob.uploadWithResponse(new BlobParallelUploadOptions(BinaryData.fromStream(in, length)).setHeaders(new BlobHttpHeaders().setContentType(type).setCacheControl("max-age=60")), null, Context.NONE);
+                  }
+
+                  void save(BlobContainerClient container, String path) throws Exception {
+                      BlobClient blob = container.getBlobClient(path);
+                      blob.uploadFromFileWithResponse(new BlobUploadFromFileOptions(path).setHeaders(new BlobHttpHeaders().setContentType("text/html")), null, Context.NONE);
+                  }
+
+                  void label(BlobClient blob) {
+                      /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.storage.blob.BlobProperties.setContentType` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/storage/azure-storage-blob/migrationGuides/V8_V12.md)~~>*/blob.getProperties().setContentType("text/plain");
+                      System.out.println(blob.getBlobName());
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void contentMd5OfABlobWithoutOne() {
         rewriteRun(
           //language=java

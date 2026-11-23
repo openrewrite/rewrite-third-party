@@ -21,12 +21,15 @@ import lombok.Value;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
 import org.openrewrite.java.JavaTemplate;
+import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.ShortenFullyQualifiedTypeReferences;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
 import org.openrewrite.marker.Markers;
 
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.openrewrite.azure.sdk.CallRewrite.*;
 
@@ -146,6 +149,13 @@ public class MigrateAzureStorageBlob extends Recipe {
             call(B + "CloudBlob openInputStream()", "$r.openInputStream()"),
             call(B + "CloudBlob openInputStream(..)", "$r.openInputStream()").when(argsNull(0, 1, 2)),
             call(B + "CloudBlob downloadAttributes()", "$r.getProperties()"),
+            // v8 sent the headers set on a blob's properties with its next upload, v12 takes them as an upload option
+            delete(B + "BlobProperties setContentType(String)").when(MigrateAzureStorageBlob::headerOfAnUpload),
+            delete(B + "BlobProperties setContentEncoding(String)").when(MigrateAzureStorageBlob::headerOfAnUpload),
+            delete(B + "BlobProperties setContentLanguage(String)").when(MigrateAzureStorageBlob::headerOfAnUpload),
+            delete(B + "BlobProperties setContentDisposition(String)").when(MigrateAzureStorageBlob::headerOfAnUpload),
+            delete(B + "BlobProperties setCacheControl(String)").when(MigrateAzureStorageBlob::headerOfAnUpload),
+            custom(B + "CloudBlob upload*(..)", MigrateAzureStorageBlob::uploadWithHeaders),
             call(B + "CloudBlob getProperties()", "$r.getProperties()"),
             custom(B + "CloudBlob getMetadata()", MigrateAzureStorageBlob::metadata),
             custom(B + "CloudBlob setMetadata(java.util.HashMap)", MigrateAzureStorageBlob::setMetadata),
@@ -335,6 +345,157 @@ public class MigrateAzureStorageBlob extends Recipe {
             return rewriter.template("$r.upload(com.azure.core.util.BinaryData.fromBytes($0), true)", call, ctx);
         }
         return rewriter.template("$r.upload(new java.io.ByteArrayInputStream($0, $1, $2), true)", call, ctx);
+    }
+
+    private static final Set<String> HEADERS = new HashSet<>(Arrays.asList(
+            "setContentType", "setContentEncoding", "setContentLanguage", "setContentDisposition", "setCacheControl"));
+    private static final MethodMatcher HEADER = new MethodMatcher(B + "BlobProperties set*(String)", true);
+    private static final MethodMatcher PROPERTIES = new MethodMatcher(B + "CloudBlob getProperties()", true);
+
+    /**
+     * The blob whose properties the statement sets a header of, as {@code blob.getProperties().setContentType(type);}.
+     */
+    private static @Nullable String headerOf(Statement statement) {
+        if (!(statement instanceof J.MethodInvocation) || !HEADER.matches((J.MethodInvocation) statement) ||
+            !HEADERS.contains(((J.MethodInvocation) statement).getSimpleName())) {
+            return null;
+        }
+        Expression properties = ((J.MethodInvocation) statement).getSelect();
+        if (!(properties instanceof J.MethodInvocation) || !PROPERTIES.matches((J.MethodInvocation) properties) ||
+            !(((J.MethodInvocation) properties).getSelect() instanceof J.Identifier)) {
+            return null;
+        }
+        return ((J.Identifier) ((J.MethodInvocation) properties).getSelect()).getSimpleName();
+    }
+
+    /**
+     * The statements of the block that holds a call, and the call's index among them.
+     */
+    private static Map.@Nullable Entry<List<Statement>, Integer> statementOf(Call call) {
+        Object parent = call.cursor.getParentTreeCursor().getValue();
+        if (!(parent instanceof J.Block)) {
+            return null;
+        }
+        List<Statement> statements = ((J.Block) parent).getStatements();
+        for (int i = 0; i < statements.size(); i++) {
+            if (statements.get(i).getId().equals(((J) call.tree).getId())) {
+                return new AbstractMap.SimpleEntry<>(statements, i);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * A header set on a blob's properties that an upload of the blob right after sends.
+     */
+    private static boolean headerOfAnUpload(Call call) {
+        Map.Entry<List<Statement>, Integer> at = statementOf(call);
+        if (at == null) {
+            return false;
+        }
+        List<Statement> statements = at.getKey();
+        String blob = headerOf(statements.get(at.getValue()));
+        if (blob == null) {
+            return false;
+        }
+        for (int i = at.getValue() + 1; i < statements.size(); i++) {
+            Statement next = statements.get(i);
+            if (blob.equals(headerOf(next))) {
+                continue;
+            }
+            return next instanceof J.MethodInvocation && uploadData(upload((J.MethodInvocation) next, call.cursor)) != null &&
+                   ((J.MethodInvocation) next).getSelect() instanceof J.Identifier &&
+                   blob.equals(((J.Identifier) ((J.MethodInvocation) next).getSelect()).getSimpleName());
+        }
+        return false;
+    }
+
+    private static Call upload(J.MethodInvocation m, Cursor cursor) {
+        List<Expression> args = m.getArguments().size() == 1 && m.getArguments().get(0) instanceof J.Empty ?
+                Collections.emptyList() : m.getArguments();
+        return new Call(m, Objects.requireNonNull(m.getMethodType()), m.getSelect(), args, cursor);
+    }
+
+    /**
+     * What an upload of a block blob sends, as {@code BinaryData} or, for a file, its path, with its arguments as
+     * {@code #{aN}} parameters; {@code null} for an upload that takes options this migration does not carry over.
+     */
+    private static @Nullable String uploadData(Call upload) {
+        JavaType.Method type = upload.type;
+        if (!TypeUtils.isOfClassType(type.getDeclaringType(), B + "CloudBlob") &&
+            !TypeUtils.isOfClassType(type.getDeclaringType(), B + "CloudBlockBlob") ||
+            upload.receiver == null ||
+            !TypeUtils.isOfClassType(upload.receiver.getType(), B + "CloudBlockBlob") &&
+            !TypeUtils.isOfClassType(upload.receiver.getType(), B + "CloudBlob")) {
+            return null;
+        }
+        List<String> params = new ArrayList<>();
+        for (JavaType p : type.getParameterTypes()) {
+            params.add(p instanceof JavaType.Primitive ? ((JavaType.Primitive) p).getKeyword() :
+                    p instanceof JavaType.Array ? "byte[]" : String.valueOf(TypeUtils.asFullyQualified(p)));
+        }
+        String name = type.getName();
+        if ("uploadFromFile".equals(name) && params.size() >= 1 && argsNull(1, 2, 3).test(upload)) {
+            return "file:#{a0:any(String)}";
+        }
+        if ("upload".equals(name) && params.size() >= 2 && argsNull(2, 3, 4).test(upload)) {
+            Expression length = upload.arg(1);
+            boolean unknown = length instanceof J.Unary && ((J.Unary) length).getOperator() == J.Unary.Type.Negative &&
+                              isLiteral(((J.Unary) length).getExpression(), 1) || isLiteral(length, -1) || isLiteral(length, -1L);
+            // BinaryData takes the length as a Long, which an int does not box to
+            return unknown ? "com.azure.core.util.BinaryData.fromStream(#{a0:any(java.io.InputStream)})" :
+                    "com.azure.core.util.BinaryData.fromStream(#{a0:any(java.io.InputStream)}, " +
+                    (length.getType() == JavaType.Primitive.Long ? "" : "(long) ") + "#{a1:any(long)})";
+        }
+        if ("uploadText".equals(name) && params.size() == 1) {
+            return "com.azure.core.util.BinaryData.fromString(#{a0:any(String)})";
+        }
+        if ("uploadText".equals(name) && argsNull(2, 3, 4).test(upload)) {
+            return argsNull(1).test(upload) ? "com.azure.core.util.BinaryData.fromString(#{a0:any(String)})" :
+                    "com.azure.core.util.BinaryData.fromBytes(#{a0:any(String)}.getBytes(#{a1:any(String)}))";
+        }
+        if ("uploadFromByteArray".equals(name) && params.size() >= 3 && argsNull(3, 4, 5).test(upload)) {
+            return "com.azure.core.util.BinaryData.fromStream(new java.io.ByteArrayInputStream(#{a0:any(byte[])}, " +
+                   "#{a1:any(int)}, #{a2:any(int)}), (long) #{a2})";
+        }
+        return null;
+    }
+
+    /**
+     * An upload right after headers were set on the blob's properties sends them.
+     */
+    private static @Nullable J uploadWithHeaders(Call call, AzureCallRewriter rewriter, ExecutionContext ctx) {
+        Map.Entry<List<Statement>, Integer> at = statementOf(call);
+        if (at == null || !(call.receiver instanceof J.Identifier)) {
+            return null;
+        }
+        String blob = ((J.Identifier) call.receiver).getSimpleName();
+        Deque<J.MethodInvocation> headers = new ArrayDeque<>();
+        for (int i = at.getValue() - 1; i >= 0 && blob.equals(headerOf(at.getKey().get(i))); i--) {
+            headers.addFirst((J.MethodInvocation) at.getKey().get(i));
+        }
+        String data = uploadData(call);
+        if (headers.isEmpty() || data == null) {
+            return null;
+        }
+        List<Object> params = new ArrayList<>();
+        params.add(call.receiver);
+        Matcher arg = Pattern.compile("#\\{a(\\d+):").matcher(data);
+        while (arg.find()) {
+            params.add(call.arg(Integer.parseInt(arg.group(1))));
+        }
+        StringBuilder httpHeaders = new StringBuilder("new " + V12 + "models.BlobHttpHeaders()");
+        int h = 0;
+        for (J.MethodInvocation header : headers) {
+            httpHeaders.append('.').append(header.getSimpleName()).append("(#{h").append(h++).append(":any(String)})");
+            params.add(header.getArguments().get(0));
+        }
+        String template = data.startsWith("file:") ?
+                "#{r:any(" + V12 + "BlobClient)}.uploadFromFileWithResponse(new " + V12 + "options.BlobUploadFromFileOptions(" +
+                data.substring("file:".length()) + ").setHeaders(" + httpHeaders + "), null, com.azure.core.util.Context.NONE)" :
+                "#{r:any(" + V12 + "BlobClient)}.uploadWithResponse(new " + V12 + "options.BlobParallelUploadOptions(" + data +
+                ").setHeaders(" + httpHeaders + "), null, com.azure.core.util.Context.NONE)";
+        return apply(rewriter, call, template, params, ctx);
     }
 
     /**
