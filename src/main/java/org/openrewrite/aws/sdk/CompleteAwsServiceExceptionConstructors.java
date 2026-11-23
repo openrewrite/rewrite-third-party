@@ -27,6 +27,8 @@ import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.TypeUtils;
+import org.openrewrite.kotlin.KotlinTemplate;
+import org.openrewrite.kotlin.tree.K;
 
 import java.util.regex.Pattern;
 
@@ -43,7 +45,7 @@ public class CompleteAwsServiceExceptionConstructors extends Recipe {
 
     @Getter
     final String description = "Runs after `software.amazon.awssdk.v2migration.AwsSdkJavaV1ToV2`. Replaces `new XException(message)` " +
-            "of a v2 service model exception with `XException.builder().message(message).build()`.";
+            "of a v2 service model exception with `XException.builder().message(message).build()`, in Java and Kotlin.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -57,10 +59,16 @@ public class CompleteAwsServiceExceptionConstructors extends Recipe {
                     return n;
                 }
                 Expression message = n.getArguments().get(0);
-                if (!TypeUtils.isString(message.getType())) {
+                if (!TypeUtils.isString(message.getType()) && !TypeUtils.isOfClassType(message.getType(), "kotlin.String")) {
                     return n;
                 }
-                return JavaTemplate.apply(n.getClazz().printTrimmed(getCursor()) + ".builder().message(#{any(java.lang.String)}).build()", getCursor(), n.getCoordinates().replace(), message);
+                String reference = n.getClazz().printTrimmed(getCursor());
+                if (getCursor().firstEnclosing(K.CompilationUnit.class) != null) {
+                    return KotlinTemplate.builder(reference + ".builder().message(#{any()}).build()")
+                            .build()
+                            .apply(getCursor(), n.getCoordinates().replace(), message);
+                }
+                return JavaTemplate.apply(reference + ".builder().message(#{any(java.lang.String)}).build()", getCursor(), n.getCoordinates().replace(), message);
             }
         });
     }

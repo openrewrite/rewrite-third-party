@@ -21,9 +21,11 @@ import lombok.Value;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
+import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.JavaVisitor;
+import org.openrewrite.java.marker.JavaSourceSet;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
 import org.openrewrite.marker.Markers;
@@ -54,8 +56,9 @@ public class MigrateAwsClientBuilderSubclasses extends ScanningRecipe<MigrateAws
     @Getter
     final String description = "Runs before builder folding. A class that extends v1's `AwsClientBuilder` and only defines " +
             "constructors and `build()` extends a generated `RecordingAwsClientBuilder` that implements v2's `AwsSyncClientBuilder` " +
-            "and records the endpoint, region and other settings. `getEndpoint()` and `getRegion()` on a v1 builder in the same " +
-            "source set read the recorded values.";
+            "and records the endpoint, region and other settings. `getEndpoint()`, `getRegion()` and `getCredentials()` on a v1 " +
+            "builder in the same source set read the recorded values; in tests, also on a service client builder, whose v2 " +
+            "builder is built to read its configuration.";
 
     public static class Accumulator implements AwsMigrationScope.Limitable {
         final ProjectShims shims = new ProjectShims();
@@ -84,6 +87,17 @@ public class MigrateAwsClientBuilderSubclasses extends ScanningRecipe<MigrateAws
                     return tree;
                 }
                 J.CompilationUnit cu = (J.CompilationUnit) tree;
+                if (isTestSource(cu)) {
+                    new JavaIsoVisitor<Integer>() {
+                        @Override
+                        public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, Integer p) {
+                            if (isSettingGetter(method)) {
+                                acc.shims.require(cu);
+                            }
+                            return super.visitMethodInvocation(method, p);
+                        }
+                    }.visit(cu, 0);
+                }
                 for (J.ClassDeclaration c : cu.getClasses()) {
                     if (!extendsV1Builder(c)) {
                         continue;
@@ -104,7 +118,9 @@ public class MigrateAwsClientBuilderSubclasses extends ScanningRecipe<MigrateAws
         if (Boolean.FALSE.equals(generateHelpers)) {
             return emptyList();
         }
-        return acc.shims.generate(RecordingAwsClientBuilderShim.SHIM, RecordingAwsClientBuilderShim::source, ctx);
+        return acc.shims.generate(RecordingAwsClientBuilderShim.SHIM, RecordingAwsClientBuilderShim::source,
+                JavaParser.fromJavaVersion().classpathFromResources(ctx, "auth-2", "aws-core-2", "http-client-spi-2",
+                        "identity-spi-2", "regions-2", "sdk-core-2", "utils-2"), ctx);
     }
 
     @Override
@@ -113,8 +129,11 @@ public class MigrateAwsClientBuilderSubclasses extends ScanningRecipe<MigrateAws
             @Nullable
             String shim;
 
+            boolean test;
+
             @Override
             public J visitCompilationUnit(J.CompilationUnit cu, ExecutionContext ctx) {
+                test = isTestSource(cu);
                 shim = acc.unsupported.contains(cu.getSourcePath().toString()) ? null :
                         acc.shims.fqn(cu, RecordingAwsClientBuilderShim.SHIM);
                 return shim == null ? cu : super.visitCompilationUnit(cu, ctx);
@@ -164,24 +183,26 @@ public class MigrateAwsClientBuilderSubclasses extends ScanningRecipe<MigrateAws
                     JavaType.Method retyped = mt.withDeclaringType(JavaType.ShallowClass.build(shimFqn + "$EndpointConfiguration"));
                     return m.withMethodType(retyped).withName(m.getName().withType(retyped));
                 }
-                if (mt == null || select == null || !m.getArguments().isEmpty() && !(m.getArguments().get(0) instanceof J.Empty) ||
-                    !TypeUtils.isAssignableTo(V1_BUILDER, mt.getDeclaringType()) || isServiceBuilder(select.getType()) ||
-                    !("getEndpoint".equals(m.getSimpleName()) || "getRegion".equals(m.getSimpleName()))) {
+                if (!isSettingGetter(m) || select == null || isServiceBuilder(select.getType()) && !test) {
                     return m;
                 }
-                String helper = "getEndpoint".equals(m.getSimpleName()) ? "endpointOf" : "regionOf";
+                String helper = "getEndpoint".equals(m.getSimpleName()) ? "endpointOf" :
+                        "getRegion".equals(m.getSimpleName()) ? "regionOf" : "credentialsOf";
                 J call = JavaTemplate.builder(RecordingAwsClientBuilderShim.SHIM + "." + helper + "(#{any()})")
                         .javaParser(JavaParser.fromJavaVersion().dependsOn(ProjectShims.packageLine(packageOf(shimFqn)) +
                                 "public abstract class " + RecordingAwsClientBuilderShim.SHIM + " {\n" +
                                 "    public static Object endpointOf(Object b) { return null; }\n" +
                                 "    public static String regionOf(Object b) { return null; }\n" +
+                                "    public static Object credentialsOf(Object b) { return null; }\n" +
                                 "}"))
                         .imports(shimFqn)
                         .build()
                         .apply(getCursor(), method.getCoordinates().replace(), select);
                 maybeAddImport(shimFqn);
+                // Typed as v1's provider, which v2-migration then converts along with the calls made on it
                 JavaType returnType = "endpointOf".equals(helper) ? JavaType.ShallowClass.build(shimFqn + "$EndpointConfiguration") :
-                        JavaType.ShallowClass.build("java.lang.String");
+                        "regionOf".equals(helper) ? JavaType.ShallowClass.build("java.lang.String") :
+                                Objects.requireNonNull(mt).getReturnType();
                 JavaType.Method type = new JavaType.Method(null, Flag.Public.getBitMask() | Flag.Static.getBitMask(),
                         JavaType.ShallowClass.build(shimFqn), helper, returnType, singletonList("builder"),
                         singletonList(JavaType.ShallowClass.build("java.lang.Object")), emptyList(), emptyList(), null, null);
@@ -189,6 +210,28 @@ public class MigrateAwsClientBuilderSubclasses extends ScanningRecipe<MigrateAws
                 return invocation.withMethodType(type).withName(invocation.getName().withType(type));
             }
         });
+    }
+
+    private static boolean isSettingGetter(J.MethodInvocation m) {
+        JavaType.Method mt = m.getMethodType();
+        return mt != null && m.getSelect() != null && (m.getArguments().isEmpty() || m.getArguments().get(0) instanceof J.Empty) &&
+               TypeUtils.isAssignableTo(V1_BUILDER, mt.getDeclaringType()) &&
+               ("getEndpoint".equals(m.getSimpleName()) || "getRegion".equals(m.getSimpleName()) || "getCredentials".equals(m.getSimpleName()));
+    }
+
+    /**
+     * Whether a {@code getEndpoint()} call at the cursor becomes the generated helper and only its getters are used, so the
+     * v1 {@code EndpointConfiguration} type it returned is gone.
+     */
+    static boolean readsSettingBack(Cursor cursor, J.CompilationUnit cu) {
+        Object parent = cursor.getParentTreeCursor().getValue();
+        return isTestSource(cu) && parent instanceof J.MethodInvocation && ((J.MethodInvocation) parent).getSelect() == cursor.getValue();
+    }
+
+    // Reading a service builder's settings back builds a client, which tests can afford
+    static boolean isTestSource(J.CompilationUnit cu) {
+        String sourceSet = cu.getMarkers().findFirst(JavaSourceSet.class).map(JavaSourceSet::getName).orElse("main");
+        return sourceSet.toLowerCase().contains("test") || cu.getSourcePath().toString().replace('\\', '/').contains("src/test/");
     }
 
     private static boolean extendsV1Builder(J.ClassDeclaration c) {

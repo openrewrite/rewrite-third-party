@@ -68,6 +68,7 @@ public class PreserveNonAwsTransitives extends ScanningRecipe<PreserveNonAwsTran
         GUARDED.put("joda-time:joda-time", singletonList("org.joda.time"));
         GUARDED.put("commons-logging:commons-logging", singletonList("org.apache.commons.logging"));
         GUARDED.put("software.amazon.ion:ion-java", singletonList("com.amazon.ion"));
+        GUARDED.put("io.zipkin.brave:brave", singletonList("brave"));
 
         IMPLIED_BY.put("org.apache.httpcomponents:httpcore", "org.apache.httpcomponents:httpclient");
         IMPLIED_BY.put("com.fasterxml.jackson.core:jackson-core", "com.fasterxml.jackson.core:jackson-databind");
@@ -78,9 +79,10 @@ public class PreserveNonAwsTransitives extends ScanningRecipe<PreserveNonAwsTran
     final String displayName = "Preserve non-AWS libraries inherited from AWS SDK v1";
 
     @Getter
-    final String description = "Adds Apache HttpClient, Jackson, Joda-Time, Commons Logging and Ion as direct dependencies " +
+    final String description = "Adds Apache HttpClient, Jackson, Joda-Time, Commons Logging, Ion and Brave as direct dependencies " +
             "where the module's code uses them but only received them transitively through an AWS SDK v1 artifact " +
-            "(the `aws-java-sdk` bundle, `aws-java-sdk-*` or the awslabs request-signing interceptor), which the " +
+            "(the `aws-java-sdk` bundle, `aws-java-sdk-*`, the awslabs request-signing interceptor or zipkin-aws' SQS " +
+            "tracing), which the " +
             "migration removes. The previously resolved version is kept, or omitted when dependency management supplies it.";
 
     @Getter
@@ -107,7 +109,8 @@ public class PreserveNonAwsTransitives extends ScanningRecipe<PreserveNonAwsTran
     public static boolean isAwsV1Artifact(@Nullable String groupId, @Nullable String artifactId) {
         return AwsSdkV2Coordinates.isV1SdkArtifact(groupId, artifactId) ||
                "com.amazonaws".equals(groupId) && "jmespath-java".equals(artifactId) ||
-               "aws-request-signing-apache-interceptor".equals(artifactId);
+               "aws-request-signing-apache-interceptor".equals(artifactId) ||
+               "io.zipkin.aws".equals(groupId) && "brave-instrumentation-aws-java-sdk-sqs".equals(artifactId);
     }
 
     @Override

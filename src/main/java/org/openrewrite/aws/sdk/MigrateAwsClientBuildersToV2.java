@@ -170,6 +170,16 @@ public class MigrateAwsClientBuildersToV2 extends ScanningRecipe<Set<String>> {
                         V1_CLIENT_CONFIGURATION, V1_PROTOCOL, V1_REGIONS)) {
                     maybeRemoveImport(v1);
                 }
+                new JavaIsoVisitor<Integer>() {
+                    @Override
+                    public J.NewClass visitNewClass(J.NewClass n, Integer p) {
+                        // An inline EndpointConfiguration already retyped to the generated value class is consumed too
+                        if (isEndpointConfigurationValue(n.getType())) {
+                            maybeRemoveImport(TypeUtils.asFullyQualified(n.getType()));
+                        }
+                        return super.visitNewClass(n, p);
+                    }
+                }.visit(original, 0);
                 JavaType.FullyQualified v1Type = TypeUtils.asFullyQualified(original instanceof J.MethodInvocation ?
                         rootReturnType((J.MethodInvocation) original) : original.getType());
                 if (v1Type != null) {
@@ -201,20 +211,22 @@ public class MigrateAwsClientBuildersToV2 extends ScanningRecipe<Set<String>> {
      */
     static JavaParser.Builder<?, ?> javaParser(ExecutionContext ctx, AwsClientChain chain) {
         JavaParser.Builder<?, ?> parser = JavaParser.fromJavaVersion().classpathFromResources(ctx, V2_ARTIFACTS);
+        List<String> sources = new ArrayList<>(chain.dependencies);
         if (!chain.isS3()) {
             String pkg = chain.v2Client.substring(0, chain.v2Client.lastIndexOf('.'));
             String client = simpleName(chain.v2Client);
             String builder = client + "Builder";
             String base = chain.async ? "AwsAsyncClientBuilder" : "AwsSyncClientBuilder";
-            parser.dependsOn(
+            sources.add(
                     "package " + pkg + ";\n" +
                     "import software.amazon.awssdk.awscore.client.builder.*;\n" +
-                    "public interface " + builder + " extends " + base + "<" + builder + ", " + client + ">, AwsClientBuilder<" + builder + ", " + client + "> {}",
+                    "public interface " + builder + " extends " + base + "<" + builder + ", " + client + ">, AwsClientBuilder<" + builder + ", " + client + "> {}");
+            sources.add(
                     "package " + pkg + ";\n" +
                     "public interface " + client + " extends software.amazon.awssdk.awscore.AwsClient {\n" +
                     "    static " + builder + " builder() { return null; }\n" +
                     "}");
         }
-        return parser;
+        return sources.isEmpty() ? parser : parser.dependsOn(sources.toArray(new String[0]));
     }
 }

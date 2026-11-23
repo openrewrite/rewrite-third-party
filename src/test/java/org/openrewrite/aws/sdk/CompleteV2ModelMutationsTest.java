@@ -18,12 +18,15 @@ package org.openrewrite.aws.sdk;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
+import org.openrewrite.aws.sdk.table.AwsSdkV1Remnants;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 import org.openrewrite.test.TypeValidation;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.openrewrite.java.Assertions.java;
 
 class CompleteV2ModelMutationsTest implements RewriteTest {
@@ -236,6 +239,77 @@ class CompleteV2ModelMutationsTest implements RewriteTest {
                   ListObjectsV2Request page(ListObjectsV2Request request, String token) {
                       request = request.toBuilder().continuationToken(token).maxKeys(10).build();
                       return request;
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void rebuildsThatCannotReachTheMutatedObjectAreMarked() {
+        rewriteRun(
+          spec -> spec.dataTable(AwsSdkV1Remnants.Row.class, rows -> assertThat(rows)
+            .extracting(AwsSdkV1Remnants.Row::getKind, AwsSdkV1Remnants.Row::getReason)
+            .containsOnly(tuple("code", AwsSdkV1Remnants.UNMIGRATABLE))
+            .hasSize(3)),
+          //language=java
+          java(
+            """
+              import software.amazon.awssdk.services.s3.model.Tag;
+
+              import java.util.List;
+
+              class Tags {
+                  void loop(List<Tag> tags) {
+                      for (Tag tag : tags) {
+                          tag = tag.toBuilder().value("v").build();
+                      }
+                  }
+
+                  void lambda(List<Tag> tags) {
+                      tags.forEach(tag -> {
+                          tag = tag.toBuilder().key("k").value("v").build();
+                      });
+                  }
+
+                  public void parameter(Tag tag) {
+                      tag = tag.toBuilder().value("v").build();
+                  }
+
+                  Tag local(Tag source) {
+                      Tag tag = source;
+                      tag = tag.toBuilder().value("v").build();
+                      return tag;
+                  }
+              }
+              """,
+            """
+              import software.amazon.awssdk.services.s3.model.Tag;
+
+              import java.util.List;
+
+              class Tags {
+                  void loop(List<Tag> tags) {
+                      for (Tag tag : tags) {
+                          /*~~(v2 models are immutable, and rebuilding `tag`, a for-each variable, does not reach the object v1 changed in place: rebuild the object that holds it instead)~~>*/tag.value("v");
+                      }
+                  }
+
+                  void lambda(List<Tag> tags) {
+                      tags.forEach(tag -> {
+                          /*~~(v2 models are immutable, and rebuilding `tag`, a lambda parameter, does not reach the object v1 changed in place: rebuild the object that holds it instead)~~>*/tag.key("k").value("v");
+                      });
+                  }
+
+                  public void parameter(Tag tag) {
+                      /*~~(v2 models are immutable, and rebuilding `tag`, a parameter, whose caller keeps the object v1 changed in place, does not reach the object v1 changed in place: rebuild the object that holds it instead)~~>*/tag.value("v");
+                  }
+
+                  Tag local(Tag source) {
+                      Tag tag = source;
+                      tag = tag.toBuilder().value("v").build();
+                      return tag;
                   }
               }
               """

@@ -20,7 +20,8 @@ displayName: Move AWS SDK v1-bound libraries to their SDK v2 releases
 description: >-
   Runs before `software.amazon.awssdk.v2migration.AwsSdkJavaV1ToV2`. Moves libraries that require or bring in AWS SDK for
   Java v1 to their releases built on SDK v2, so that v2-migration's retyping of the clients passed to them lines up:
-  Amazon SQS Java Messaging Library 1.x to 2.x, X-Ray's v1 SDK instrumentation to the v2 instrumentation, Secrets Manager
+  Amazon SQS Java Messaging Library 1.x to 2.x, X-Ray's v1 SDK instrumentation to the v2 instrumentation, zipkin-aws' SQS
+  message tracing to a generated v2 interceptor, Secrets Manager
   caching 1.x to 2.x, `aws-lambda-java-events` before 3 to 3.x, and Kinesis Producer Library 0.x to 1.x. Kinesis Client
   Library 1.x consumers are ported to KCL 2.x where they only use the mapped APIs; other uses and their dependency are marked
   for a hand port.
@@ -31,10 +32,11 @@ recipeList:
   - org.openrewrite.aws.sdk.UpgradeSqsJavaMessagingLibJavax
   - org.openrewrite.aws.sdk.UpgradeSqsJavaMessagingLibJakarta
   - org.openrewrite.aws.sdk.MigrateXRayToSdkV2Instrumentation
-  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
-      groupId: com.amazonaws.secretsmanager
-      artifactId: aws-secretsmanager-caching-java
-      newVersion: 2.x
+  # its SqsMessageTracing is replaced by a generated class after v2-migration
+  - org.openrewrite.java.dependencies.RemoveDependency:
+      groupId: io.zipkin.aws
+      artifactId: brave-instrumentation-aws-java-sdk-sqs
+  - org.openrewrite.aws.sdk.UpgradeSecretsManagerCachingTo2
   - org.openrewrite.aws.sdk.MigrateLambdaEventsTo3
   - org.openrewrite.aws.sdk.MigrateKinesisProducerLibraryTo1
   - org.openrewrite.aws.sdk.MigrateKinesisClientLibraryToV2:
@@ -158,3 +160,32 @@ recipeList:
       newGroupId: software.amazon.kinesis
       newArtifactId: amazon-kinesis-producer
       newVersion: 1.x
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.aws.sdk.UpgradeSecretsManagerCachingTo2
+displayName: Upgrade Secrets Manager caching to 2.x
+description: >-
+  2.x is the AWS SDK v2 release of the caching client, with the same `SecretCache` API. From 2.1.0 it depends on
+  `spotbugs-annotations`, whose Gradle module metadata imports JUnit's BOM and so moves a Gradle build's JUnit to its
+  version. The annotations are only needed to compile the library, so Gradle builds exclude them.
+recipeList:
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: com.amazonaws.secretsmanager
+      artifactId: aws-secretsmanager-caching-java
+      newVersion: 2.x
+  - org.openrewrite.aws.sdk.ExcludeSpotbugsAnnotationsFromSecretsManagerCaching
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.aws.sdk.ExcludeSpotbugsAnnotationsFromSecretsManagerCaching
+displayName: Exclude `spotbugs-annotations` brought by Secrets Manager caching
+description: >-
+  In Gradle builds that depend on `aws-secretsmanager-caching-java`, excludes `spotbugs-annotations`, so that the JUnit
+  BOM its module metadata imports does not change the build's JUnit version.
+preconditions:
+  - org.openrewrite.gradle.search.FindDependency:
+      groupId: com.amazonaws.secretsmanager
+      artifactId: aws-secretsmanager-caching-java
+recipeList:
+  - org.openrewrite.gradle.ExcludeDependency:
+      groupId: com.github.spotbugs
+      artifactId: spotbugs-annotations

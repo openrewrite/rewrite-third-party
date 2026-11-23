@@ -69,8 +69,78 @@ class MigrateAwsEndpointConfigurationValuesTest implements RewriteTest {
         );
     }
 
+    @Test
+    void valueGivenToServiceBuilderIsReadByFolding() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              package com.example.config;
+
+              import com.amazonaws.client.builder.AwsClientBuilder;
+              import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
+
+              class SqsConfig {
+                  AmazonSQSClientBuilder builder() {
+                      AmazonSQSClientBuilder builder = AmazonSQSClientBuilder.standard();
+                      builder.setEndpointConfiguration(endpointConfiguration());
+                      return builder;
+                  }
+
+                  private AwsClientBuilder.EndpointConfiguration endpointConfiguration() {
+                      return new AwsClientBuilder.EndpointConfiguration("http://localhost:4576", "us-east-1");
+                  }
+              }
+              """,
+            """
+              package com.example.config;
+
+              import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
+
+              class SqsConfig {
+                  AmazonSQSClientBuilder builder() {
+                      AmazonSQSClientBuilder builder = AmazonSQSClientBuilder.standard();
+                      builder.setEndpointConfiguration(endpointConfiguration());
+                      return builder;
+                  }
+
+                  private AwsEndpointConfiguration endpointConfiguration() {
+                      return new AwsEndpointConfiguration("http://localhost:4576", "us-east-1");
+                  }
+              }
+              """
+          ),
+          java(
+            doesNotExist(),
+            AwsEndpointConfigurationShim.source("com.example.config"),
+            spec -> spec.path("com/example/config/AwsEndpointConfiguration.java")
+          )
+        );
+    }
+
     @Nested
     class NoChange {
+        @Test
+        void valueGivenToGenericBuilder() {
+            rewriteRun(
+              //language=java
+              java(
+                """
+                  import com.amazonaws.client.builder.AwsClientBuilder;
+
+                  class Config {
+                      AwsClientBuilder.EndpointConfiguration endpoint;
+
+                      <T extends AwsClientBuilder<?, ?>> T configure(T builder) {
+                          builder.setEndpointConfiguration(endpoint);
+                          return builder;
+                      }
+                  }
+                  """
+              )
+            );
+        }
+
         @Test
         void inlineBuilderEndpointIsLeftForFolding() {
             rewriteRun(

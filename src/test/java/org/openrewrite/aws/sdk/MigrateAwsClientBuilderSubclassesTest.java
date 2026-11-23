@@ -24,6 +24,7 @@ import org.openrewrite.test.RewriteTest;
 import org.openrewrite.test.TypeValidation;
 
 import static org.openrewrite.java.Assertions.java;
+import static org.openrewrite.java.Assertions.srcTestJava;
 
 class MigrateAwsClientBuilderSubclassesTest implements RewriteTest {
 
@@ -113,6 +114,48 @@ class MigrateAwsClientBuilderSubclassesTest implements RewriteTest {
             doesNotExist(),
             RecordingAwsClientBuilderShim.source("com.example"),
             spec -> spec.path("com/example/RecordingAwsClientBuilder.java")
+          )
+        );
+    }
+
+    @Test
+    void serviceBuilderSettingsReadBackInTest() {
+        rewriteRun(
+          srcTestJava(
+            //language=java
+            java(
+              """
+                package com.example;
+
+                import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
+
+                class SqsConfigTest {
+                    boolean configured(AmazonSQSClientBuilder builder) {
+                        return builder.getCredentials() != null &&
+                               "http://localhost:4576".equals(builder.getEndpoint().getServiceEndpoint()) &&
+                               "us-east-1".equals(builder.getRegion());
+                    }
+                }
+                """,
+              """
+                package com.example;
+
+                import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
+
+                class SqsConfigTest {
+                    boolean configured(AmazonSQSClientBuilder builder) {
+                        return RecordingAwsClientBuilder.credentialsOf(builder) != null &&
+                               "http://localhost:4576".equals(RecordingAwsClientBuilder.endpointOf(builder).getServiceEndpoint()) &&
+                               "us-east-1".equals(RecordingAwsClientBuilder.regionOf(builder));
+                    }
+                }
+                """
+            ),
+            java(
+              doesNotExist(),
+              RecordingAwsClientBuilderShim.source("com.example"),
+              spec -> spec.path("com/example/RecordingAwsClientBuilder.java")
+            )
           )
         );
     }

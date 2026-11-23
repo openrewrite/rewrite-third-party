@@ -158,6 +158,10 @@ public class MigrateAwsSdkV1Kotlin extends Recipe {
                         if (TypeUtils.isOfClassType(n.getType(), V1_ENDPOINT_CONFIGURATION)) {
                             return SearchResult.found(n, "AWS SDK v1 EndpointConfiguration not migrated: pass the endpoint and region to the v2 client builder");
                         }
+                        J exception = serviceException(n, ctx);
+                        if (exception != null) {
+                            return exception;
+                        }
                         Parsed parsed = parseConstructor(n, getCursor(), true);
                         if (parsed.chain != null || parsed.failure != null) {
                             return apply(n, parsed, ctx);
@@ -188,6 +192,27 @@ public class MigrateAwsSdkV1Kotlin extends Recipe {
                         return result == null ? f : result;
                     }
 
+                    // v2 service exceptions have no message constructor, only a builder
+                    private @org.jspecify.annotations.Nullable J serviceException(J.NewClass n, ExecutionContext ctx) {
+                        JavaType.FullyQualified type = TypeUtils.asFullyQualified(n.getType());
+                        List<Expression> args = ListUtils.filter(n.getArguments(), a -> !(a instanceof J.Empty));
+                        if (type == null || n.getBody() != null || args.size() != 1 ||
+                            !(TypeUtils.isString(args.get(0).getType()) || TypeUtils.isOfClassType(args.get(0).getType(), "kotlin.String")) ||
+                            !V1_SERVICE_EXCEPTION.matcher(type.getFullyQualifiedName()).matches()) {
+                            return null;
+                        }
+                        String v2Package = NamingConversionUtils.getV2ModelPackageWildCardEquivalent(type.getFullyQualifiedName());
+                        if (!v2Package.startsWith("software.amazon.awssdk.services.") || !v2Package.endsWith(".model.*")) {
+                            return null;
+                        }
+                        String v2 = v2Package.substring(0, v2Package.length() - 1) + type.getClassName();
+                        // the catch clauses follow to v2, and the import is added once the same-named v1 one is gone
+                        doAfterVisit(new ChangeType(type.getFullyQualifiedName(), v2, null).getVisitor());
+                        J result = template(n, type.getClassName() + ".builder().message(#{any()}).build()", emptySet(), args, ctx);
+                        maybeAddImport(v2, false);
+                        return result;
+                    }
+
                     private boolean extendsChain(J.MethodInvocation m) {
                         Object parent = getCursor().getParentTreeCursor().getValue();
                         return parent instanceof J.MethodInvocation && ((J.MethodInvocation) parent).getSelect() != null &&
@@ -199,7 +224,10 @@ public class MigrateAwsSdkV1Kotlin extends Recipe {
                         if (parsed.failure != null) {
                             return SearchResult.found(original, "AWS SDK v1 client not migrated: " + parsed.failure);
                         }
-                        AwsClientChain chain = Objects.requireNonNull(parsed.chain);
+                        AwsClientChain chain = parsed.chain;
+                        if (chain == null) {
+                            return original;
+                        }
                         J result = template(original, chain.template(), chain.imports, chain.params, ctx);
                         if (!chain.foldedStatements.isEmpty()) {
                             Set<UUID> ids = new HashSet<>();
@@ -253,6 +281,10 @@ public class MigrateAwsSdkV1Kotlin extends Recipe {
     /**
      * The v2 name of a v1 client, credentials or region type; null for types this recipe does not rename.
      */
+    // v1 base exceptions such as AmazonDynamoDBException are renamed in v2, so only the service-specific ones keep their name
+    private static final java.util.regex.Pattern V1_SERVICE_EXCEPTION =
+            java.util.regex.Pattern.compile("com\\.amazonaws\\.services\\.[a-z0-9.]+\\.model\\.(?!Amazon|AWS)[A-Za-z0-9]+Exception");
+
     static @org.jspecify.annotations.Nullable String v2Type(String v1) {
         String credentials = KotlinAwsCredentialMappings.TYPES.get(v1);
         if (credentials != null) {

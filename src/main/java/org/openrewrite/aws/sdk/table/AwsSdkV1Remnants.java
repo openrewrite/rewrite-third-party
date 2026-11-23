@@ -45,7 +45,8 @@ public class AwsSdkV1Remnants extends DataTable<AwsSdkV1Remnants.Row> {
         String sourcePath;
 
         @Column(displayName = "Kind",
-                description = "`type`, `dependency`, `text` or `migration-comment` (a TODO left by AWS's v2-migration).")
+                description = "`type`, `dependency`, `text`, `code` (a statement that could not be migrated) or `migration-comment` " +
+                        "(a TODO left by AWS's v2-migration).")
         String kind;
 
         @Column(displayName = "Item",

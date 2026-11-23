@@ -87,6 +87,8 @@ recipeList:
   - org.openrewrite.aws.sdk.CompleteV2ModelMutations
   - org.openrewrite.aws.sdk.CompleteV2MockitoStubs
   - org.openrewrite.aws.sdk.MigrateXRayTracingHandler
+  - org.openrewrite.aws.sdk.MigrateZipkinSqsMessageTracing:
+      generateHelpers: false
   - org.openrewrite.aws.sdk.MigrateAwsRequestHandlerOverrides
   - org.openrewrite.aws.sdk.FixAutoConstructNullChecks
   # After CompleteV2ModelMutations, which turns setters into builder calls, and the null checks, which key on a bare `bs()`
