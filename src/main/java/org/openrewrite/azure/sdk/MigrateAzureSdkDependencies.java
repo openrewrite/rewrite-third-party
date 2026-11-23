@@ -38,6 +38,7 @@ import org.openrewrite.maven.internal.MavenPomDownloader;
 import org.openrewrite.maven.tree.Dependency;
 import org.openrewrite.maven.tree.GroupArtifact;
 import org.openrewrite.maven.tree.MavenMetadata;
+import org.openrewrite.maven.tree.MavenRepository;
 import org.openrewrite.maven.tree.MavenResolutionResult;
 import org.openrewrite.maven.tree.ResolvedDependency;
 import org.openrewrite.maven.tree.ResolvedPom;
@@ -61,23 +62,22 @@ import java.util.concurrent.ConcurrentHashMap;
 public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkDependencies.Accumulator> {
 
     /**
-     * Package prefix of the current SDK to the artifact that provides it, and the release line to add, most specific
-     * first. Packages that only arrive transitively, such as {@code com.azure.core}, are absent.
+     * Package prefix of the current SDK to the artifact that provides it, the release line to add, and the release
+     * of that line the recipes were written against, most specific first. The newest release of the line is added,
+     * or that release where the build's repositories don't list the line. Packages that only arrive transitively,
+     * such as {@code com.azure.core}, are absent.
      */
     private static final String[][] CURRENT = {
-            {"com.azure.storage.blob.", "com.azure:azure-storage-blob", "12.x"},
-            {"com.azure.storage.queue.", "com.azure:azure-storage-queue", "12.x"},
-            {"com.azure.storage.file.share.", "com.azure:azure-storage-file-share", "12.x"},
-            {"com.azure.data.tables.", "com.azure:azure-data-tables", "12.x"},
-            {"com.azure.identity.", "com.azure:azure-identity", "1.x"},
-            {"com.azure.messaging.eventhubs.checkpointstore.blob.", "com.azure:azure-messaging-eventhubs-checkpointstore-blob", "1.x"},
-            {"com.azure.messaging.eventhubs.", "com.azure:azure-messaging-eventhubs", "5.x"},
-            {"com.azure.messaging.servicebus.", "com.azure:azure-messaging-servicebus", "7.x"},
-            {"com.azure.security.keyvault.secrets.", "com.azure:azure-security-keyvault-secrets", "4.x"},
-            {"com.azure.security.keyvault.keys.", "com.azure:azure-security-keyvault-keys", "4.x"},
-            {"com.azure.resourcemanager.", "com.azure.resourcemanager:azure-resourcemanager", "2.x"},
-            {"com.azure.cosmos.", "com.azure:azure-cosmos", "4.x"},
-            {"com.microsoft.aad.msal4j.", "com.microsoft.azure:msal4j", "1.x"},
+            {"com.azure.storage.blob.", "com.azure:azure-storage-blob", "12.x", "12.37.2"},
+            {"com.azure.storage.queue.", "com.azure:azure-storage-queue", "12.x", "12.32.2"},
+            {"com.azure.storage.file.share.", "com.azure:azure-storage-file-share", "12.x", "12.33.2"},
+            {"com.azure.data.tables.", "com.azure:azure-data-tables", "12.x", "12.6.1"},
+            {"com.azure.identity.", "com.azure:azure-identity", "1.x", "1.19.0"},
+            {"com.azure.messaging.eventhubs.", "com.azure:azure-messaging-eventhubs", "5.x", "5.22.1"},
+            {"com.azure.messaging.servicebus.", "com.azure:azure-messaging-servicebus", "7.x", "7.19.1"},
+            {"com.azure.security.keyvault.secrets.", "com.azure:azure-security-keyvault-secrets", "4.x", "4.13.1"},
+            {"com.azure.security.keyvault.keys.", "com.azure:azure-security-keyvault-keys", "4.x", "4.12.1"},
+            {"com.microsoft.aad.msal4j.", "com.microsoft.azure:msal4j", "1.x", "1.23.1"},
     };
 
     /**
@@ -194,7 +194,7 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
         for (String fqn : typesInUse(after)) {
             for (String[] current : CURRENT) {
                 if (fqn.startsWith(current[0])) {
-                    needed.put(current[1] + ":" + current[2], test);
+                    needed.put(current[1] + ":" + current[2] + ":" + current[3], test);
                     break;
                 }
             }
@@ -337,8 +337,11 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
             if (declared.contains(gav[0] + ":" + gav[1])) {
                 continue;
             }
-            String managed = resolved.getManagedVersion(gav[0], gav[1], null, null);
-            p = (Xml.Document) new org.openrewrite.maven.AddDependencyVisitor(gav[0], gav[1], managed != null ? managed : gav[2], null,
+            String version = resolved.getManagedVersion(gav[0], gav[1], null, null);
+            if (version == null) {
+                version = latestOr(gav, latest(gav[0], gav[1], gav[2], p.getMarkers().findFirst(MavenResolutionResult.class).get(), ctx));
+            }
+            p = (Xml.Document) new org.openrewrite.maven.AddDependencyVisitor(gav[0], gav[1], version, null,
                     needed.getValue() ? "test" : null, true, null, null, null, null).visitNonNull(p, ctx);
         }
         if (aligned) {
@@ -413,14 +416,19 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
      * The newest release of an artifact in a version range, from the repositories the module resolves from.
      */
     private static @Nullable String latest(String groupId, String artifactId, String range, MavenResolutionResult mrr, ExecutionContext ctx) {
+        MavenSettings settings = MavenExecutionContextView.view(ctx).effectiveSettings(mrr);
+        return latest(groupId, artifactId, range, new MavenPomDownloader(mrr.getProjectPoms(), ctx, settings, mrr.getActiveProfiles()),
+                mrr.getPom().getRepositories());
+    }
+
+    private static @Nullable String latest(String groupId, String artifactId, String range, MavenPomDownloader downloader,
+                                           List<MavenRepository> repositories) {
         VersionComparator comparator = Semver.validate(range, null).getValue();
         if (comparator == null) {
             return null;
         }
         try {
-            MavenSettings settings = MavenExecutionContextView.view(ctx).effectiveSettings(mrr);
-            MavenMetadata metadata = new MavenPomDownloader(mrr.getProjectPoms(), ctx, settings, mrr.getActiveProfiles())
-                    .downloadMetadata(new GroupArtifact(groupId, artifactId), null, mrr.getPom().getRepositories());
+            MavenMetadata metadata = downloader.downloadMetadata(new GroupArtifact(groupId, artifactId), null, repositories);
             String latest = null;
             for (String version : metadata.getVersioning().getVersions()) {
                 if (comparator.isValid(null, version) && (latest == null || comparator.compare(null, version, latest) > 0)) {
@@ -431,6 +439,17 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
         } catch (MavenDownloadingException e) {
             return null;
         }
+    }
+
+    /**
+     * The newest release of a needed artifact's line, or the release the recipes were written against when the
+     * build's repositories don't list the line, such as a build that resolves from JCenter alone. A range would add
+     * nothing there.
+     *
+     * @param gav the group, artifact, release line and pinned release of a needed artifact
+     */
+    private static String latestOr(String[] gav, @Nullable String latest) {
+        return latest != null ? latest : gav[3];
     }
 
     private static Tree editGradle(JavaSourceFile build, Accumulator acc, ExecutionContext ctx) {
@@ -452,7 +471,8 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
             if (declared.contains(gav[0] + ":" + gav[1]) || gp.getConfiguration(configuration) == null) {
                 continue;
             }
-            g = (JavaSourceFile) new AddDependencyVisitor(gav[0], gav[1], gav[2], null, configuration, null, null, null,
+            String version = latestOr(gav, latest(gav[0], gav[1], gav[2], new MavenPomDownloader(ctx), gp.getMavenRepositories()));
+            g = (JavaSourceFile) new AddDependencyVisitor(gav[0], gav[1], version, null, configuration, null, null, null,
                     MigrateAzureSdkDependencies::isTopLevelDependencies, null).visitNonNull(g, ctx);
         }
         Map<String, String> orphans = new TreeMap<>();
