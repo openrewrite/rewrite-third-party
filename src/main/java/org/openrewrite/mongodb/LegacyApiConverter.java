@@ -190,6 +190,9 @@ class LegacyApiConverter extends JavaVisitor<ExecutionContext> {
         JavaTemplate.Builder builder = JavaTemplate.builder(code)
                 .javaParser(ModernTypes.parser(ctx))
                 .imports(IMPORTS.values().toArray(new String[0]));
+        if (code.startsWith("if (")) {
+            builder = builder.contextSensitive();
+        }
         J result = builder.build().apply(new Cursor(getCursor().getParentOrThrow(), tree), tree.getCoordinates().replace(), t.args.toArray());
         for (Map.Entry<String, String> imp : IMPORTS.entrySet()) {
             if (code.matches("(?s).*\\b" + imp.getKey() + "\\b.*")) {
@@ -1645,12 +1648,12 @@ class LegacyApiConverter extends JavaVisitor<ExecutionContext> {
             return j;
         }
         J.FieldAccess fa = (J.FieldAccess) j;
-        // A fully qualified type name, e.g. `com.mongodb.DBCollection`
-        String legacy = fqn(fa.getType());
+        // A qualified type name, e.g. `MongoClientOptions.Builder` or `com.mongodb.DBCollection`
+        String legacy = fqn(fieldAccess.getType());
         if (fa.getName().getFieldType() == null && legacy != null && CONVERTED.contains(legacy) &&
             !(getCursor().getParentTreeCursor().getValue() instanceof J.Import) &&
             !(getCursor().getParentTreeCursor().getValue() instanceof J.MethodInvocation) &&
-            legacy.replace('$', '.').equals(fa.toString().replaceAll("\\s", ""))) {
+            !(getCursor().getParentTreeCursor().getValue() instanceof J.FieldAccess)) {
             JavaType r = modern(ctx).replacementFor(legacy);
             if (r != null) {
                 for (String imp : ModernTypes.importsFor(r)) {

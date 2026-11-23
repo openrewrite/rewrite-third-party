@@ -18,20 +18,38 @@ package org.openrewrite.mongodb;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
+import org.openrewrite.Tree;
 import org.openrewrite.java.JavaParser;
+import org.openrewrite.java.style.IntelliJ;
+import org.openrewrite.style.NamedStyles;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
+import java.util.List;
+
+import static java.util.Collections.emptySet;
+import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.openrewrite.java.Assertions.*;
 import static org.openrewrite.maven.Assertions.pomXml;
 
 class MigrateMongoJavaDriver3To5Test implements RewriteTest {
 
+    /**
+     * Imports stay one per type, so that the expected sources do not depend on when an import layout folds them.
+     */
+    static final List<NamedStyles> EXPLICIT_IMPORTS = singletonList(new NamedStyles(Tree.randomId(), "explicit-imports",
+      "Explicit imports", null, emptySet(), singletonList(IntelliJ.importLayout()
+        .withClassCountToUseStarImport(999).withNameCountToUseStarImport(999))));
+
+    static JavaParser.Builder<?, ?> parser(String... artifacts) {
+        return JavaParser.fromJavaVersion().styles(EXPLICIT_IMPORTS)
+          .classpathFromResources(new InMemoryExecutionContext(), artifacts);
+    }
+
     @Override
     public void defaults(RecipeSpec spec) {
-        spec.recipe(new MigrateMongoJavaDriver3To5())
-          .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(), "mongo-java-driver"));
+        spec.recipe(new MigrateMongoJavaDriver3To5()).parser(parser("mongo-java-driver"));
     }
 
     static final String POM = """
@@ -631,6 +649,151 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
                   }
               }
               """
+          )
+        );
+    }
+    @Test
+    void convertsSaveFindAndModifyAndCommands() {
+        rewriteRun(
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.mongodb.BasicDBObject;
+                  import com.mongodb.CommandResult;
+                  import com.mongodb.DB;
+                  import com.mongodb.DBCollection;
+                  import com.mongodb.DBObject;
+
+                  class Store {
+                      void save(DBCollection items, DBObject item) {
+                          items.save(item);
+                      }
+
+                      DBObject next(DBCollection counters, String name) {
+                          return counters.findAndModify(new BasicDBObject("_id", name), null, null, false,
+                                  new BasicDBObject("$inc", new BasicDBObject("seq", 1)), true, true);
+                      }
+
+                      int version(DB db) {
+                          CommandResult info = db.command("buildInfo");
+                          return info.getInt("versionArray");
+                      }
+                  }
+                  """,
+                """
+                  import com.mongodb.BasicDBObject;
+                  import com.mongodb.DBObject;
+                  import com.mongodb.client.MongoCollection;
+                  import com.mongodb.client.MongoDatabase;
+                  import com.mongodb.client.model.FindOneAndUpdateOptions;
+                  import com.mongodb.client.model.ReplaceOptions;
+                  import com.mongodb.client.model.ReturnDocument;
+
+                  class Store {
+                      void save(MongoCollection<DBObject> items, DBObject item) {
+                          if (item.get("_id") == null) {
+                              items.insertOne(item);
+                          } else {
+                              items.replaceOne(new BasicDBObject("_id", item.get("_id")), item, new ReplaceOptions().upsert(true));
+                          }
+                      }
+
+                      DBObject next(MongoCollection<DBObject> counters, String name) {
+                          return counters.findOneAndUpdate(new BasicDBObject("_id", name),
+                                  new BasicDBObject("$inc", new BasicDBObject("seq", 1)), new FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER).upsert(true));
+                      }
+
+                      int version(MongoDatabase db) {
+                          BasicDBObject info = db.runCommand(new BasicDBObject("buildInfo", 1), BasicDBObject.class);
+                          return info.getInt("versionArray");
+                      }
+                  }
+                  """
+              )
+            ),
+            pom("mongodb-driver-sync")
+          )
+        );
+    }
+
+    @Test
+    void convertsOptionsBuiltStatementByStatement() {
+        rewriteRun(
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.mongodb.MongoClient;
+                  import com.mongodb.MongoClientOptions;
+                  import com.mongodb.ServerAddress;
+
+                  class Factory {
+                      MongoClient create(String host) {
+                          MongoClientOptions.Builder builder = new MongoClientOptions.Builder();
+                          builder.connectionsPerHost(20);
+                          builder.socketKeepAlive(true);
+                          builder.serverSelectionTimeout(5000);
+                          return new MongoClient(new ServerAddress(host), builder.build());
+                      }
+                  }
+                  """,
+                """
+                  import com.mongodb.MongoClientSettings;
+                  import com.mongodb.ServerAddress;
+                  import com.mongodb.client.MongoClient;
+                  import com.mongodb.client.MongoClients;
+
+                  import java.util.Collections;
+                  import java.util.concurrent.TimeUnit;
+
+                  class Factory {
+                      MongoClient create(String host) {
+                          MongoClientSettings.Builder builder = MongoClientSettings.builder();
+                          builder.applyToConnectionPoolSettings(pool -> pool.maxSize(20));
+                          builder.applyToClusterSettings(cluster -> cluster.serverSelectionTimeout(5000, TimeUnit.MILLISECONDS));
+                          return MongoClients.create(builder.applyToClusterSettings(cluster -> cluster.hosts(Collections.singletonList(new ServerAddress(host)))).build());
+                      }
+                  }
+                  """
+              )
+            ),
+            pom("mongodb-driver-sync")
+          )
+        );
+    }
+
+    @Test
+    void keepsLegacyApiThatAFrameworkInjects() {
+        rewriteRun(
+          spec -> spec.parser(parser("mongo-java-driver", "spring-context")),
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.mongodb.DBCollection;
+                  import com.mongodb.MongoClient;
+                  import org.springframework.stereotype.Component;
+
+                  @Component
+                  class Repository {
+                      private final MongoClient client;
+
+                      Repository(MongoClient client) {
+                          this.client = client;
+                      }
+
+                      DBCollection people() {
+                          return client.getDB("app").getCollection("people");
+                      }
+                  }
+                  """
+              )
+            ),
+            pom("mongodb-driver-legacy")
           )
         );
     }

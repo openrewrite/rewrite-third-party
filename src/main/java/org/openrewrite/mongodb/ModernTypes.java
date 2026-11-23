@@ -64,22 +64,13 @@ final class ModernTypes {
             "    BasicDBObject basicDBObject;\n" +
             "}\n";
 
-    private static volatile @Nullable ModernTypes instance;
-
     final Map<String, JavaType> byName = new HashMap<>();
 
+    /**
+     * The types, parsed once per run.
+     */
     static ModernTypes get(ExecutionContext ctx) {
-        ModernTypes t = instance;
-        if (t == null) {
-            synchronized (ModernTypes.class) {
-                t = instance;
-                if (t == null) {
-                    t = new ModernTypes(ctx);
-                    instance = t;
-                }
-            }
-        }
-        return t;
+        return ctx.computeMessageIfAbsent(ModernTypes.class.getName(), k -> new ModernTypes(ctx));
     }
 
     private ModernTypes(ExecutionContext ctx) {
@@ -184,6 +175,15 @@ final class ModernTypes {
                     (NameTree) typeTree(p.getType(), Space.EMPTY), JContainer.build(Space.EMPTY, args, Markers.EMPTY), p);
         }
         JavaType.FullyQualified fq = TypeUtils.asFullyQualified(type);
+        if (fq != null && fq.getOwningClass() != null) {
+            // A nested type, `Outer.Nested`, as the parser builds it
+            JavaType.FullyQualified owner = fq.getOwningClass();
+            String simpleName = fq.getFullyQualifiedName().substring(fq.getFullyQualifiedName().lastIndexOf('$') + 1);
+            return new J.FieldAccess(Tree.randomId(), prefix, Markers.EMPTY,
+                    (Expression) typeTree(owner, Space.EMPTY),
+                    JLeftPadded.build(new J.Identifier(Tree.randomId(), Space.EMPTY, Markers.EMPTY, emptyList(), simpleName, type, null)),
+                    type);
+        }
         String name = fq == null ? String.valueOf(type) : fq.getClassName();
         return new J.Identifier(Tree.randomId(), prefix, Markers.EMPTY, emptyList(), name, type, null);
     }
