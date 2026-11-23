@@ -20,6 +20,7 @@ import org.openrewrite.Cursor;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.SourceFile;
 import org.openrewrite.TreeVisitor;
+import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.JavaVisitor;
@@ -27,6 +28,7 @@ import org.openrewrite.java.ShortenFullyQualifiedTypeReferences;
 import org.openrewrite.java.tree.*;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -172,9 +174,11 @@ class AzureCallRewriter extends JavaVisitor<ExecutionContext> {
                 continue;
             }
             J result = rule.builder != null ? rule.builder.build(call, this, ctx) : template(rule.template, call, ctx);
-            if (result != null && stubbed && !sameCallOnReceiver(result, call)) {
-                // A stubbing or verification only works on a call of the mock itself, so a rewrite that wraps the call
-                // or replaces its receiver is left for FindAzureSdkLegacyRemnants to report
+            if (result != null && stubbed && (!sameCallOnReceiver(result, call) || !passesMatchersThrough(result, call))) {
+                // A stubbing or verification only works on a call of the mock itself, with its argument matchers as
+                // arguments, so a rewrite that wraps the call, replaces its receiver or wraps a matcher, such as
+                // `send(captor.capture(), eq(key))` into a list and send options, is left for
+                // FindAzureSdkLegacyRemnants to report
                 return call.tree;
             }
             if (result != null) {
@@ -209,6 +213,31 @@ class AzureCallRewriter extends JavaVisitor<ExecutionContext> {
         }
         Expression select = ((J.MethodInvocation) result).getSelect();
         return select != null && select.getId().equals(call.receiver.getId());
+    }
+
+    /**
+     * Whether each argument of the call that holds a Mockito matcher or captor is an argument of the rewritten call
+     * as it was.
+     */
+    private static boolean passesMatchersThrough(J result, CallRewrite.Call call) {
+        Set<UUID> passed = new HashSet<>();
+        for (Expression arg : ((J.MethodInvocation) result).getArguments()) {
+            passed.add(arg.getId());
+        }
+        for (J arg : call.args) {
+            if (!passed.contains(arg.getId()) && new JavaIsoVisitor<AtomicBoolean>() {
+                @Override
+                public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, AtomicBoolean found) {
+                    if (isMockito(method.getMethodType())) {
+                        found.set(true);
+                    }
+                    return super.visitMethodInvocation(method, found);
+                }
+            }.reduce(arg, new AtomicBoolean()).get()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean matches(CallRewrite rule, CallRewrite.Call call) {

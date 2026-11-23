@@ -36,12 +36,14 @@ final class LegacyApiLinks {
             "Singleton", "Stateless", "Stateful", "Named"));
 
     /**
-     * {@code Type#member} of the members declared here whose signature has a legacy type.
+     * {@code Type#member} of the members declared here whose signature has a legacy type, and {@code Type#*} of the
+     * types that declare any.
      */
     final Set<String> declared = new HashSet<>();
 
     /**
-     * {@code Type#member} of the members of other types used or overridden here whose signature has a legacy type.
+     * {@code Type#member} of the members of other types used or overridden here whose signature has a legacy type,
+     * and {@code Type#*} of those types.
      */
     final Set<String> used = new HashSet<>();
 
@@ -58,6 +60,7 @@ final class LegacyApiLinks {
                 JavaType.Method type = method.getMethodType();
                 if (type != null && mentionsLegacy(type)) {
                     l.declared.add(key(type.getDeclaringType(), type.getName()));
+                    l.declared.add(key(type.getDeclaringType(), "*"));
                     J.ClassDeclaration owner = getCursor().firstEnclosing(J.ClassDeclaration.class);
                     if (owner != null && owner.getType() != null) {
                         // What it overrides has the same legacy types in its signature
@@ -87,6 +90,8 @@ final class LegacyApiLinks {
                         JavaType.Variable field = v.getVariableType();
                         if (field != null && mentionsLegacy(field.getType(), 0)) {
                             l.declared.add(key(field.getOwner(), field.getName()));
+                            // What Lombok generates from the field, such as a constructor or getter, has no declaration
+                            l.declared.add(key(field.getOwner(), "*"));
                         }
                     }
                     if (annotated(multiVariable.getLeadingAnnotations(), INJECTED) ||
@@ -121,6 +126,7 @@ final class LegacyApiLinks {
                 if (field != null && field.getOwner() instanceof JavaType.FullyQualified &&
                     !LegacyAzureTypes.isLegacy(field.getOwner()) && mentionsLegacy(field.getType(), 0)) {
                     l.used.add(key(field.getOwner(), field.getName()));
+                    l.used.add(key(field.getOwner(), "*"));
                 }
                 return super.visitIdentifier(identifier, l);
             }
@@ -128,6 +134,7 @@ final class LegacyApiLinks {
             private void use(JavaType.@Nullable Method type, LegacyApiLinks l) {
                 if (type != null && !LegacyAzureTypes.isLegacy(type.getDeclaringType()) && mentionsLegacy(type)) {
                     l.used.add(key(type.getDeclaringType(), type.getName()));
+                    l.used.add(key(type.getDeclaringType(), "*"));
                 }
             }
         }.visit(source, links);

@@ -284,6 +284,88 @@ class MigrateAzureEventHubsTest implements RewriteTest {
     }
 
     @Test
+    void leavesAVerificationWhoseMatchersTheSendWouldWrap() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+            .classpathFromResources(new InMemoryExecutionContext(), "azure-eventhubs-3", "mockito-core-5")),
+          // Left with the test, which hands it a mock of the legacy client
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.eventhubs.EventData;
+              import com.microsoft.azure.eventhubs.EventHubClient;
+
+              public class Producer {
+                  private final EventHubClient client;
+
+                  public Producer(EventHubClient client) {
+                      this.client = client;
+                  }
+
+                  public void send(String value) throws Exception {
+                      client.sendSync(EventData.create(value.getBytes()), String.valueOf(value.hashCode()));
+                  }
+              }
+              """,
+            """
+              import com.microsoft.azure.eventhubs.EventData;
+              import com.microsoft.azure.eventhubs.EventHubClient;
+
+              /*~~(Legacy Azure SDK: left as it is with `ProducerTest.java`, which shares its legacy types and has uses to migrate by hand)~~>*/public class Producer {
+                  private final EventHubClient client;
+
+                  public Producer(EventHubClient client) {
+                      this.client = client;
+                  }
+
+                  public void send(String value) throws Exception {
+                      client.sendSync(EventData.create(value.getBytes()), String.valueOf(value.hashCode()));
+                  }
+              }
+              """
+          ),
+          // Rewritten, the captor and the matcher would sit inside a list and send options, which match nothing
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.eventhubs.EventData;
+              import com.microsoft.azure.eventhubs.EventHubClient;
+              import org.mockito.ArgumentCaptor;
+
+              import static org.mockito.Mockito.*;
+
+              class ProducerTest {
+                  EventHubClient client = mock(EventHubClient.class);
+                  ArgumentCaptor<EventData> captor = ArgumentCaptor.forClass(EventData.class);
+
+                  void sends() throws Exception {
+                      new Producer(client).send("foo");
+                      verify(client).sendSync(captor.capture(), eq(String.valueOf("foo".hashCode())));
+                  }
+              }
+              """,
+            """
+              import com.microsoft.azure.eventhubs.EventData;
+              import com.microsoft.azure.eventhubs.EventHubClient;
+              import org.mockito.ArgumentCaptor;
+
+              import static org.mockito.Mockito.*;
+
+              class ProducerTest {
+                  EventHubClient client = mock(EventHubClient.class);
+                  ArgumentCaptor<EventData> captor = ArgumentCaptor.forClass(EventData.class);
+
+                  void sends() throws Exception {
+                      new Producer(client).send("foo");
+                      /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.eventhubs.EventHubClient.sendSync` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/eventhubs/azure-messaging-eventhubs/migration-guide.md)~~>*/verify(client).sendSync(captor.capture(), eq(String.valueOf("foo".hashCode())));
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void migratesSamplesButNotTheSdkItself() {
         rewriteRun(
           //language=java
