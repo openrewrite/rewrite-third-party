@@ -18,6 +18,7 @@ package org.openrewrite.mongodb;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.java.tree.Flag;
 import org.openrewrite.java.tree.JavaType;
+import org.openrewrite.java.tree.TypeUtils;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -168,6 +169,16 @@ final class AddedMethods {
         }
         Map<String, List<@Nullable String>> required = new LinkedHashMap<>();
         walk(type, Collections.emptyMap(), true, declares, have, required);
+        // A concrete class of the driver that the class extends implements every type of the driver it is one of, also
+        // where the class names that type itself, as a JsonWriter that implements BsonWriter
+        for (JavaType.FullyQualified s = type.getSupertype(); s != null; s = s.getSupertype()) {
+            if (isDriver(s.getFullyQualifiedName()) && s.getKind() == JavaType.FullyQualified.Kind.Class &&
+                !s.hasFlags(Flag.Abstract)) {
+                JavaType.FullyQualified concrete = s;
+                required.keySet().removeIf(fqn -> TypeUtils.isAssignableTo(fqn, concrete));
+                break;
+            }
+        }
         Map<String, Missing> out = new LinkedHashMap<>();
         for (Map.Entry<String, List<@Nullable String>> r : required.entrySet()) {
             for (Method m : methods.get(r.getKey())) {
@@ -192,6 +203,10 @@ final class AddedMethods {
             }
         }
         return new ArrayList<>(out.values());
+    }
+
+    private static boolean isDriver(String fqn) {
+        return fqn.startsWith("com.mongodb.") || fqn.startsWith("org.bson.");
     }
 
     private static JavaType.@Nullable Method implementation(Map<String, List<JavaType.Method>> have, Method m) {
@@ -257,7 +272,7 @@ final class AddedMethods {
         if (required.containsKey(fqn)) {
             return;
         }
-        boolean driver = fqn.startsWith("com.mongodb.") || fqn.startsWith("org.bson.");
+        boolean driver = isDriver(fqn);
         if (!driver) {
             for (JavaType.Method m : cls.getMethods()) {
                 // An abstract method, as those of the JDK's interfaces, implements nothing

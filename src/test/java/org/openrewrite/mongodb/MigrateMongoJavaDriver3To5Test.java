@@ -559,12 +559,17 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
     @Test
     void leavesRepositoriesAlreadyPastDriver3() {
         rewriteRun(
+          spec -> spec.dataTable(MongoDriverMigrationDecisions.Row.class, rows -> assertThat(rows)
+            .filteredOn(r -> "Driver not moved to 5".equals(r.getOutcome()))
+            .extracting(MongoDriverMigrationDecisions.Row::getReason)
+            .containsExactly("The repository compiles against MongoDB driver 4.11.5, newer than the 3.x these recipes migrate from")),
           mavenProject("app",
             //language=java
             srcMainJava(
               java(
                 """
                   import com.mongodb.BasicDBObject;
+                  import com.mongodb.DB;
                   import com.mongodb.DBCollection;
                   import com.mongodb.client.MongoCollection;
                   import org.bson.Document;
@@ -572,6 +577,10 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
                   class Counts {
                       long count(DBCollection people, MongoCollection<Document> docs) {
                           return people.count(new BasicDBObject("a", 1)) + docs.count();
+                      }
+
+                      Object run(DB db) {
+                          return db.eval("return 1");
                       }
                   }
                   """,
@@ -1692,6 +1701,32 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
                       @Override
                       public ListIndexesIterable<Document> timeoutMode(TimeoutMode timeoutMode) {
                           throw new UnsupportedOperationException();
+                      }
+                  }
+                  """
+              )
+            ),
+            pom("mongodb-driver-sync")
+          )
+        );
+    }
+
+    @Test
+    void implementsNothingThatAConcreteClassOfTheDriverImplements() {
+        rewriteRun(
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import org.bson.BsonWriter;
+                  import org.bson.json.JsonWriter;
+
+                  import java.io.StringWriter;
+
+                  class PlaceholderWriter extends JsonWriter implements BsonWriter {
+                      PlaceholderWriter() {
+                          super(new StringWriter());
                       }
                   }
                   """

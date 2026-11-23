@@ -321,7 +321,7 @@ public class MigrateMongoJavaDriver3To5 extends ScanningRecipe<MigrateMongoJavaD
             return;
         }
         String why = usage.whyNotUpgraded();
-        if (usage.boundLibraries.isEmpty() && !usage.removedApiUses.isEmpty()) {
+        if (usage.driverNewerThan3() == null && usage.boundLibraries.isEmpty() && !usage.removedApiUses.isEmpty()) {
             // One row for each removed API a file uses, however often it uses it
             Set<List<String>> reported = new HashSet<>();
             for (LegacyUsage.Blocker b : usage.removedApiUses) {
