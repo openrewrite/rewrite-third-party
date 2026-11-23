@@ -103,10 +103,12 @@ public class MigrateGenericAwsClientBuilders extends Recipe {
                 Expression arg = m.getArguments().get(0);
                 switch (setting) {
                     case "EndpointConfiguration":
-                        if (arg instanceof J.NewClass && TypeUtils.isOfClassType(arg.getType(), V1_ENDPOINT_CONFIGURATION) &&
+                        if (arg instanceof J.NewClass && (TypeUtils.isOfClassType(arg.getType(), V1_ENDPOINT_CONFIGURATION) ||
+                                                          AwsClientChain.isEndpointConfigurationValue(arg.getType())) &&
                             ((J.NewClass) arg).getArguments().size() == 2) {
                             J.NewClass n = (J.NewClass) arg;
                             maybeRemoveImport(V1_ENDPOINT_CONFIGURATION.replace('$', '.'));
+                            maybeRemoveImport(TypeUtils.asFullyQualified(arg.getType()));
                             maybeAddImport("java.net.URI");
                             maybeAddImport("software.amazon.awssdk.regions.Region");
                             return template("#{any(" + V2_BUILDER + "<?, ?>)}.endpointOverride(URI.create(#{any(String)})).region(Region.of(#{any(String)}))",

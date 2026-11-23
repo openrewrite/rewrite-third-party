@@ -20,6 +20,7 @@ import org.jspecify.annotations.Nullable;
 import org.openrewrite.Cursor;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.ScanningRecipe;
+import org.openrewrite.aws.sdk.table.AwsSdkV1Remnants;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.AnnotationMatcher;
@@ -60,9 +61,16 @@ public class CompleteV2ModelMutations extends ScanningRecipe<CompleteV2ModelMuta
             "expression becomes `r.toBuilder().x(..).build()`. A private void method that rebuilds a parameter it was given returns " +
             "the rebuilt value, and its callers in the class store it back, so the change still reaches them. A non-private method " +
             "that set fields of a v1 request parameter does the same with its callers anywhere in the repository; a caller that " +
-            "passes an expression rather than a variable is marked, since there is nothing to store the rebuilt value in.";
+            "passes an expression rather than a variable is marked, since there is nothing to store the rebuilt value in. A " +
+            "rebuild of a for-each variable, a lambda parameter or a parameter the callers cannot get back would be lost, so it " +
+            "is left as a call without the reassignment, which does not compile, and is marked.";
 
     private static final Pattern V1_MODEL = Pattern.compile("com\\.amazonaws\\.services\\.[a-z0-9]+\\.model\\..*");
+
+    private static final String LOST_REBUILD = "v2 models are immutable, and rebuilding";
+
+    @Getter
+    final transient AwsSdkV1Remnants remnants = new AwsSdkV1Remnants(this);
     private static final AnnotationMatcher OVERRIDE = new AnnotationMatcher("@java.lang.Override");
 
     public static class Accumulator {
@@ -164,9 +172,95 @@ public class CompleteV2ModelMutations extends ScanningRecipe<CompleteV2ModelMuta
                     md.getReturnTypeExpression().getType() != JavaType.Primitive.Void ||
                     !(md.getParameters().get(index) instanceof J.VariableDeclarations) ||
                     !isV2ModelType(((J.VariableDeclarations) md.getParameters().get(index)).getType())) {
-                    return md;
+                    return md.getReturnTypeExpression() != null && md.getReturnTypeExpression().getType() == JavaType.Primitive.Void &&
+                           rebuiltParameter(md) == null ? discardParameterRebuilds(md, ctx) : md;
                 }
                 return returnParameter(md, index);
+            }
+
+            /**
+             * Whether this call is a link of a statement chain on a variable whose rebuild would be lost, which stays as is.
+             */
+            private boolean inDiscardedStatement() {
+                Cursor c = getCursor();
+                Expression root = c.getValue();
+                while (c.getParentTreeCursor().getValue() instanceof J.MethodInvocation &&
+                       ((J.MethodInvocation) c.getParentTreeCursor().getValue()).getSelect() == c.getValue()) {
+                    c = c.getParentTreeCursor();
+                }
+                if (!(c.getParentTreeCursor().getValue() instanceof J.Block)) {
+                    return false;
+                }
+                while (root instanceof J.MethodInvocation) {
+                    root = ((J.MethodInvocation) root).getSelect();
+                }
+                return root instanceof J.Identifier && discardingScope(((J.Identifier) root).getSimpleName(), getCursor()) != null;
+            }
+
+            /**
+             * In a void method whose callers do not store the rebuilt parameter back, a rebuild never reaches the caller's object.
+             */
+            private J.MethodDeclaration discardParameterRebuilds(J.MethodDeclaration md, ExecutionContext ctx) {
+                Set<String> params = new HashSet<>();
+                for (Statement p : md.getParameters()) {
+                    if (p instanceof J.VariableDeclarations) {
+                        for (J.VariableDeclarations.NamedVariable v : ((J.VariableDeclarations) p).getVariables()) {
+                            params.add(v.getSimpleName());
+                        }
+                    }
+                }
+                Cursor parent = getCursor().getParentOrThrow();
+                return (J.MethodDeclaration) new JavaVisitor<ExecutionContext>() {
+                    @Override
+                    public J visitClassDeclaration(J.ClassDeclaration cd, ExecutionContext ctx) {
+                        return cd;
+                    }
+
+                    @Override
+                    public J visitAssignment(J.Assignment assignment, ExecutionContext ctx) {
+                        String name = rebuiltVariable(assignment, getCursor());
+                        return name != null && params.contains(name) ?
+                                discardRebuild(assignment, "a parameter, whose caller keeps the object v1 changed in place", getCursor(), ctx) :
+                                super.visitAssignment(assignment, ctx);
+                    }
+                }.visitNonNull(md, ctx, parent);
+            }
+
+            @Override
+            public J visitAssignment(J.Assignment assignment, ExecutionContext ctx) {
+                J j = super.visitAssignment(assignment, ctx);
+                if (!(j instanceof J.Assignment)) {
+                    return j;
+                }
+                J.Assignment a = (J.Assignment) j;
+                String name = rebuiltVariable(a, getCursor());
+                String scope = name == null ? null : discardingScope(name, getCursor());
+                return scope == null ? a : discardRebuild(a, scope, getCursor(), ctx);
+            }
+
+            /**
+             * {@code x = x.toBuilder().a(v).build();} becomes {@code x.a(v);}: there is nothing that would see the rebuilt model.
+             */
+            private J discardRebuild(J.Assignment a, String scope, Cursor cursor, ExecutionContext ctx) {
+                J.MethodInvocation build = (J.MethodInvocation) a.getAssignment();
+                Cursor parent = cursor.getParentOrThrow();
+                String message = LOST_REBUILD + " `" + a.getVariable().printTrimmed(parent) + "`, " + scope +
+                                 ", does not reach the object v1 changed in place: rebuild the object that holds it instead";
+                remnants.insertRow(ctx, new AwsSdkV1Remnants.Row(cursor.firstEnclosingOrThrow(JavaSourceFile.class).getSourcePath().toString(),
+                        "code", a.printTrimmed(parent), AwsSdkV1Remnants.UNMIGRATABLE, message));
+                if (!(build.getSelect() instanceof J.MethodInvocation) ||
+                    "toBuilder".equals(((J.MethodInvocation) build.getSelect()).getSimpleName())) {
+                    return SearchResult.found(a, message);
+                }
+                return SearchResult.found(withoutToBuilder((J.MethodInvocation) build.getSelect()).withPrefix(a.getPrefix()), message);
+            }
+
+            private J.MethodInvocation withoutToBuilder(J.MethodInvocation link) {
+                J.MethodInvocation select = (J.MethodInvocation) Objects.requireNonNull(link.getSelect());
+                if ("toBuilder".equals(select.getSimpleName())) {
+                    return link.withSelect(Objects.requireNonNull(select.getSelect()));
+                }
+                return link.withSelect(withoutToBuilder(select));
             }
 
             private @Nullable J storeResult(J.MethodInvocation call) {
@@ -195,6 +289,10 @@ public class CompleteV2ModelMutations extends ScanningRecipe<CompleteV2ModelMuta
                 if (stored != null) {
                     return stored;
                 }
+                // Already left as is, as a rebuild there would be lost
+                if (m.getMarkers().findAll(SearchResult.class).stream().anyMatch(r -> r.getDescription() != null && r.getDescription().startsWith(LOST_REBUILD))) {
+                    return m;
+                }
                 J chained = chainedSetters(method, ctx);
                 if (chained != null) {
                     return chained;
@@ -207,13 +305,16 @@ public class CompleteV2ModelMutations extends ScanningRecipe<CompleteV2ModelMuta
                 }
                 String property = property(m.getSimpleName());
                 boolean statement = getCursor().getParentTreeCursor().getValue() instanceof J.Block;
+                if (statement && select instanceof J.Identifier && discardingScope(((J.Identifier) select).getSimpleName(), getCursor()) != null) {
+                    return m;
+                }
                 if (statement && (select instanceof J.Identifier || select instanceof J.FieldAccess)) {
                     return JavaTemplate.builder("#{any()} = #{any()}.toBuilder()." + property + "(#{any()}).build()")
                             .contextSensitive()
                             .build()
                             .apply(getCursor(), method.getCoordinates().replace(), select, select, m.getArguments().get(0));
                 }
-                if (!statement) {
+                if (!statement && !inDiscardedStatement()) {
                     return JavaTemplate.apply("#{any()}.toBuilder()." + property + "(#{any()}).build()", getCursor(), method.getCoordinates().replace(), select, m.getArguments().get(0));
                 }
                 return m;
@@ -237,7 +338,8 @@ public class CompleteV2ModelMutations extends ScanningRecipe<CompleteV2ModelMuta
                     links.add(0, link);
                     e = link.getSelect();
                 }
-                if (links.size() < 2 || !(e instanceof J.Identifier || e instanceof J.FieldAccess) || !isV2Model(e)) {
+                if (links.size() < 2 || !(e instanceof J.Identifier || e instanceof J.FieldAccess) || !isV2Model(e) ||
+                    e instanceof J.Identifier && discardingScope(((J.Identifier) e).getSimpleName(), getCursor()) != null) {
                     return null;
                 }
                 StringBuilder code = new StringBuilder("#{any()} = #{any()}.toBuilder()");
@@ -472,6 +574,61 @@ public class CompleteV2ModelMutations extends ScanningRecipe<CompleteV2ModelMuta
         return l.withValue(((Number) Objects.requireNonNull(l.getValue())).longValue())
                 .withValueSource(l.getValueSource() + "L")
                 .withType(JavaType.Primitive.Long);
+    }
+
+    /**
+     * The variable a {@code x = x.toBuilder()...build();} statement rebuilds.
+     */
+    private static @Nullable String rebuiltVariable(J.Assignment a, Cursor cursor) {
+        if (!(cursor.getParentTreeCursor().getValue() instanceof J.Block) || !(a.getVariable() instanceof J.Identifier) ||
+            !(a.getAssignment() instanceof J.MethodInvocation) || !"build".equals(((J.MethodInvocation) a.getAssignment()).getSimpleName()) ||
+            !isV2ModelType(a.getVariable().getType())) {
+            return null;
+        }
+        String name = ((J.Identifier) a.getVariable()).getSimpleName();
+        for (Expression x = a.getAssignment(); x instanceof J.MethodInvocation; x = ((J.MethodInvocation) x).getSelect()) {
+            J.MethodInvocation m = (J.MethodInvocation) x;
+            if ("toBuilder".equals(m.getSimpleName())) {
+                return m.getSelect() instanceof J.Identifier && name.equals(((J.Identifier) m.getSelect()).getSimpleName()) ? name : null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Where a variable comes from when reassigning it cannot change what v1 code changed in place: a for-each variable or a
+     * lambda parameter. Null for a local variable, and for parameters, which are handled with their method.
+     */
+    private static @Nullable String discardingScope(String name, Cursor cursor) {
+        for (Cursor c = cursor.getParent(); c != null; c = c.getParent()) {
+            Object v = c.getValue();
+            if (v instanceof J.Block) {
+                for (Statement s : ((J.Block) v).getStatements()) {
+                    if (s instanceof J.VariableDeclarations && declares((J.VariableDeclarations) s, name)) {
+                        return null;
+                    }
+                }
+            } else if (v instanceof J.ForEachLoop) {
+                Statement variable = ((J.ForEachLoop) v).getControl().getVariable();
+                if (variable instanceof J.VariableDeclarations && declares((J.VariableDeclarations) variable, name)) {
+                    return "a for-each variable";
+                }
+            } else if (v instanceof J.Lambda) {
+                for (J p : ((J.Lambda) v).getParameters().getParameters()) {
+                    if (p instanceof J.VariableDeclarations && declares((J.VariableDeclarations) p, name) ||
+                        p instanceof J.Identifier && name.equals(((J.Identifier) p).getSimpleName())) {
+                        return "a lambda parameter";
+                    }
+                }
+            } else if (v instanceof J.MethodDeclaration || v instanceof J.ClassDeclaration) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private static boolean declares(J.VariableDeclarations declarations, String name) {
+        return declarations.getVariables().stream().anyMatch(v -> name.equals(v.getSimpleName()));
     }
 
     private static boolean rebuilds(Expression e) {

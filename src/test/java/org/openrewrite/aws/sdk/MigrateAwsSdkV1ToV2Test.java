@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.openrewrite.java.Assertions.java;
 import static org.openrewrite.java.Assertions.mavenProject;
 import static org.openrewrite.java.Assertions.srcMainJava;
+import static org.openrewrite.java.Assertions.srcTestJava;
 import static org.openrewrite.maven.Assertions.pomXml;
 
 class MigrateAwsSdkV1ToV2Test implements RewriteTest {
@@ -192,6 +193,137 @@ class MigrateAwsSdkV1ToV2Test implements RewriteTest {
               """,
             spec -> spec.path("com/example/DynamoDbDocumentApi.java")
               .after(actual -> assertThat(actual).contains("public final class DynamoDbDocumentApi").actual())
+          )
+        );
+    }
+
+    @Test
+    void builderSetFromEndpointMethodAndReadBackInTest() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+              .classpathFromResources(new InMemoryExecutionContext(), "aws-java-sdk-core", "aws-java-sdk-dynamodb"))
+            .afterTypeValidationOptions(TypeValidation.none()),
+          mavenProject("app",
+            srcMainJava(
+              //language=java
+              java(
+                """
+                  package com.example.config;
+
+                  import com.amazonaws.auth.AWSCredentialsProvider;
+                  import com.amazonaws.auth.AWSStaticCredentialsProvider;
+                  import com.amazonaws.auth.BasicAWSCredentials;
+                  import com.amazonaws.client.builder.AwsClientBuilder;
+                  import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+                  import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
+
+                  public class DynamoDBConfig {
+                      private String endpoint;
+                      private String region;
+
+                      public AmazonDynamoDB amazonDynamoDB() {
+                          return configDBClientBuilder().build();
+                      }
+
+                      protected AmazonDynamoDBClientBuilder configDBClientBuilder() {
+                          AmazonDynamoDBClientBuilder builder = AmazonDynamoDBClientBuilder.standard();
+                          builder.setEndpointConfiguration(amazonEndpointConfiguration());
+                          builder.withCredentials(amazonAWSCredentials());
+                          return builder;
+                      }
+
+                      private AwsClientBuilder.EndpointConfiguration amazonEndpointConfiguration() {
+                          return new AwsClientBuilder.EndpointConfiguration(endpoint, region);
+                      }
+
+                      private AWSCredentialsProvider amazonAWSCredentials() {
+                          return new AWSStaticCredentialsProvider(new BasicAWSCredentials("key", "secret"));
+                      }
+                  }
+                  """,
+                spec -> spec.after(actual -> assertThat(actual)
+                  .doesNotContain("com.amazonaws", "setEndpointConfiguration")
+                  .contains("builder.endpointOverride(URI.create(amazonEndpointConfiguration().getServiceEndpoint())).region(Region.of(amazonEndpointConfiguration().getSigningRegion()));")
+                  .contains("private AwsEndpointConfiguration amazonEndpointConfiguration() {")
+                  .actual())
+              )
+            ),
+            srcTestJava(
+              //language=java
+              java(
+                """
+                  package com.example.config;
+
+                  import com.amazonaws.auth.AWSStaticCredentialsProvider;
+                  import com.amazonaws.auth.BasicAWSCredentials;
+                  import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
+
+                  class DynamoDBConfigTest {
+                      boolean configDBClientBuilder(DynamoDBConfig config) {
+                          AmazonDynamoDBClientBuilder actualBuilder = config.configDBClientBuilder();
+                          return actualBuilder.getCredentials() instanceof AWSStaticCredentialsProvider &&
+                                 "http://localhost:8080".equals(actualBuilder.getEndpoint().getServiceEndpoint()) &&
+                                 "us-east-1".equals(actualBuilder.getEndpoint().getSigningRegion()) &&
+                                 actualBuilder.getCredentials().getCredentials() instanceof BasicAWSCredentials &&
+                                 "key".equals(actualBuilder.getCredentials().getCredentials().getAWSAccessKeyId());
+                      }
+                  }
+                  """,
+                spec -> spec.after(actual -> assertThat(actual)
+                  .doesNotContain("com.amazonaws", "actualBuilder.get")
+                  .contains("RecordingAwsClientBuilder.endpointOf(actualBuilder).getServiceEndpoint()")
+                  .contains("RecordingAwsClientBuilder.credentialsOf(actualBuilder) instanceof StaticCredentialsProvider")
+                  .contains("RecordingAwsClientBuilder.credentialsOf(actualBuilder).resolveCredentials().accessKeyId()")
+                  .actual())
+              ),
+              java(
+                doesNotExist(),
+                RecordingAwsClientBuilderShim.source("com.example.config"),
+                spec -> spec.path("com/example/config/RecordingAwsClientBuilder.java")
+              )
+            ),
+            srcMainJava(
+              java(
+                doesNotExist(),
+                AwsEndpointConfigurationShim.source("com.example.config"),
+                spec -> spec.path("com/example/config/AwsEndpointConfiguration.java")
+              )
+            )
+          )
+        );
+    }
+
+    @Test
+    void settingIndexesOfARequestInALoopIsMarked() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+              .classpathFromResources(new InMemoryExecutionContext(), "aws-java-sdk-core", "aws-java-sdk-dynamodb"))
+            .afterTypeValidationOptions(TypeValidation.none()),
+          //language=java
+          java(
+            """
+              import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
+              import com.amazonaws.services.dynamodbv2.model.GlobalSecondaryIndex;
+              import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
+
+              import java.util.List;
+
+              class Tables {
+                  private void addThroughput(CreateTableRequest tableRequest) {
+                      List<GlobalSecondaryIndex> indexes = tableRequest.getGlobalSecondaryIndexes();
+                      if (indexes != null) {
+                          for (GlobalSecondaryIndex index : indexes) {
+                              index.setProvisionedThroughput(new ProvisionedThroughput(1000L, 1000L));
+                          }
+                      }
+                  }
+              }
+              """,
+            spec -> spec.after(actual -> assertThat(actual)
+              .doesNotContain("com.amazonaws", "index = index.toBuilder()")
+              .contains("/*~~(v2 models are immutable, and rebuilding `index`, a for-each variable,")
+              .contains("~~>*/index.provisionedThroughput(ProvisionedThroughput.builder()")
+              .actual())
           )
         );
     }

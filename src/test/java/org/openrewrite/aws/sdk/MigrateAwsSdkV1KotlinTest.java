@@ -152,6 +152,48 @@ class MigrateAwsSdkV1KotlinTest implements RewriteTest {
     }
 
     @Test
+    void settingsOnImplicitReceiverOfApplyBlock() {
+        rewriteRun(
+          //language=kotlin
+          kotlin(
+            """
+              import com.amazonaws.client.builder.AwsClientBuilder
+              import com.amazonaws.services.sqs.AmazonSQS
+              import com.amazonaws.services.sqs.AmazonSQSClientBuilder
+
+              class SqsConfig {
+                  fun amazonSqs(endpoint: String, local: Boolean): AmazonSQS {
+                      return AmazonSQSClientBuilder.standard().apply {
+                          if (local)
+                              withEndpointConfiguration(AwsClientBuilder.EndpointConfiguration(endpoint, "eu-central-1"))
+                          else
+                              withRegion("eu-central-1")
+                      }.build()
+                  }
+              }
+              """,
+            """
+              import software.amazon.awssdk.regions.Region
+              import software.amazon.awssdk.services.sqs.SqsClient
+
+              import java.net.URI
+
+              class SqsConfig {
+                  fun amazonSqs(endpoint: String, local: Boolean): SqsClient {
+                      return SqsClient.builder().apply {
+                          if (local)
+                              endpointOverride(URI.create(endpoint)).region(Region.of("eu-central-1"))
+                          else
+                              region(Region.of("eu-central-1"))
+                      }.build()
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void legacyConstructorDefaultClientAndUnmigratedCalls() {
         rewriteRun(
           //language=kotlin
@@ -898,5 +940,32 @@ class MigrateAwsSdkV1KotlinTest implements RewriteTest {
               )
             );
         }
+    }
+
+    @Test
+    void serviceExceptionIsBuilt() {
+        rewriteRun(
+          //language=kotlin
+          kotlin(
+            """
+              import com.amazonaws.services.dynamodbv2.model.ResourceNotFoundException
+
+              fun secret(id: String, value: String?): String = try {
+                  value ?: throw ResourceNotFoundException("Failed to retrieve secret $id")
+              } catch (ex: ResourceNotFoundException) {
+                  throw InternalError(ex)
+              }
+              """,
+            """
+              import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException
+
+              fun secret(id: String, value: String?): String = try {
+                  value ?: throw ResourceNotFoundException.builder().message("Failed to retrieve secret $id").build()
+              } catch (ex: ResourceNotFoundException) {
+                  throw InternalError(ex)
+              }
+              """
+          )
+        );
     }
 }

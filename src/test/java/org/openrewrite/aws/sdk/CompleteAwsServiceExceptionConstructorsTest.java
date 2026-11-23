@@ -19,11 +19,13 @@ import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.java.JavaParser;
+import org.openrewrite.kotlin.KotlinParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 import org.openrewrite.test.TypeValidation;
 
 import static org.openrewrite.java.Assertions.java;
+import static org.openrewrite.kotlin.Assertions.kotlin;
 
 class CompleteAwsServiceExceptionConstructorsTest implements RewriteTest {
 
@@ -58,6 +60,35 @@ class CompleteAwsServiceExceptionConstructorsTest implements RewriteTest {
                   void missing(String table) {
                       throw ResourceNotFoundException.builder().message("no table " + table).build();
                   }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void kotlinMessageConstructorBecomesBuilder() {
+        rewriteRun(
+          spec -> spec.parser(KotlinParser.builder()
+            .classpathFromResources(new InMemoryExecutionContext(), "aws-java-sdk-core", "aws-java-sdk-dynamodb")),
+          //language=kotlin
+          kotlin(
+            """
+              import com.amazonaws.services.dynamodbv2.model.ResourceNotFoundException
+
+              fun secret(id: String, value: String?): String = try {
+                  value ?: throw ResourceNotFoundException("Failed to retrieve secret $id")
+              } catch (ex: ResourceNotFoundException) {
+                  throw InternalError(ex)
+              }
+              """,
+            """
+              import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException
+
+              fun secret(id: String, value: String?): String = try {
+                  value ?: throw ResourceNotFoundException.builder().message("Failed to retrieve secret $id").build()
+              } catch (ex: ResourceNotFoundException) {
+                  throw InternalError(ex)
               }
               """
           )

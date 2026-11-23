@@ -17,6 +17,7 @@ package org.openrewrite.aws.sdk;
 
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.Cursor;
+import org.openrewrite.Tree;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.tree.*;
@@ -56,6 +57,8 @@ final class AwsClientChain {
     final List<String> code = new ArrayList<>();
     final List<Expression> params = new ArrayList<>();
     final Set<String> imports = new LinkedHashSet<>();
+    // Sources of generated types the template refers to
+    final List<String> dependencies = new ArrayList<>();
     final List<Statement> foldedStatements = new ArrayList<>();
     @Nullable String warning;
 
@@ -221,6 +224,12 @@ final class AwsClientChain {
             }
         }
         if (!isRoot(root)) {
+            if (triggered && (kotlin || elements.stream().anyMatch(e -> isEndpointConfiguration(e.getSimpleName())))) {
+                Parsed onReceiver = parseOnReceiver(elements, root.getSelect(), cursor, kotlin);
+                if (onReceiver != null) {
+                    return onReceiver;
+                }
+            }
             return triggered ? new Parsed(null, "the v1 builder is not created in this expression, so it cannot be converted as a whole", failureSite) :
                     Parsed.NOT_APPLICABLE;
         }
@@ -249,19 +258,10 @@ final class AwsClientChain {
                                    chain.p("software.amazon.awssdk.auth.credentials.AwsCredentialsProvider") + ")", args.get(0));
                     break;
                 case "withEndpointConfiguration": {
-                    List<Expression> endpointArgs = constructorArguments(args.get(0), V1_ENDPOINT_CONFIGURATION);
-                    if (endpointArgs == null) {
-                        Folded folded = foldLocal(args.get(0), cursor, V1_ENDPOINT_CONFIGURATION);
-                        if (folded != null && folded.setters.isEmpty()) {
-                            endpointArgs = constructorArguments(folded.initializer, V1_ENDPOINT_CONFIGURATION);
-                            chain.foldedStatements.addAll(folded.statements);
-                        }
-                    }
-                    if (endpointArgs == null || endpointArgs.size() != 2) {
-                        failure = "the EndpointConfiguration is not created in this method";
+                    String reason = chain.endpointConfiguration(ws, args.get(0), cursor);
+                    if (reason != null) {
+                        failure = reason;
                         failureSite = m;
-                    } else {
-                        chain.endpoint(ws, endpointArgs.get(0), endpointArgs.get(1));
                     }
                     break;
                 }
@@ -390,8 +390,165 @@ final class AwsClientChain {
     }
 
     private static boolean isTrigger(String name) {
-        return "withEndpointConfiguration".equals(name) || "withPathStyleAccessEnabled".equals(name) ||
+        return isEndpointConfiguration(name) || "withPathStyleAccessEnabled".equals(name) ||
                "enablePathStyleAccess".equals(name) || "withRequestHandlers".equals(name);
+    }
+
+    private static boolean isEndpointConfiguration(String name) {
+        return "withEndpointConfiguration".equals(name) || "setEndpointConfiguration".equals(name);
+    }
+
+    /**
+     * Calls on a builder created elsewhere: a variable given settings in statements, or the implicit receiver of a Kotlin
+     * {@code apply}/{@code run}/{@code with} block. Each call maps to its v2 setting on the same receiver.
+     *
+     * @return null when the receiver's v2 client is unknown
+     */
+    private static @Nullable Parsed parseOnReceiver(List<J.MethodInvocation> elements, @Nullable Expression receiver,
+                                                    Cursor cursor, boolean kotlin) {
+        JavaType receiverType = receiver == null ? implicitReceiverType(cursor) : receiver.getType();
+        String v2Client = receiverType == null ? null : v2ClientForV1Builder(receiverType);
+        if (v2Client == null) {
+            return null;
+        }
+        // v2's build() is the same call, so a receiver that is only built needs no change
+        if (elements.stream().allMatch(e -> "build".equals(e.getSimpleName()))) {
+            return Parsed.NOT_APPLICABLE;
+        }
+        AwsClientChain chain = new AwsClientChain(v2Client, cursor, kotlin);
+        chain.imports.remove(v2Client);
+        if (receiver != null) {
+            chain.code.add(chain.p(v2Client + "Builder"));
+            chain.params.add(receiver);
+        }
+        for (J.MethodInvocation m : elements) {
+            String ws = whitespaceBefore(m);
+            List<Expression> args = arguments(m);
+            String failure = null;
+            switch (m.getSimpleName()) {
+                case "withRegion":
+                case "setRegion":
+                    if (args.size() != 1 || !chain.region(ws, args.get(0))) {
+                        failure = "the region argument has no v2 equivalent";
+                    }
+                    break;
+                case "withCredentials":
+                case "setCredentials":
+                    chain.call(ws, ".credentialsProvider(" + chain.p("software.amazon.awssdk.auth.credentials.AwsCredentialsProvider") + ")", args.get(0));
+                    break;
+                case "withEndpointConfiguration":
+                case "setEndpointConfiguration":
+                    failure = chain.endpointConfiguration(ws, args.get(0), cursor);
+                    break;
+                case "withPathStyleAccessEnabled":
+                    if (!chain.isS3()) {
+                        failure = "path-style access only applies to S3";
+                    } else {
+                        chain.call(ws, ".forcePathStyle(" + chain.p("java.lang.Boolean") + ")", args.get(0));
+                    }
+                    break;
+                case "enablePathStyleAccess":
+                    chain.call(ws, ".forcePathStyle(true)");
+                    break;
+                case "build":
+                    chain.call(ws, ".build()");
+                    break;
+                default:
+                    failure = "`" + m.getSimpleName() + "` has no v2 mapping in this recipe";
+            }
+            if (failure != null) {
+                return new Parsed(null, failure, m);
+            }
+        }
+        if (receiver == null) {
+            chain.code.set(0, chain.code.get(0).replaceFirst("^(\\s*)\\.", "$1"));
+        }
+        return new Parsed(chain, null, null);
+    }
+
+    private static final Set<String> RECEIVER_SCOPE_FUNCTIONS = new HashSet<>(Arrays.asList("apply", "run", "with"));
+
+    /**
+     * The receiver of the innermost Kotlin scope function block, whose calls take it as their implicit receiver.
+     */
+    private static @Nullable JavaType implicitReceiverType(Cursor cursor) {
+        for (Cursor c = cursor; c != null; c = c.getParent()) {
+            if (!(c.getValue() instanceof J.Lambda)) {
+                continue;
+            }
+            Cursor parent = c.getParentTreeCursor();
+            if (!(parent.getValue() instanceof J.MethodInvocation)) {
+                return null;
+            }
+            J.MethodInvocation scope = parent.getValue();
+            if (!RECEIVER_SCOPE_FUNCTIONS.contains(scope.getSimpleName())) {
+                return null;
+            }
+            if ("with".equals(scope.getSimpleName())) {
+                List<Expression> args = arguments(scope);
+                return args.size() == 2 ? args.get(0).getType() : null;
+            }
+            return scope.getSelect() == null ? null : scope.getSelect().getType();
+        }
+        return null;
+    }
+
+    /**
+     * Adds the endpoint of an {@code EndpointConfiguration} created inline, in a local variable, or kept as a generated
+     * {@code AwsEndpointConfiguration} value, which is read through its getters.
+     *
+     * @return why it cannot be converted, or null when it was
+     */
+    private @Nullable String endpointConfiguration(String ws, Expression configuration, Cursor cursor) {
+        List<Expression> endpointArgs = constructorArguments(configuration, V1_ENDPOINT_CONFIGURATION);
+        if (endpointArgs == null) {
+            Folded folded = foldLocal(configuration, cursor, V1_ENDPOINT_CONFIGURATION);
+            if (folded != null && folded.setters.isEmpty()) {
+                endpointArgs = constructorArguments(folded.initializer, V1_ENDPOINT_CONFIGURATION);
+                foldedStatements.addAll(folded.statements);
+            }
+        }
+        if (endpointArgs != null && endpointArgs.size() == 2) {
+            endpoint(ws, endpointArgs.get(0), endpointArgs.get(1));
+            return null;
+        }
+        JavaType.FullyQualified value = TypeUtils.asFullyQualified(configuration.getType());
+        if (!kotlin && endpointArgs == null && isEndpointConfigurationValue(value) && isSideEffectFree(configuration)) {
+            String shim = value.getFullyQualifiedName();
+            String pkg = shim.contains(".") ? shim.substring(0, shim.lastIndexOf('.')) : "";
+            dependencies.add(AwsEndpointConfigurationShim.source(pkg));
+            imports.add("java.net.URI");
+            imports.add("software.amazon.awssdk.regions.Region");
+            call(ws, ".endpointOverride(URI.create(#{any(" + shim + ")}.getServiceEndpoint()))", configuration);
+            call(indentation(ws), ".region(Region.of(#{any(" + shim + ")}.getSigningRegion()))", withNewIds(configuration));
+            return null;
+        }
+        return "the EndpointConfiguration is not created in this method";
+    }
+
+    /**
+     * The value class {@link MigrateAwsEndpointConfigurationValues} generates for a kept v1 {@code EndpointConfiguration}.
+     */
+    static boolean isEndpointConfigurationValue(@Nullable JavaType type) {
+        JavaType.FullyQualified fq = TypeUtils.asFullyQualified(type);
+        return fq != null && AwsEndpointConfigurationShim.SHIM.equals(fq.getClassName()) &&
+               !fq.getFullyQualifiedName().startsWith("com.amazonaws.");
+    }
+
+    // The value is read twice, once per getter
+    private static boolean isSideEffectFree(Expression e) {
+        return e instanceof J.Identifier || e instanceof J.FieldAccess && ((J.FieldAccess) e).getTarget() instanceof J.Identifier ||
+               e instanceof J.MethodInvocation && arguments((J.MethodInvocation) e).isEmpty() &&
+               (((J.MethodInvocation) e).getSelect() == null || ((J.MethodInvocation) e).getSelect() instanceof J.Identifier);
+    }
+
+    private static Expression withNewIds(Expression e) {
+        return (Expression) new JavaIsoVisitor<Integer>() {
+            @Override
+            public J preVisit(J tree, Integer p) {
+                return tree.withId(Tree.randomId());
+            }
+        }.visitNonNull(e, 0);
     }
 
     private String p(String type) {
@@ -701,7 +858,7 @@ final class AwsClientChain {
             while (root instanceof J.MethodInvocation) {
                 root = ((J.MethodInvocation) root).getSelect();
             }
-            if (initializer == null || !TypeUtils.isOfClassType(root == null ? null : root.getType(), type) ||
+            if (initializer == null || !isOfType(root == null ? null : root.getType(), type) ||
                 references(block, name) != setters.size() + 1) {
                 return null;
             }
@@ -725,7 +882,7 @@ final class AwsClientChain {
     }
 
     static @Nullable List<Expression> constructorArguments(Expression e, String type) {
-        if (e instanceof J.NewClass && TypeUtils.isOfClassType(e.getType(), type)) {
+        if (e instanceof J.NewClass && isOfType(e.getType(), type)) {
             return arguments(((J.NewClass) e).getArguments());
         }
         // Kotlin `AwsClientBuilder.EndpointConfiguration(a, b)` is a qualified constructor call
@@ -735,11 +892,18 @@ final class AwsClientChain {
         if (e instanceof J.MethodInvocation) {
             J.MethodInvocation m = (J.MethodInvocation) e;
             if (m.getMethodType() != null && m.getMethodType().isConstructor() &&
-                TypeUtils.isOfClassType(m.getMethodType().getDeclaringType(), type)) {
+                isOfType(m.getMethodType().getDeclaringType(), type)) {
                 return arguments(m);
             }
         }
         return null;
+    }
+
+    /**
+     * A v1 {@code EndpointConfiguration} may already be the generated value class, which holds the same two arguments.
+     */
+    private static boolean isOfType(@Nullable JavaType t, String type) {
+        return TypeUtils.isOfClassType(t, type) || V1_ENDPOINT_CONFIGURATION.equals(type) && isEndpointConfigurationValue(t);
     }
 
     static @Nullable String regionsConstant(Expression e) {

@@ -147,6 +147,47 @@ class MigrateAwsClientBuildersToV2Test implements RewriteTest {
     }
 
     @Test
+    void endpointSetterOnBuilderVariable() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.amazonaws.client.builder.AwsClientBuilder;
+              import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
+
+              class DynamoDBConfig {
+                  String endpoint;
+                  String region;
+
+                  AmazonDynamoDBClientBuilder builder() {
+                      AmazonDynamoDBClientBuilder builder = AmazonDynamoDBClientBuilder.standard();
+                      builder.setEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(endpoint, region));
+                      return builder;
+                  }
+              }
+              """,
+            """
+              import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
+              import software.amazon.awssdk.regions.Region;
+
+              import java.net.URI;
+
+              class DynamoDBConfig {
+                  String endpoint;
+                  String region;
+
+                  AmazonDynamoDBClientBuilder builder() {
+                      AmazonDynamoDBClientBuilder builder = AmazonDynamoDBClientBuilder.standard();
+                      builder.endpointOverride(URI.create(endpoint)).region(Region.of(region));
+                      return builder;
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void literalEndpointWithoutSchemeAndNullRegion() {
         rewriteRun(
           //language=java

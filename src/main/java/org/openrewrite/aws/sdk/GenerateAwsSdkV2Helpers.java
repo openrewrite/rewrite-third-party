@@ -85,6 +85,7 @@ public class GenerateAwsSdkV2Helpers extends Recipe {
                 new MigrateAwsDefaultCredentialsChainEnvAliases(null),
                 new MigrateCloudFrontSigners(null),
                 new MigrateSqsBufferedClient(null),
+                new MigrateZipkinSqsMessageTracing(null),
                 new PrepareAwsAsyncClientCalls(null),
                 new MigrateDynamoDbTableUtils(null),
                 new MigrateDynamoDbDocumentApi(null),

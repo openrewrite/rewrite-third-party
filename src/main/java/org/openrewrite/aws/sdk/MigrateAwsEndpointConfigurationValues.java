@@ -23,6 +23,7 @@ import org.openrewrite.*;
 import org.openrewrite.java.ChangeType;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.search.UsesType;
+import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.TypeUtils;
@@ -57,8 +58,9 @@ public class MigrateAwsEndpointConfigurationValues extends ScanningRecipe<Migrat
     @Getter
     final String description = "Runs before builder folding. Where an `AwsClientBuilder.EndpointConfiguration` is returned, passed or " +
             "kept in a variable but never given to a client builder, it becomes a generated `AwsEndpointConfiguration` holding the " +
-            "endpoint and signing region with v1's getters. Projects that also pass a non-inline `EndpointConfiguration` to a " +
-            "builder, read it back from a builder or extend `AwsClientBuilder` are left alone.";
+            "endpoint and signing region with v1's getters, which builder folding reads when such a value is given to a service " +
+            "client builder. Projects that pass a non-inline `EndpointConfiguration` to a generic `AwsClientBuilder`, read it " +
+            "back from a builder outside tests or extend `AwsClientBuilder` are left alone.";
 
     public static class Accumulator extends ShimRoots {
         final Set<String> excludedProjects = ConcurrentHashMap.newKeySet();
@@ -84,7 +86,6 @@ public class MigrateAwsEndpointConfigurationValues extends ScanningRecipe<Migrat
                 J.CompilationUnit cu = (J.CompilationUnit) tree;
                 String project = ProjectShims.projectName(cu);
                 boolean[] value = {false};
-                boolean[] builderUse = {false};
                 new JavaIsoVisitor<ExecutionContext>() {
                     @Override
                     public J.MethodDeclaration visitMethodDeclaration(J.MethodDeclaration method, ExecutionContext ctx) {
@@ -116,10 +117,14 @@ public class MigrateAwsEndpointConfigurationValues extends ScanningRecipe<Migrat
                         JavaType.Method mt = method.getMethodType();
                         if (mt != null && TypeUtils.isAssignableTo(V1_BUILDER, mt.getDeclaringType())) {
                             if ("getEndpoint".equals(method.getSimpleName())) {
-                                acc.excludedProjects.add(project);
+                                if (!MigrateAwsClientBuilderSubclasses.readsSettingBack(getCursor(), cu)) {
+                                    acc.excludedProjects.add(project);
+                                }
                             } else if (method.getSimpleName().endsWith("EndpointConfiguration")) {
-                                builderUse[0] = true;
-                                if (method.getArguments().size() == 1 && !(method.getArguments().get(0) instanceof J.NewClass)) {
+                                Expression arg = method.getArguments().get(0);
+                                // Folding reads a value of the generated class through its getters, but only on a service builder
+                                if (method.getArguments().size() != 1 || !(arg instanceof J.NewClass) &&
+                                    (method.getSelect() == null || AwsClientChain.v2ClientForV1Builder(method.getSelect().getType()) == null)) {
                                     acc.excludedProjects.add(project);
                                 }
                             }
@@ -132,10 +137,6 @@ public class MigrateAwsEndpointConfigurationValues extends ScanningRecipe<Migrat
                     }
                 }.visit(cu, ctx);
                 if (value[0]) {
-                    // A file that both keeps a value and builds clients inline would need both types at once
-                    if (builderUse[0]) {
-                        acc.excludedProjects.add(project);
-                    }
                     acc.producer(cu);
                 }
                 return tree;
@@ -145,11 +146,12 @@ public class MigrateAwsEndpointConfigurationValues extends ScanningRecipe<Migrat
 
     @Override
     public Collection<? extends SourceFile> generate(Accumulator acc, ExecutionContext ctx) {
+        // The instance that only edits must place the class where the generating instance does
+        acc.producerProjects.removeAll(acc.excludedProjects);
+        acc.retainRoots();
         if (Boolean.FALSE.equals(generateHelpers)) {
             return emptyList();
         }
-        acc.producerProjects.removeAll(acc.excludedProjects);
-        acc.retainRoots();
         return acc.shims.generate(AwsEndpointConfigurationShim.SHIM, AwsEndpointConfigurationShim::source, ctx);
     }
 
