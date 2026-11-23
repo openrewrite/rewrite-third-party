@@ -24,8 +24,11 @@ import org.openrewrite.gradle.marker.GradleProject;
 import org.openrewrite.java.dependencies.ChangeDependency;
 import org.openrewrite.java.dependencies.UpgradeDependencyVersion;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.maven.AddManagedDependencyVisitor;
 import org.openrewrite.maven.tree.MavenResolutionResult;
+import org.openrewrite.maven.tree.ResolvedDependency;
 import org.openrewrite.mongodb.table.MongoDriverMigrationDecisions;
+import org.openrewrite.xml.tree.Xml;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -165,6 +168,9 @@ public class MigrateMongoJavaDriver3To5 extends ScanningRecipe<MigrateMongoJavaD
                     for (Delegate d : acc.upgrades) {
                         t = d.edit(t, ctx);
                     }
+                    if (t instanceof Xml.Document) {
+                        t = pinDriverParts((Xml.Document) t, ctx);
+                    }
                     return t;
                 }
                 if (!(tree instanceof J.CompilationUnit)) {
@@ -178,6 +184,39 @@ public class MigrateMongoJavaDriver3To5 extends ScanningRecipe<MigrateMongoJavaD
                 return edited;
             }
         };
+    }
+
+    /**
+     * A parent or an imported BOM that manages the parts of the driver, as Spring Boot's does, holds them at its own
+     * driver 3 version under the driver 5 artifact that depends on them, so they are pinned to the driver's version.
+     */
+    private static Xml.Document pinDriverParts(Xml.Document pom, ExecutionContext ctx) {
+        MavenResolutionResult mrr = pom.getMarkers().findFirst(MavenResolutionResult.class).orElse(null);
+        if (mrr == null) {
+            return pom;
+        }
+        String driver = null;
+        for (String artifact : Arrays.asList("mongodb-driver-sync", "mongodb-driver-legacy")) {
+            for (ResolvedDependency d : mrr.findDependencies("org.mongodb", artifact, null)) {
+                if (!d.isTransitive() && MongoClasspath.isAtLeast(d.getVersion(), "5.0")) {
+                    driver = d.getVersion();
+                }
+            }
+        }
+        if (driver == null) {
+            return pom;
+        }
+        Xml.Document d = pom;
+        for (String part : Arrays.asList("bson", "mongodb-driver-core", "mongodb-driver-sync")) {
+            for (ResolvedDependency r : mrr.findDependencies("org.mongodb", part, null)) {
+                if (r.isTransitive() && !MongoClasspath.isAtLeast(r.getVersion(), "5.0")) {
+                    d = (Xml.Document) new AddManagedDependencyVisitor("org.mongodb", part, driver, null, null, null,
+                            "Matches the MongoDB driver, where a parent or BOM manages an older version").visitNonNull(d, ctx);
+                    break;
+                }
+            }
+        }
+        return d;
     }
 
     private J editJava(J.CompilationUnit cu, Accumulator acc, boolean upgrade, ExecutionContext ctx) {

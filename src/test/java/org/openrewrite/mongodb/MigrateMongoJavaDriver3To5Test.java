@@ -917,6 +917,64 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
     }
 
     @Test
+    void pinsThePartsOfTheDriverThatAParentHoldsBack() {
+        rewriteRun(
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.mongodb.MongoClient;
+
+                  class Cleanup {
+                      void drop(MongoClient client) {
+                          client.dropDatabase("test");
+                      }
+                  }
+                  """,
+                """
+                  import com.mongodb.client.MongoClient;
+
+                  class Cleanup {
+                      void drop(MongoClient client) {
+                          client.getDatabase("test").drop();
+                      }
+                  }
+                  """
+              )
+            ),
+            //language=xml
+            pomXml(
+              """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <parent>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-starter-parent</artifactId>
+                        <version>2.1.5.RELEASE</version>
+                    </parent>
+                    <groupId>com.example</groupId>
+                    <artifactId>app</artifactId>
+                    <version>1.0</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.mongodb</groupId>
+                            <artifactId>mongo-java-driver</artifactId>
+                        </dependency>
+                    </dependencies>
+                </project>
+                """,
+              spec -> spec.after(actual -> assertThat(actual)
+                .contains("<artifactId>mongodb-driver-sync</artifactId>")
+                .containsPattern("(?s)<dependencyManagement>.*<artifactId>bson</artifactId>\\s*<version>5\\.\\d+\\.\\d+</version>")
+                .containsPattern("(?s)<dependencyManagement>.*<artifactId>mongodb-driver-core</artifactId>\\s*<version>5\\.\\d+\\.\\d+</version>")
+                .actual())
+            )
+          )
+        );
+    }
+
+    @Test
     void findsRemovedApiWithoutReplacement() {
         rewriteRun(
           spec -> spec.recipe(new FindRemovedMongoApis(null)),
