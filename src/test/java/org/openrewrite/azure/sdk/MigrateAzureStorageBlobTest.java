@@ -373,6 +373,42 @@ class MigrateAzureStorageBlobTest implements RewriteTest {
     }
 
     @Test
+    void contentMd5OfABlobWithoutOne() {
+        rewriteRun(
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.storage.blob.BlobProperties;
+
+              class Checksums {
+                  String md5(BlobProperties properties) {
+                      if (properties.getContentMD5() != null) {
+                          return properties.getContentMD5();
+                      }
+                      return "";
+                  }
+              }
+              """,
+            """
+              import com.azure.storage.blob.models.BlobProperties;
+
+              import java.util.Base64;
+              import java.util.Optional;
+
+              class Checksums {
+                  String md5(BlobProperties properties) {
+                      if (properties.getContentMd5() != null) {
+                          return Optional.ofNullable(properties.getContentMd5()).map(Base64.getEncoder()::encodeToString).orElse(null);
+                      }
+                      return "";
+                  }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
     void swapsMavenDependency() {
         rewriteRun(
           mavenProject("app",

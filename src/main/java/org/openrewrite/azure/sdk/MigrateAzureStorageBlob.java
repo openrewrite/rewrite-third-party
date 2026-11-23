@@ -190,7 +190,9 @@ public class MigrateAzureStorageBlob extends Recipe {
             call(B + "BlobProperties getContentDisposition()", "$r.getContentDisposition()"),
             call(B + "BlobProperties getContentLanguage()", "$r.getContentLanguage()"),
             call(B + "BlobProperties getCacheControl()", "$r.getCacheControl()"),
-            call(B + "BlobProperties getContentMD5()", "java.util.Base64.getEncoder().encodeToString($r.getContentMd5())"),
+            call(B + "BlobProperties getContentMD5()", "$r.getContentMd5()").when(CallRewrite::comparedToNull),
+            call(B + "BlobProperties getContentMD5()",
+                    "java.util.Optional.ofNullable($r.getContentMd5()).map(java.util.Base64.getEncoder()::encodeToString).orElse(null)"),
             call(B + "BlobProperties getBlobType()", "$r.getBlobType()"),
 
             // Shared access signatures

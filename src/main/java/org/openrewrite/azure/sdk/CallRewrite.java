@@ -160,6 +160,19 @@ final class CallRewrite {
         return false;
     }
 
+    /**
+     * The call is one side of an {@code == null} or {@code != null} comparison.
+     */
+    static boolean comparedToNull(Call call) {
+        Object parent = call.cursor.getParentTreeCursor().getValue();
+        if (!(parent instanceof J.Binary)) {
+            return false;
+        }
+        J.Binary binary = (J.Binary) parent;
+        return (binary.getOperator() == J.Binary.Type.Equal || binary.getOperator() == J.Binary.Type.NotEqual) &&
+               (isNull(binary.getLeft()) || isNull(binary.getRight()));
+    }
+
     static boolean isNull(Expression e) {
         return e instanceof J.Literal && ((J.Literal) e).getValue() == null &&
                ((J.Literal) e).getType() == JavaType.Primitive.Null;
