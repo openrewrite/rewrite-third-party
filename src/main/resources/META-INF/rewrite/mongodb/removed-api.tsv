@@ -1,7 +1,8 @@
 # The public API of org.mongodb:mongo-java-driver 3.12.14 that org.mongodb:bson, mongodb-driver-core,
-# mongodb-driver-sync and mongodb-driver-legacy 5.15.0 no longer have, listed under each class that has it, where no
-# member of the same name takes the same arguments by widening, boxing or a supertype. Two methods whose return type
-# changed so that callers may no longer compile, ConnectionId.getLocalValue and getServerValue, are listed too.
+# mongodb-driver-sync and mongodb-driver-legacy 5.15.0 no longer have or no longer make public, listed under each class
+# that has it, where no member of the same name takes the same arguments by widening, boxing or a supertype. Two
+# methods whose return type changed so that callers may no longer compile, ConnectionId.getLocalValue and
+# getServerValue, are listed too.
 # kind (T type, M method, C constructor, F field), class, member, erased parameter types, static
 M	com.mongodb.AggregationOptions	getOutputMode		
 M	com.mongodb.AggregationOptions$Builder	outputMode	com.mongodb.AggregationOptions$OutputMode	
@@ -349,53 +350,7 @@ T	com.mongodb.util.ObjectSerializer
 T	com.mongodb.util.Util			
 M	org.bson.AbstractBsonReader	mark		
 M	org.bson.AbstractBsonReader	reset		
-C	org.bson.BSON	<init>		
-F	org.bson.BSON	ARRAY		static
-F	org.bson.BSON	BINARY		static
-F	org.bson.BSON	BOOLEAN		static
-F	org.bson.BSON	B_BINARY		static
-F	org.bson.BSON	B_FUNC		static
-F	org.bson.BSON	B_GENERAL		static
-F	org.bson.BSON	B_UUID		static
-F	org.bson.BSON	CODE		static
-F	org.bson.BSON	CODE_W_SCOPE		static
-F	org.bson.BSON	DATE		static
-F	org.bson.BSON	EOO		static
-F	org.bson.BSON	MAXKEY		static
-F	org.bson.BSON	MINKEY		static
-F	org.bson.BSON	NULL		static
-F	org.bson.BSON	NUMBER		static
-F	org.bson.BSON	NUMBER_INT		static
-F	org.bson.BSON	NUMBER_LONG		static
-F	org.bson.BSON	OBJECT		static
-F	org.bson.BSON	OID		static
-F	org.bson.BSON	REF		static
-F	org.bson.BSON	REGEX		static
-F	org.bson.BSON	STRING		static
-F	org.bson.BSON	SYMBOL		static
-F	org.bson.BSON	TIMESTAMP		static
-F	org.bson.BSON	UNDEFINED		static
-M	org.bson.BSON	addDecodingHook	java.lang.Class,org.bson.Transformer	static
-M	org.bson.BSON	addEncodingHook	java.lang.Class,org.bson.Transformer	static
-M	org.bson.BSON	applyDecodingHooks	java.lang.Object	static
-M	org.bson.BSON	applyEncodingHooks	java.lang.Object	static
-M	org.bson.BSON	clearAllHooks		static
-M	org.bson.BSON	clearDecodingHooks		static
-M	org.bson.BSON	clearEncodingHooks		static
-M	org.bson.BSON	decode	byte[]	static
-M	org.bson.BSON	encode	org.bson.BSONObject	static
-M	org.bson.BSON	getDecodingHooks	java.lang.Class	static
-M	org.bson.BSON	getEncodingHooks	java.lang.Class	static
-M	org.bson.BSON	hasDecodeHooks		static
-M	org.bson.BSON	hasEncodeHooks		static
-M	org.bson.BSON	regexFlag	char	static
-M	org.bson.BSON	regexFlags	int	static
-M	org.bson.BSON	regexFlags	java.lang.String	static
-M	org.bson.BSON	removeDecodingHook	java.lang.Class,org.bson.Transformer	static
-M	org.bson.BSON	removeDecodingHooks	java.lang.Class	static
-M	org.bson.BSON	removeEncodingHook	java.lang.Class,org.bson.Transformer	static
-M	org.bson.BSON	removeEncodingHooks	java.lang.Class	static
-M	org.bson.BSON	toInt	java.lang.Object	static
+T	org.bson.BSON			
 M	org.bson.BSONCallback	gotBinaryArray	java.lang.String,byte[]	
 M	org.bson.BSONObject	containsKey	java.lang.String	
 M	org.bson.BasicBSONCallback	gotBinaryArray	java.lang.String,byte[]	
@@ -409,12 +364,8 @@ M	org.bson.EmptyBSONCallback	gotBinaryArray	java.lang.String,byte[]
 M	org.bson.LazyBSONCallback	gotBinaryArray	java.lang.String,byte[]	
 M	org.bson.LazyBSONList	containsKey	java.lang.String	
 M	org.bson.LazyBSONObject	containsKey	java.lang.String	
-C	org.bson.codecs.IterableCodec	<init>	org.bson.codecs.configuration.CodecRegistry,org.bson.codecs.BsonTypeClassMap	
-C	org.bson.codecs.IterableCodec	<init>	org.bson.codecs.configuration.CodecRegistry,org.bson.codecs.BsonTypeClassMap,org.bson.Transformer	
-C	org.bson.codecs.MapCodec	<init>		
-C	org.bson.codecs.MapCodec	<init>	org.bson.codecs.configuration.CodecRegistry	
-C	org.bson.codecs.MapCodec	<init>	org.bson.codecs.configuration.CodecRegistry,org.bson.codecs.BsonTypeClassMap	
-C	org.bson.codecs.MapCodec	<init>	org.bson.codecs.configuration.CodecRegistry,org.bson.codecs.BsonTypeClassMap,org.bson.Transformer	
+T	org.bson.codecs.IterableCodec			
+T	org.bson.codecs.MapCodec			
 F	org.bson.diagnostics.Loggers	PREFIX		static
 T	org.bson.io.Bits			
 M	org.bson.io.BsonInput	mark	int	
