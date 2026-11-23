@@ -36,13 +36,29 @@ import java.util.*;
 final class ImplicitJson extends JavaIsoVisitor<ExecutionContext> {
 
     /**
-     * The types whose methods turn an argument of type {@code Object} into a string.
+     * The methods that turn an argument they take as an {@code Object} into a string, by the type that declares them,
+     * where an empty set is all of its methods.
      */
-    private static final Set<String> FORMATTERS = new HashSet<>(Arrays.asList(
-            "java.lang.String", "java.lang.StringBuilder", "java.lang.StringBuffer", "java.lang.AbstractStringBuilder",
-            "java.io.PrintStream", "java.io.PrintWriter", "java.util.Objects", "java.text.MessageFormat",
-            "org.slf4j.Logger", "org.apache.logging.log4j.Logger", "org.apache.commons.logging.Log",
-            "java.util.logging.Logger", "org.jboss.logging.BasicLogger", "org.apache.log4j.Category"));
+    private static final Map<String, Set<String>> FORMATTERS = new HashMap<>();
+
+    static {
+        Set<String> all = Collections.emptySet();
+        FORMATTERS.put("java.lang.String", new HashSet<>(Arrays.asList("valueOf", "format")));
+        Set<String> builders = new HashSet<>(Arrays.asList("append", "insert"));
+        FORMATTERS.put("java.lang.StringBuilder", builders);
+        FORMATTERS.put("java.lang.StringBuffer", builders);
+        FORMATTERS.put("java.lang.AbstractStringBuilder", builders);
+        Set<String> prints = new HashSet<>(Arrays.asList("print", "println", "printf", "format"));
+        FORMATTERS.put("java.io.PrintStream", prints);
+        FORMATTERS.put("java.io.PrintWriter", prints);
+        FORMATTERS.put("java.util.Objects", Collections.singleton("toString"));
+        FORMATTERS.put("java.text.MessageFormat", Collections.singleton("format"));
+        for (String logger : Arrays.asList("org.slf4j.Logger", "org.apache.logging.log4j.Logger",
+                "org.apache.commons.logging.Log", "java.util.logging.Logger", "org.jboss.logging.BasicLogger",
+                "org.apache.log4j.Category")) {
+            FORMATTERS.put(logger, all);
+        }
+    }
 
     /**
      * What turns a document into a string where, with the expression that does it.
@@ -76,13 +92,25 @@ final class ImplicitJson extends JavaIsoVisitor<ExecutionContext> {
             return m;
         }
         if ("toString".equals(m.getSimpleName()) && m.getSelect() != null && mt.getParameterTypes().isEmpty() &&
-            TypeUtils.isOfClassType(m.getSelect().getType(), "com.mongodb.DBObject")) {
+            TypeUtils.isOfClassType(RemovedApiFixes.classOf(m.getSelect().getType()), "com.mongodb.DBObject")) {
             found.add(describe(m, "turns a `DBObject` into a string"));
             return m;
         }
-        if (FORMATTERS.contains(mt.getDeclaringType().getFullyQualifiedName())) {
-            for (Expression arg : m.getArguments()) {
-                check(arg, m);
+        Set<String> names = FORMATTERS.get(mt.getDeclaringType().getFullyQualifiedName());
+        if (names != null && (names.isEmpty() || names.contains(m.getSimpleName()))) {
+            List<JavaType> parameters = mt.getParameterTypes();
+            List<Expression> args = m.getArguments();
+            int last = parameters.size() - 1;
+            for (int i = 0; i < args.size() && last >= 0; i++) {
+                JavaType parameter = parameters.get(Math.min(i, last));
+                if (i >= last && parameter instanceof JavaType.Array && !(args.get(i).getType() instanceof JavaType.Array)) {
+                    // One of the arguments of a varargs parameter
+                    parameter = ((JavaType.Array) parameter).getElemType();
+                }
+                // Only an argument the method takes as an Object, which it turns into a string
+                if (TypeUtils.isObject(parameter)) {
+                    check(args.get(i), m);
+                }
             }
         }
         return m;
@@ -100,7 +128,7 @@ final class ImplicitJson extends JavaIsoVisitor<ExecutionContext> {
         if (strict != null) {
             return LegacyUsage.simpleName(strict);
         }
-        return TypeUtils.isOfClassType(type, "com.mongodb.DBObject") ? "DBObject" : null;
+        return TypeUtils.isOfClassType(RemovedApiFixes.classOf(type), "com.mongodb.DBObject") ? "DBObject" : null;
     }
 
     private static String describe(J where, String what) {

@@ -138,6 +138,20 @@ final class RemovedApiFixes {
             "com.mongodb.BasicDBObject", "org.bson.BsonDocument"));
 
     /**
+     * The class that a value of the type is an instance of, which for a type variable or a wildcard is its first bound.
+     */
+    static JavaType.@Nullable FullyQualified classOf(@Nullable JavaType type) {
+        for (int i = 0; i < 8 && type instanceof JavaType.GenericTypeVariable; i++) {
+            JavaType.GenericTypeVariable variable = (JavaType.GenericTypeVariable) type;
+            if (variable.getVariance() != JavaType.GenericTypeVariable.Variance.COVARIANT || variable.getBounds().isEmpty()) {
+                return null;
+            }
+            type = variable.getBounds().get(0);
+        }
+        return TypeUtils.asFullyQualified(type);
+    }
+
+    /**
      * The driver type of {@link #STRICT_TO_STRING} whose {@code toString()} a value of {@code type} has, or {@code null}
      * when it has none, or a class of the code between them declares {@code toString()} or the {@code toJson()} that
      * driver 3's {@code toString()} called.
@@ -151,7 +165,7 @@ final class RemovedApiFixes {
      * declares counts, which it does not for {@code super.toString()}.
      */
     private static @Nullable String strictToString(@Nullable JavaType type, boolean ownToString) {
-        for (JavaType.FullyQualified t = TypeUtils.asFullyQualified(type); t != null; t = t.getSupertype()) {
+        for (JavaType.FullyQualified t = classOf(type); t != null; t = t.getSupertype()) {
             String fqn = t.getFullyQualifiedName();
             if (STRICT_TO_STRING.contains(fqn)) {
                 return fqn;
@@ -204,29 +218,38 @@ final class RemovedApiFixes {
         }
 
         private static boolean isSuper(Expression select) {
-            return select instanceof J.Identifier && "super".equals(((J.Identifier) select).getSimpleName());
+            return select instanceof J.Identifier && "super".equals(((J.Identifier) select).getSimpleName()) ||
+                   select instanceof J.FieldAccess && "super".equals(((J.FieldAccess) select).getSimpleName());
         }
 
         /**
          * What {@link #strictToString(JavaType)} is for {@code super.toString()} where the cursor is: driver 3's
-         * {@code toString()} called the {@code toJson()} of the class it is called in.
+         * {@code toString()} called the {@code toJson()} of the class it is called in, or of the class that qualifies
+         * {@code super}.
          */
-        private @Nullable String superToString() {
-            Cursor c = getCursor().dropParentUntil(v -> v instanceof J.ClassDeclaration ||
-                                                        v instanceof J.NewClass && ((J.NewClass) v).getBody() != null ||
-                                                        v == Cursor.ROOT_VALUE);
-            if (c.getValue() instanceof J.ClassDeclaration) {
-                return strictToString(((J.ClassDeclaration) c.getValue()).getType(), false);
+        private @Nullable String superToString(Expression select) {
+            if (select instanceof J.FieldAccess) {
+                return strictToString(((J.FieldAccess) select).getTarget().getType(), false);
             }
-            if (c.getValue() instanceof J.NewClass) {
-                J.NewClass n = c.getValue();
-                for (Statement s : requireNonNull(n.getBody()).getStatements()) {
-                    if (s instanceof J.MethodDeclaration && "toJson".equals(((J.MethodDeclaration) s).getSimpleName()) &&
-                        ((J.MethodDeclaration) s).getParameters().stream().allMatch(J.Empty.class::isInstance)) {
-                        return null;
-                    }
+            Object child = null;
+            for (Cursor c = getCursor(); c != null; c = c.getParent()) {
+                Object v = c.getValue();
+                if (v instanceof J.ClassDeclaration) {
+                    return strictToString(((J.ClassDeclaration) v).getType(), false);
                 }
-                return n.getClazz() == null ? null : strictToString(n.getClazz().getType(), false);
+                if (v instanceof J.NewClass && ((J.NewClass) v).getBody() != null && ((J.NewClass) v).getBody() == child) {
+                    J.NewClass n = (J.NewClass) v;
+                    for (Statement s : requireNonNull(n.getBody()).getStatements()) {
+                        if (s instanceof J.MethodDeclaration && "toJson".equals(((J.MethodDeclaration) s).getSimpleName()) &&
+                            ((J.MethodDeclaration) s).getParameters().stream().allMatch(J.Empty.class::isInstance)) {
+                            return null;
+                        }
+                    }
+                    return n.getClazz() == null ? null : strictToString(n.getClazz().getType(), false);
+                }
+                if (v instanceof J) {
+                    child = v;
+                }
             }
             return null;
         }
@@ -255,7 +278,7 @@ final class RemovedApiFixes {
                 ("toJson".equals(name) || "toString".equals(name))) {
                 // Only where the driver's own method is called, not a class's override of it
                 if ("toJson".equals(name) ? STRICT_TO_JSON.contains(declaring) :
-                        declaring != null && declaring.equals(isSuper(select) ? superToString() : strictToString(select.getType()))) {
+                        declaring != null && declaring.equals(isSuper(select) ? superToString(select) : strictToString(select.getType()))) {
                     return template(mi, "#{any(" + declaring + ")}.toJson(JsonWriterSettings.builder().outputMode(JsonMode.STRICT).build())",
                             ctx, select);
                 }

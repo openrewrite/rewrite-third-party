@@ -1978,6 +1978,129 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
         );
     }
 
+    @Test
+    void keepsTheStrictJsonOfEveryReceiverWhoseClassDriver3WroteItFor() {
+        String relaxed = " into a string, which driver 5 writes as relaxed extended JSON where driver 3 wrote strict";
+        rewriteRun(
+          spec -> spec.dataTable(MongoDriverMigrationDecisions.Row.class, rows -> assertThat(rows)
+            .filteredOn(r -> r.getReason().endsWith(relaxed))
+            .extracting(MongoDriverMigrationDecisions.Row::getReason)
+            .containsExactly("`\"t=\" + doc` turns a `BasicDBObject`" + relaxed)),
+          mavenProject("app",
+            //language=java
+            srcMainJava(
+              java(
+                """
+                  import com.mongodb.BasicDBObject;
+                  import org.bson.BsonDocument;
+
+                  import java.util.List;
+                  import java.util.Objects;
+
+                  class Generic<T extends BasicDBObject> {
+                      T doc;
+
+                      String a() {
+                          return doc.toString();
+                      }
+
+                      <U extends BsonDocument> String b(U u) {
+                          return u.toString();
+                      }
+
+                      String c(List<? extends BasicDBObject> list) {
+                          return list.get(0).toString();
+                      }
+
+                      String d() {
+                          return "t=" + doc;
+                      }
+
+                      boolean same(BasicDBObject query) {
+                          return Objects.equals(query, doc) && "q".equals(query) && Objects.requireNonNull(query) != null;
+                      }
+                  }
+
+                  class Plain extends BasicDBObject {
+                      String name() {
+                          return new Thread(super.toString()) {
+                          }.getName();
+                      }
+                  }
+
+                  class Named extends BasicDBObject {
+                      class Inner {
+                          String outer() {
+                              return Named.super.toString();
+                          }
+                      }
+
+                      @Override
+                      public String toJson() {
+                          return "named";
+                      }
+                  }
+                  """,
+                """
+                  import com.mongodb.BasicDBObject;
+                  import org.bson.BsonDocument;
+                  import org.bson.json.JsonMode;
+                  import org.bson.json.JsonWriterSettings;
+
+                  import java.util.List;
+                  import java.util.Objects;
+
+                  class Generic<T extends BasicDBObject> {
+                      T doc;
+
+                      String a() {
+                          return doc.toJson(JsonWriterSettings.builder().outputMode(JsonMode.STRICT).build());
+                      }
+
+                      <U extends BsonDocument> String b(U u) {
+                          return u.toJson(JsonWriterSettings.builder().outputMode(JsonMode.STRICT).build());
+                      }
+
+                      String c(List<? extends BasicDBObject> list) {
+                          return list.get(0).toJson(JsonWriterSettings.builder().outputMode(JsonMode.STRICT).build());
+                      }
+
+                      String d() {
+                          return "t=" + doc;
+                      }
+
+                      boolean same(BasicDBObject query) {
+                          return Objects.equals(query, doc) && "q".equals(query) && Objects.requireNonNull(query) != null;
+                      }
+                  }
+
+                  class Plain extends BasicDBObject {
+                      String name() {
+                          return new Thread(super.toJson(JsonWriterSettings.builder().outputMode(JsonMode.STRICT).build())) {
+                          }.getName();
+                      }
+                  }
+
+                  class Named extends BasicDBObject {
+                      class Inner {
+                          String outer() {
+                              return Named.super.toString();
+                          }
+                      }
+
+                      @Override
+                      public String toJson() {
+                          return "named";
+                      }
+                  }
+                  """
+              )
+            ),
+            pom("mongodb-driver-sync")
+          )
+        );
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void keepsTheLineBreaksOfTheFile(boolean repositoryUsesCrlf) {
@@ -2098,6 +2221,26 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
                   }
                   """,
                 spec -> spec.path("reports/module-info.java")
+              ),
+              text(
+                """
+                  @Deprecated(since = \"""
+                      requires bson;
+                      \""")
+                  module org.example.legacy { requires mongo.java.driver; }
+                  """,
+                """
+                  @Deprecated(since = \"""
+                      requires bson;
+                      \""")
+                  module org.example.legacy { requires org.mongodb.driver.sync.client; requires org.mongodb.driver.core; requires org.mongodb.bson; }
+                  """,
+                spec -> spec.path("legacy/module-info.java")
+              ),
+              text(
+                "module org.example.crlf {\r\n    requires mongo.java.driver; }",
+                "module org.example.crlf {\r\n    requires org.mongodb.driver.sync.client;\r\n    requires org.mongodb.driver.core;\r\n    requires org.mongodb.bson; }",
+                spec -> spec.path("crlf/module-info.java")
               ),
               text(
                 """

@@ -109,7 +109,8 @@ final class ModuleRequires {
                 }
             }
             // A clause that starts its line is replaced by a line for each module, others in place
-            String separator = startsLine ? (eol.isEmpty() ? "\n" : eol) + text.substring(lineStart, m.start()) : " ";
+            String lineBreak = !eol.isEmpty() ? eol : text.contains("\r\n") ? "\r\n" : "\n";
+            String separator = startsLine ? lineBreak + text.substring(lineStart, m.start()) : " ";
             out.append(text, last, m.start()).append(String.join(separator, clauses));
             last = end;
         }
@@ -135,6 +136,14 @@ final class ModuleRequires {
             } else if (c[i] == '/' && i + 1 < c.length && c[i + 1] == '*') {
                 int end = text.indexOf("*/", i + 2);
                 end = end < 0 ? c.length : end + 2;
+                for (; i < end; i++) {
+                    if (c[i] != '\n' && c[i] != '\r') {
+                        c[i] = ' ';
+                    }
+                }
+            } else if (text.startsWith("\"\"\"", i)) {
+                int end = text.indexOf("\"\"\"", i + 3);
+                end = end < 0 ? c.length : end + 3;
                 for (; i < end; i++) {
                     if (c[i] != '\n' && c[i] != '\r') {
                         c[i] = ' ';
