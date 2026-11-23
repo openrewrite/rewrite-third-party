@@ -18,6 +18,7 @@ package org.openrewrite.azure.sdk;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.Tree;
 import org.openrewrite.java.JavaIsoVisitor;
+import org.openrewrite.java.marker.JavaSourceSet;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaSourceFile;
 import org.openrewrite.java.tree.JavaType;
@@ -153,6 +154,14 @@ public final class LegacyAzureTypes {
     };
 
     /**
+     * Those libraries' artifacts, as {@code groupId:artifactId} prefixes. On a module's classpath, the legacy types are
+     * what its code passes to them and among itself.
+     */
+    private static final String[] BUILT_ON_LEGACY_ARTIFACTS = {
+            "com.microsoft.azure:azure-eventhubs-spark"
+    };
+
+    /**
      * Whether a type belongs to a library whose API takes or returns legacy types.
      */
     public static boolean isBuiltOnLegacy(@Nullable JavaType type) {
@@ -171,7 +180,7 @@ public final class LegacyAzureTypes {
     /**
      * Whether the migration leaves a source as it is: one that declares a legacy type, or a class that extends or
      * implements one, such as a fake sender in tests or an event processor, and one that uses a library built on the
-     * legacy SDK. Retyped, a class implementing a legacy interface would implement a final class of the current SDK
+     * legacy SDK or is in a module that has one on its classpath. Retyped, a class implementing a legacy interface would implement a final class of the current SDK
      * and its overrides would override nothing, and code would hand current types to a library that takes legacy ones.
      */
     public static boolean isLeftAsItIs(Tree source) {
@@ -179,6 +188,17 @@ public final class LegacyAzureTypes {
             for (JavaType type : ((JavaSourceFile) source).getTypesInUse().getTypesInUse()) {
                 if (isBuiltOnLegacy(type)) {
                     return true;
+                }
+            }
+            for (JavaSourceSet sourceSet : ((JavaSourceFile) source).getMarkers().findAll(JavaSourceSet.class)) {
+                if (sourceSet.getGavToTypes() != null) {
+                    for (String gav : sourceSet.getGavToTypes().keySet()) {
+                        for (String artifact : BUILT_ON_LEGACY_ARTIFACTS) {
+                            if (gav.startsWith(artifact)) {
+                                return true;
+                            }
+                        }
+                    }
                 }
             }
         }

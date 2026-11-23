@@ -18,9 +18,14 @@ package org.openrewrite.azure.sdk;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
+import org.openrewrite.Tree;
 import org.openrewrite.java.JavaParser;
+import org.openrewrite.java.marker.JavaSourceSet;
+import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
+
+import java.util.Collections;
 
 import static org.openrewrite.java.Assertions.java;
 
@@ -196,6 +201,10 @@ class MigrateAzureEventHubsTest implements RewriteTest {
 
     @Test
     void leavesCodeOnALibraryBuiltOnTheLegacySdkToAPerson() {
+        // The connector's streams carry the legacy EventData, so neither its callers nor the rest of their module change
+        JavaSourceSet main = new JavaSourceSet(Tree.randomId(), "main", Collections.emptyList(),
+          Collections.singletonMap("com.microsoft.azure:azure-eventhubs-spark_2.12:2.3.22",
+            Collections.singletonList(JavaType.ShallowClass.build("org.apache.spark.eventhubs.EventHubsUtils"))));
         rewriteRun(
           spec -> spec.parser(JavaParser.fromJavaVersion()
             .classpathFromResources(new InMemoryExecutionContext(), "azure-eventhubs-3")
@@ -246,7 +255,30 @@ class MigrateAzureEventHubsTest implements RewriteTest {
                       return events.size();
                   }
               }
-              """
+              """,
+            spec -> spec.markers(main)
+          ),
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.eventhubs.EventData;
+
+              class Bodies {
+                  byte[] body(EventData event) {
+                      return event.getBytes();
+                  }
+              }
+              """,
+            """
+              import com.microsoft.azure.eventhubs.EventData;
+
+              class Bodies {
+                  byte[] body(EventData event) {
+                      return /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.eventhubs.EventData.getBytes` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/eventhubs/azure-messaging-eventhubs/migration-guide.md)~~>*/event.getBytes();
+                  }
+              }
+              """,
+            spec -> spec.markers(main)
           )
         );
     }
