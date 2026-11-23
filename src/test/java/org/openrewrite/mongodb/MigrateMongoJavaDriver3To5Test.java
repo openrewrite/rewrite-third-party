@@ -2070,6 +2070,53 @@ class MigrateMongoJavaDriver3To5Test implements RewriteTest {
     }
 
     @Test
+    void requiresTheModulesOfDriver5WhereverTheDescriptorRequiresThem() {
+        rewriteRun(
+          mavenProject("app",
+            srcMainJava(
+              text(
+                """
+                  /* Built as: requires mongo.java.driver; */
+                  module org.example.sessions { requires static mongo.java.driver; requires java.sql; } // requires bson;
+                  """,
+                """
+                  /* Built as: requires mongo.java.driver; */
+                  module org.example.sessions { requires static org.mongodb.driver.sync.client; requires static org.mongodb.driver.core; requires static org.mongodb.bson; requires java.sql; } // requires bson;
+                  """,
+                spec -> spec.path("module-info.java")
+              ),
+              text(
+                """
+                  module org.example.reports {
+                      // requires mongo.java.driver;
+                      requires java.sql;
+                  }
+                  """,
+                spec -> spec.path("reports/module-info.java")
+              ),
+              text(
+                """
+                  module org.example.audit {
+                      requires mongo.java.driver; // the client
+                      requires org.mongodb.bson;
+                  }
+                  """,
+                """
+                  module org.example.audit {
+                      requires org.mongodb.driver.sync.client;
+                      requires org.mongodb.driver.core; // the client
+                      requires org.mongodb.bson;
+                  }
+                  """,
+                spec -> spec.path("audit/module-info.java")
+              )
+            ),
+            pom("mongodb-driver-sync")
+          )
+        );
+    }
+
+    @Test
     void leavesDriverOfAJavaModuleThatKeepsTheLegacyApi() {
         rewriteRun(
           spec -> spec.dataTable(MongoDriverMigrationDecisions.Row.class, rows -> assertThat(rows)

@@ -33,7 +33,7 @@ import java.util.regex.Pattern;
 final class ModuleRequires {
 
     private static final Pattern REQUIRES = Pattern.compile(
-            "(?m)^([ \\t]*)requires\\s+((?:(?:transitive|static)\\s+)*)([\\w.]+)\\s*;[ \\t]*(\\r?\\n)?");
+            "(?<![\\w.$])requires\\s+((?:(?:transitive|static)\\s+)*)([\\w.]+)\\s*;");
 
     private static final Pattern DRIVER_MODULE = Pattern.compile(
             "mongo\\.java\\.driver|mongodb\\.driver(\\.[\\w.]+)?|org\\.mongodb\\.[\\w.]+|bson");
@@ -56,9 +56,9 @@ final class ModuleRequires {
     }
 
     static boolean requiresDriver(PlainText descriptor) {
-        Matcher m = REQUIRES.matcher(descriptor.getText());
+        Matcher m = REQUIRES.matcher(code(descriptor.getText()));
         while (m.find()) {
-            if (DRIVER_MODULE.matcher(m.group(3)).matches()) {
+            if (DRIVER_MODULE.matcher(m.group(2)).matches()) {
                 return true;
             }
         }
@@ -67,35 +67,95 @@ final class ModuleRequires {
 
     static PlainText requireDriver5(PlainText descriptor) {
         String text = descriptor.getText();
+        String code = code(text);
         Set<String> required = new HashSet<>();
-        Matcher existing = REQUIRES.matcher(text);
+        Matcher existing = REQUIRES.matcher(code);
         while (existing.find()) {
-            required.add(existing.group(3));
+            required.add(existing.group(2));
         }
-        Matcher m = REQUIRES.matcher(text);
-        StringBuffer out = new StringBuffer();
+        Matcher m = REQUIRES.matcher(code);
+        StringBuilder out = new StringBuilder();
+        int last = 0;
         boolean changed = false;
         while (m.find()) {
-            String name = m.group(3);
+            String name = m.group(2);
             List<String> replacements = "mongo.java.driver".equals(name) || "mongodb.driver".equals(name) ? DRIVER_5 : RENAMED.get(name);
             if (replacements == null) {
                 continue;
             }
-            String eol = m.group(4) == null ? "" : m.group(4);
-            StringBuilder lines = new StringBuilder();
+            String modifiers = m.group(1).trim().isEmpty() ? "" : String.join(" ", m.group(1).trim().split("\\s+")) + " ";
+            List<String> clauses = new ArrayList<>();
             for (String r : replacements) {
                 if (required.add(r)) {
-                    lines.append(m.group(1)).append("requires ").append(m.group(2)).append(r).append(';').append(eol.isEmpty() ? "\n" : eol);
+                    clauses.add("requires " + modifiers + r + ";");
                 }
             }
-            String replacement = lines.length() == 0 ? "" : eol.isEmpty() ? lines.substring(0, lines.length() - 1) : lines.toString();
-            m.appendReplacement(out, Matcher.quoteReplacement(replacement));
+            int lineStart = text.lastIndexOf('\n', m.start() - 1) + 1;
+            int lineEnd = text.indexOf('\n', m.end());
+            String eol = lineEnd < 0 ? "" : lineEnd > 0 && text.charAt(lineEnd - 1) == '\r' ? "\r\n" : "\n";
+            int contentEnd = lineEnd < 0 ? text.length() : lineEnd - eol.length() + 1;
+            boolean startsLine = text.substring(lineStart, m.start()).trim().isEmpty();
             changed = true;
+            if (startsLine && clauses.isEmpty() && text.substring(m.end(), contentEnd).trim().isEmpty()) {
+                // Driver 5's modules are all required already, so the line goes
+                out.append(text, last, lineStart);
+                last = lineEnd < 0 ? text.length() : lineEnd + 1;
+                continue;
+            }
+            int end = m.end();
+            if (clauses.isEmpty()) {
+                while (end < contentEnd && (text.charAt(end) == ' ' || text.charAt(end) == '\t')) {
+                    end++;
+                }
+            }
+            // A clause that starts its line is replaced by a line for each module, others in place
+            String separator = startsLine ? (eol.isEmpty() ? "\n" : eol) + text.substring(lineStart, m.start()) : " ";
+            out.append(text, last, m.start()).append(String.join(separator, clauses));
+            last = end;
         }
         if (!changed) {
             return descriptor;
         }
-        m.appendTail(out);
+        out.append(text, last, text.length());
         return descriptor.withText(out.toString());
+    }
+
+    /**
+     * The text with each comment and literal blanked out, line breaks aside, so that a clause found in it is one at the
+     * same place in the text.
+     */
+    static String code(String text) {
+        char[] c = text.toCharArray();
+        int i = 0;
+        while (i < c.length) {
+            if (c[i] == '/' && i + 1 < c.length && c[i + 1] == '/') {
+                while (i < c.length && c[i] != '\n' && c[i] != '\r') {
+                    c[i++] = ' ';
+                }
+            } else if (c[i] == '/' && i + 1 < c.length && c[i + 1] == '*') {
+                int end = text.indexOf("*/", i + 2);
+                end = end < 0 ? c.length : end + 2;
+                for (; i < end; i++) {
+                    if (c[i] != '\n' && c[i] != '\r') {
+                        c[i] = ' ';
+                    }
+                }
+            } else if (c[i] == '"' || c[i] == '\'') {
+                char quote = c[i];
+                c[i++] = ' ';
+                while (i < c.length && c[i] != quote && c[i] != '\n') {
+                    if (c[i] == '\\' && i + 1 < c.length) {
+                        c[i++] = ' ';
+                    }
+                    c[i++] = ' ';
+                }
+                if (i < c.length && c[i] == quote) {
+                    c[i++] = ' ';
+                }
+            } else {
+                i++;
+            }
+        }
+        return new String(c);
     }
 }
