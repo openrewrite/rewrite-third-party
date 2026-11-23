@@ -66,7 +66,7 @@ class AzureCallRewriter extends JavaVisitor<ExecutionContext> {
 
     @Override
     public boolean isAcceptable(SourceFile sourceFile, ExecutionContext ctx) {
-        return super.isAcceptable(sourceFile, ctx) && !LegacyAzureTypes.declaresLegacySubtype(sourceFile);
+        return super.isAcceptable(sourceFile, ctx) && !LegacyAzureTypes.isLeftAsItIs(sourceFile);
     }
 
     void afterVisit(TreeVisitor<?, ExecutionContext> visitor) {

@@ -55,6 +55,7 @@ public class FindAzureSdkLegacyRemnants extends Recipe {
         GUIDES.put("com.microsoft.azure.cosmosdb", "https://learn.microsoft.com/azure/cosmos-db/nosql/migrate-java-v4-sdk");
         GUIDES.put("com.microsoft.azure.management", sdk + "resourcemanager/docs/MIGRATION_GUIDE.md");
         GUIDES.put("com.microsoft.azure.credentials", sdk + "resourcemanager/docs/MIGRATION_GUIDE.md");
+        GUIDES.put("org.apache.spark.eventhubs", "https://github.com/Azure/azure-event-hubs-spark");
         GUIDES.put("com.microsoft.azure", "https://learn.microsoft.com/azure/developer/java/sdk/");
         GUIDES.put("com.microsoft.rest", "https://learn.microsoft.com/azure/developer/java/sdk/");
     }
@@ -199,12 +200,17 @@ public class FindAzureSdkLegacyRemnants extends Recipe {
             }
 
             private <J2 extends J> J2 mark(J2 tree, JavaType.@Nullable Method type, ExecutionContext ctx) {
-                if (type == null || !LegacyAzureTypes.isLegacy(type.getDeclaringType())) {
+                if (type == null) {
+                    return tree;
+                }
+                // A call into a library built on the legacy SDK keeps its source as it is
+                boolean library = LegacyAzureTypes.isBuiltOnLegacy(type.getDeclaringType());
+                if (!library && !LegacyAzureTypes.isLegacy(type.getDeclaringType())) {
                     return tree;
                 }
                 String owner = fqn(type.getDeclaringType());
                 String item = owner + ("<constructor>".equals(type.getName()) ? "" : "." + type.getName());
-                return report(tree, "call", item, owner, ctx);
+                return report(tree, library ? "library" : "call", item, owner, ctx);
             }
 
             private <J2 extends J> J2 report(J2 tree, String kind, String item, String owner, ExecutionContext ctx) {

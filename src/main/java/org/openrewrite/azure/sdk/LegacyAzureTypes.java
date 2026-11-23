@@ -19,6 +19,7 @@ import org.jspecify.annotations.Nullable;
 import org.openrewrite.Tree;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.JavaSourceFile;
 import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.TypeTree;
 import org.openrewrite.java.tree.TypeUtils;
@@ -144,11 +145,43 @@ public final class LegacyAzureTypes {
     }
 
     /**
-     * Whether a source declares a legacy type, or a class that extends or implements one, such as a fake sender in
-     * tests or an event processor. The migration leaves such a source as it is, since retyped, a class implementing a
-     * legacy interface would implement a final class of the current SDK, and its overrides would override nothing.
+     * Packages of libraries whose API takes or returns legacy types, so that code calling them has to keep those types.
      */
-    public static boolean declaresLegacySubtype(Tree source) {
+    private static final String[] BUILT_ON_LEGACY = {
+            // azure-eventhubs-spark, whose streams are of the legacy EventData
+            "org.apache.spark.eventhubs."
+    };
+
+    /**
+     * Whether a type belongs to a library whose API takes or returns legacy types.
+     */
+    public static boolean isBuiltOnLegacy(@Nullable JavaType type) {
+        JavaType.FullyQualified fq = TypeUtils.asFullyQualified(type);
+        if (fq == null) {
+            return false;
+        }
+        for (String pkg : BUILT_ON_LEGACY) {
+            if (fq.getFullyQualifiedName().startsWith(pkg)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether the migration leaves a source as it is: one that declares a legacy type, or a class that extends or
+     * implements one, such as a fake sender in tests or an event processor, and one that uses a library built on the
+     * legacy SDK. Retyped, a class implementing a legacy interface would implement a final class of the current SDK
+     * and its overrides would override nothing, and code would hand current types to a library that takes legacy ones.
+     */
+    public static boolean isLeftAsItIs(Tree source) {
+        if (source instanceof JavaSourceFile) {
+            for (JavaType type : ((JavaSourceFile) source).getTypesInUse().getTypesInUse()) {
+                if (isBuiltOnLegacy(type)) {
+                    return true;
+                }
+            }
+        }
         AtomicBoolean found = new AtomicBoolean();
         new JavaIsoVisitor<AtomicBoolean>() {
             @Override

@@ -193,4 +193,61 @@ class MigrateAzureEventHubsTest implements RewriteTest {
           )
         );
     }
+
+    @Test
+    void leavesCodeOnALibraryBuiltOnTheLegacySdkToAPerson() {
+        rewriteRun(
+          spec -> spec.parser(JavaParser.fromJavaVersion()
+            .classpathFromResources(new InMemoryExecutionContext(), "azure-eventhubs-3")
+            //language=java
+            .dependsOn(
+              """
+                package org.apache.spark.eventhubs;
+
+                import com.microsoft.azure.eventhubs.EventData;
+
+                import java.util.List;
+
+                public class EventHubsUtils {
+                    public static List<EventData> receive(String connectionString) {
+                        return null;
+                    }
+                }
+                """
+            )),
+          //language=java
+          java(
+            """
+              import com.microsoft.azure.eventhubs.ConnectionStringBuilder;
+              import com.microsoft.azure.eventhubs.EventData;
+              import org.apache.spark.eventhubs.EventHubsUtils;
+
+              import java.util.List;
+
+              class Batches {
+                  int size(String namespace, String hub) {
+                      String connectionString = new ConnectionStringBuilder().setNamespaceName(namespace).setEventHubName(hub).toString();
+                      List<EventData> events = EventHubsUtils.receive(connectionString);
+                      return events.size();
+                  }
+              }
+              """,
+            """
+              import com.microsoft.azure.eventhubs.ConnectionStringBuilder;
+              import com.microsoft.azure.eventhubs.EventData;
+              import org.apache.spark.eventhubs.EventHubsUtils;
+
+              import java.util.List;
+
+              class Batches {
+                  int size(String namespace, String hub) {
+                      String connectionString = /*~~(Legacy Azure SDK: migrate `com.microsoft.azure.eventhubs.ConnectionStringBuilder.toString` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/eventhubs/azure-messaging-eventhubs/migration-guide.md)~~>*//*~~(Legacy Azure SDK: migrate `com.microsoft.azure.eventhubs.ConnectionStringBuilder.setEventHubName` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/eventhubs/azure-messaging-eventhubs/migration-guide.md)~~>*//*~~(Legacy Azure SDK: migrate `com.microsoft.azure.eventhubs.ConnectionStringBuilder.setNamespaceName` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/eventhubs/azure-messaging-eventhubs/migration-guide.md)~~>*//*~~(Legacy Azure SDK: migrate `com.microsoft.azure.eventhubs.ConnectionStringBuilder` by hand, see https://github.com/Azure/azure-sdk-for-java/blob/main/sdk/eventhubs/azure-messaging-eventhubs/migration-guide.md)~~>*/new ConnectionStringBuilder().setNamespaceName(namespace).setEventHubName(hub).toString();
+                      List<EventData> events = /*~~(Legacy Azure SDK: migrate `org.apache.spark.eventhubs.EventHubsUtils.receive` by hand, see https://github.com/Azure/azure-event-hubs-spark)~~>*/EventHubsUtils.receive(connectionString);
+                      return events.size();
+                  }
+              }
+              """
+          )
+        );
+    }
 }

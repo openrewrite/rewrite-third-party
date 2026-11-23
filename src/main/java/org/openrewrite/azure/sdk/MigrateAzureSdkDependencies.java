@@ -168,15 +168,16 @@ public class MigrateAzureSdkDependencies extends ScanningRecipe<MigrateAzureSdkD
                 if (s instanceof JavaSourceFile) {
                     recordUsage((JavaSourceFile) s, acc);
                 }
-                if (s instanceof J.CompilationUnit) {
-                    scan((J.CompilationUnit) s, acc, ctx);
+                if (s instanceof JavaSourceFile) {
+                    // Kotlin too, whose calls the migration rewrites
+                    scan((JavaSourceFile) s, acc, ctx);
                 }
                 return tree;
             }
         };
     }
 
-    private static void scan(J.CompilationUnit cu, Accumulator acc, ExecutionContext ctx) {
+    private static void scan(JavaSourceFile cu, Accumulator acc, ExecutionContext ctx) {
         Set<String> before = legacyArtifacts(cu);
         if (before.isEmpty()) {
             return;
