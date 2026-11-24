@@ -1,0 +1,398 @@
+# The public API of org.mongodb:mongo-java-driver 3.12.14 that org.mongodb:bson, mongodb-driver-core,
+# mongodb-driver-sync and mongodb-driver-legacy 5.15.0 no longer have or no longer make public, listed under each class
+# that has it, where no member of the same name takes the same arguments by widening, boxing or a supertype. Two
+# methods whose return type changed so that callers may no longer compile, ConnectionId.getLocalValue and
+# getServerValue, are listed too.
+# kind (T type, M method, C constructor, F field), class, member, erased parameter types, static
+M	com.mongodb.AggregationOptions	getOutputMode		
+M	com.mongodb.AggregationOptions$Builder	outputMode	com.mongodb.AggregationOptions$OutputMode	
+T	com.mongodb.AggregationOptions$OutputMode			
+T	com.mongodb.AggregationOutput			
+F	com.mongodb.AuthenticationMechanism	MONGODB_CR		static
+M	com.mongodb.BasicDBList	containsKey	java.lang.String	
+M	com.mongodb.BulkWriteResult	isModifiedCountAvailable		
+T	com.mongodb.Bytes			
+M	com.mongodb.ConnectionString	getCredentialList		
+M	com.mongodb.ConnectionString	getRetryWrites		
+M	com.mongodb.ConnectionString	getStreamType		
+M	com.mongodb.ConnectionString	getThreadsAllowedToBlockForConnectionMultiplier		
+M	com.mongodb.ConnectionString	getURI		
+C	com.mongodb.DB	<init>	com.mongodb.Mongo,java.lang.String	
+M	com.mongodb.DB	addOption	int	
+M	com.mongodb.DB	addUser	java.lang.String,char[]	
+M	com.mongodb.DB	addUser	java.lang.String,char[],boolean	
+M	com.mongodb.DB	doEval	java.lang.String,java.lang.Object[]	
+M	com.mongodb.DB	eval	java.lang.String,java.lang.Object[]	
+M	com.mongodb.DB	getCollectionFromString	java.lang.String	
+M	com.mongodb.DB	getMongo		
+M	com.mongodb.DB	getOptions		
+M	com.mongodb.DB	getStats		
+M	com.mongodb.DB	removeUser	java.lang.String	
+M	com.mongodb.DB	resetOptions		
+M	com.mongodb.DB	setOptions	int	
+M	com.mongodb.DB	slaveOk		
+T	com.mongodb.DBAddress			
+M	com.mongodb.DBCallback	gotBinaryArray	java.lang.String,byte[]	
+M	com.mongodb.DBCollection	addOption	int	
+M	com.mongodb.DBCollection	aggregate	com.mongodb.DBObject,com.mongodb.DBObject[]	
+M	com.mongodb.DBCollection	aggregate	java.util.List	
+M	com.mongodb.DBCollection	aggregate	java.util.List,com.mongodb.ReadPreference	
+M	com.mongodb.DBCollection	find	com.mongodb.DBObject,com.mongodb.DBObject,int,int	
+M	com.mongodb.DBCollection	find	com.mongodb.DBObject,com.mongodb.DBObject,int,int,int	
+M	com.mongodb.DBCollection	getCount	com.mongodb.DBObject,com.mongodb.DBObject	
+M	com.mongodb.DBCollection	getCount	com.mongodb.DBObject,com.mongodb.DBObject,com.mongodb.ReadPreference	
+M	com.mongodb.DBCollection	getCount	com.mongodb.DBObject,com.mongodb.DBObject,long,long	
+M	com.mongodb.DBCollection	getCount	com.mongodb.DBObject,com.mongodb.DBObject,long,long,com.mongodb.ReadPreference	
+M	com.mongodb.DBCollection	getCount	com.mongodb.ReadPreference	
+M	com.mongodb.DBCollection	getHintFields		
+M	com.mongodb.DBCollection	getOptions		
+M	com.mongodb.DBCollection	getStats		
+M	com.mongodb.DBCollection	group	com.mongodb.DBObject,com.mongodb.DBObject,com.mongodb.DBObject,java.lang.String	
+M	com.mongodb.DBCollection	group	com.mongodb.DBObject,com.mongodb.DBObject,com.mongodb.DBObject,java.lang.String,java.lang.String	
+M	com.mongodb.DBCollection	group	com.mongodb.DBObject,com.mongodb.DBObject,com.mongodb.DBObject,java.lang.String,java.lang.String,com.mongodb.ReadPreference	
+M	com.mongodb.DBCollection	group	com.mongodb.GroupCommand	
+M	com.mongodb.DBCollection	group	com.mongodb.GroupCommand,com.mongodb.ReadPreference	
+M	com.mongodb.DBCollection	isCapped		
+M	com.mongodb.DBCollection	parallelScan	com.mongodb.ParallelScanOptions	
+M	com.mongodb.DBCollection	resetOptions		
+M	com.mongodb.DBCollection	setHintFields	java.util.List	
+M	com.mongodb.DBCollection	setOptions	int	
+M	com.mongodb.DBCollection	slaveOk		
+M	com.mongodb.DBCursor	addOption	int	
+M	com.mongodb.DBCursor	addSpecial	java.lang.String,java.lang.Object	
+M	com.mongodb.DBCursor	getOptions		
+M	com.mongodb.DBCursor	maxScan	int	
+M	com.mongodb.DBCursor	oplogReplay	boolean	
+M	com.mongodb.DBCursor	resetOptions		
+M	com.mongodb.DBCursor	setOptions	int	
+M	com.mongodb.DBCursor	showDiskLoc		
+M	com.mongodb.DBCursor	slaveOk		
+M	com.mongodb.DBCursor	snapshot		
+M	com.mongodb.DBObject	containsKey	java.lang.String	
+M	com.mongodb.DefaultDBCallback	gotBinaryArray	java.lang.String,byte[]	
+T	com.mongodb.GroupCommand			
+M	com.mongodb.LazyDBCallback	gotBinaryArray	java.lang.String,byte[]	
+M	com.mongodb.LazyDBList	containsKey	java.lang.String	
+M	com.mongodb.LazyDBObject	containsKey	java.lang.String	
+T	com.mongodb.Mongo			
+T	com.mongodb.Mongo$Holder			
+C	com.mongodb.MongoBulkWriteException	<init>	com.mongodb.bulk.BulkWriteResult,java.util.List,com.mongodb.bulk.WriteConcernError,com.mongodb.ServerAddress	
+C	com.mongodb.MongoClient	<init>	com.mongodb.ServerAddress,java.util.List	
+C	com.mongodb.MongoClient	<init>	com.mongodb.ServerAddress,java.util.List,com.mongodb.MongoClientOptions	
+C	com.mongodb.MongoClient	<init>	com.mongodb.ServerAddress,java.util.List,com.mongodb.MongoClientOptions,com.mongodb.MongoDriverInformation	
+C	com.mongodb.MongoClient	<init>	java.util.List,java.util.List	
+C	com.mongodb.MongoClient	<init>	java.util.List,java.util.List,com.mongodb.MongoClientOptions	
+C	com.mongodb.MongoClient	<init>	java.util.List,java.util.List,com.mongodb.MongoClientOptions,com.mongodb.MongoDriverInformation	
+M	com.mongodb.MongoClient	addOption	int	
+M	com.mongodb.MongoClient	fsync	boolean	
+M	com.mongodb.MongoClient	fsyncAndLock		
+M	com.mongodb.MongoClient	getAddress		
+M	com.mongodb.MongoClient	getAllAddress		
+M	com.mongodb.MongoClient	getConnectPoint		
+M	com.mongodb.MongoClient	getCredentialsList		
+M	com.mongodb.MongoClient	getDatabaseNames		
+M	com.mongodb.MongoClient	getMaxBsonObjectSize		
+M	com.mongodb.MongoClient	getMongoOptions		
+M	com.mongodb.MongoClient	getOptions		
+M	com.mongodb.MongoClient	getReplicaSetStatus		
+M	com.mongodb.MongoClient	getServerAddressList		
+M	com.mongodb.MongoClient	getUsedDatabases		
+M	com.mongodb.MongoClient	isLocked		
+M	com.mongodb.MongoClient	resetOptions		
+M	com.mongodb.MongoClient	setOptions	int	
+M	com.mongodb.MongoClient	setReadPreference	com.mongodb.ReadPreference	
+M	com.mongodb.MongoClient	setWriteConcern	com.mongodb.WriteConcern	
+M	com.mongodb.MongoClient	slaveOk		
+M	com.mongodb.MongoClient	unlock		
+M	com.mongodb.MongoClientOptions	getDescription		
+M	com.mongodb.MongoClientOptions	getSocketFactory		
+M	com.mongodb.MongoClientOptions	getThreadsAllowedToBlockForConnectionMultiplier		
+M	com.mongodb.MongoClientOptions	isAlwaysUseMBeans		
+M	com.mongodb.MongoClientOptions	isSocketKeepAlive		
+M	com.mongodb.MongoClientOptions$Builder	alwaysUseMBeans	boolean	
+M	com.mongodb.MongoClientOptions$Builder	description	java.lang.String	
+M	com.mongodb.MongoClientOptions$Builder	legacyDefaults		
+M	com.mongodb.MongoClientOptions$Builder	socketFactory	javax.net.SocketFactory	
+M	com.mongodb.MongoClientOptions$Builder	socketKeepAlive	boolean	
+M	com.mongodb.MongoClientOptions$Builder	threadsAllowedToBlockForConnectionMultiplier	int	
+M	com.mongodb.MongoClientSettings	getStreamFactoryFactory		
+M	com.mongodb.MongoClientSettings$Builder	streamFactoryFactory	com.mongodb.connection.StreamFactoryFactory	
+F	com.mongodb.MongoCredential	MONGODB_CR_MECHANISM		static
+M	com.mongodb.MongoCredential	createMongoCRCredential	java.lang.String,java.lang.String,char[]	static
+C	com.mongodb.MongoCursorNotFoundException	<init>	long,com.mongodb.ServerAddress	
+C	com.mongodb.MongoNodeIsRecoveringException	<init>	com.mongodb.ServerAddress	
+C	com.mongodb.MongoNotPrimaryException	<init>	com.mongodb.ServerAddress	
+T	com.mongodb.MongoOptions			
+C	com.mongodb.MongoQueryException	<init>	com.mongodb.MongoCommandException	
+C	com.mongodb.MongoQueryException	<init>	com.mongodb.ServerAddress,int,java.lang.String	
+T	com.mongodb.MongoURI			
+T	com.mongodb.MongoWaitQueueFullException			
+T	com.mongodb.ParallelScanOptions			
+T	com.mongodb.ParallelScanOptions$Builder			
+F	com.mongodb.QueryOperators	COMMENT		static
+F	com.mongodb.QueryOperators	EXPLAIN		static
+F	com.mongodb.QueryOperators	HINT		static
+F	com.mongodb.QueryOperators	MAX		static
+F	com.mongodb.QueryOperators	MAX_SCAN		static
+F	com.mongodb.QueryOperators	MIN		static
+F	com.mongodb.QueryOperators	ORDER_BY		static
+F	com.mongodb.QueryOperators	RETURN_KEY		static
+F	com.mongodb.QueryOperators	SHOW_DISK_LOC		static
+F	com.mongodb.QueryOperators	SNAPSHOT		static
+M	com.mongodb.ReadPreference	isSlaveOk		
+T	com.mongodb.ReflectionDBObject			
+T	com.mongodb.ReflectionDBObject$JavaWrapper			
+T	com.mongodb.ReplicaSetStatus			
+M	com.mongodb.ServerAddress	getSocketAddress		
+M	com.mongodb.ServerAddress	getSocketAddresses		
+M	com.mongodb.ServerAddress	sameHost	java.lang.String	
+M	com.mongodb.TaggableReadPreference	isSlaveOk		
+C	com.mongodb.WriteConcern	<init>		
+C	com.mongodb.WriteConcern	<init>	boolean	
+C	com.mongodb.WriteConcern	<init>	int,int,boolean	
+C	com.mongodb.WriteConcern	<init>	int,int,boolean,boolean	
+C	com.mongodb.WriteConcern	<init>	java.lang.String,int,boolean,boolean	
+F	com.mongodb.WriteConcern	FSYNCED		static
+F	com.mongodb.WriteConcern	FSYNC_SAFE		static
+F	com.mongodb.WriteConcern	JOURNAL_SAFE		static
+F	com.mongodb.WriteConcern	NORMAL		static
+F	com.mongodb.WriteConcern	REPLICAS_SAFE		static
+F	com.mongodb.WriteConcern	REPLICA_ACKNOWLEDGED		static
+F	com.mongodb.WriteConcern	SAFE		static
+M	com.mongodb.WriteConcern	callGetLastError		
+M	com.mongodb.WriteConcern	fsync		
+M	com.mongodb.WriteConcern	getFsync		
+M	com.mongodb.WriteConcern	getJ		
+M	com.mongodb.WriteConcern	getWtimeout		
+M	com.mongodb.WriteConcern	majorityWriteConcern	int,boolean,boolean	static
+M	com.mongodb.WriteConcern	withFsync	boolean	
+M	com.mongodb.WriteConcern	withJ	boolean	
+T	com.mongodb.WriteConcern$Majority			
+M	com.mongodb.bulk.BulkWriteResult	acknowledged	com.mongodb.bulk.WriteRequest$Type,int,java.lang.Integer,java.util.List	static
+M	com.mongodb.bulk.BulkWriteResult	acknowledged	com.mongodb.bulk.WriteRequest$Type,int,java.util.List	static
+M	com.mongodb.bulk.BulkWriteResult	acknowledged	int,int,int,java.lang.Integer,java.util.List	static
+M	com.mongodb.bulk.BulkWriteResult	isModifiedCountAvailable		
+T	com.mongodb.bulk.DeleteRequest			
+T	com.mongodb.bulk.IndexRequest			
+T	com.mongodb.bulk.InsertRequest			
+T	com.mongodb.bulk.UpdateRequest			
+C	com.mongodb.bulk.WriteConcernError	<init>	int,java.lang.String,org.bson.BsonDocument	
+T	com.mongodb.bulk.WriteRequest			
+T	com.mongodb.bulk.WriteRequest$Type			
+M	com.mongodb.client.AggregateIterable	forEach	com.mongodb.Block	
+M	com.mongodb.client.AggregateIterable	useCursor	java.lang.Boolean	
+M	com.mongodb.client.ChangeStreamIterable	forEach	com.mongodb.Block	
+M	com.mongodb.client.ClientSession	setPinnedServerAddress	com.mongodb.ServerAddress	
+M	com.mongodb.client.DistinctIterable	forEach	com.mongodb.Block	
+M	com.mongodb.client.FindIterable	forEach	com.mongodb.Block	
+M	com.mongodb.client.FindIterable	maxScan	long	
+M	com.mongodb.client.FindIterable	modifiers	org.bson.conversions.Bson	
+M	com.mongodb.client.FindIterable	oplogReplay	boolean	
+M	com.mongodb.client.FindIterable	snapshot	boolean	
+M	com.mongodb.client.ListCollectionsIterable	forEach	com.mongodb.Block	
+M	com.mongodb.client.ListDatabasesIterable	forEach	com.mongodb.Block	
+M	com.mongodb.client.ListIndexesIterable	forEach	com.mongodb.Block	
+M	com.mongodb.client.MapReduceIterable	forEach	com.mongodb.Block	
+M	com.mongodb.client.MapReduceIterable	nonAtomic	boolean	
+M	com.mongodb.client.MapReduceIterable	sharded	boolean	
+M	com.mongodb.client.MongoCollection	count		
+M	com.mongodb.client.MongoCollection	count	com.mongodb.client.ClientSession	
+M	com.mongodb.client.MongoCollection	count	com.mongodb.client.ClientSession,org.bson.conversions.Bson	
+M	com.mongodb.client.MongoCollection	count	com.mongodb.client.ClientSession,org.bson.conversions.Bson,com.mongodb.client.model.CountOptions	
+M	com.mongodb.client.MongoCollection	count	org.bson.conversions.Bson	
+M	com.mongodb.client.MongoCollection	count	org.bson.conversions.Bson,com.mongodb.client.model.CountOptions	
+M	com.mongodb.client.MongoCollection	replaceOne	com.mongodb.client.ClientSession,org.bson.conversions.Bson,java.lang.Object,com.mongodb.client.model.UpdateOptions	
+M	com.mongodb.client.MongoCollection	replaceOne	org.bson.conversions.Bson,java.lang.Object,com.mongodb.client.model.UpdateOptions	
+M	com.mongodb.client.MongoIterable	forEach	com.mongodb.Block	
+M	com.mongodb.client.gridfs.GridFSBucket	downloadToStreamByName	java.lang.String,java.io.OutputStream	
+M	com.mongodb.client.gridfs.GridFSBucket	downloadToStreamByName	java.lang.String,java.io.OutputStream,com.mongodb.client.gridfs.model.GridFSDownloadByNameOptions	
+M	com.mongodb.client.gridfs.GridFSBucket	getDisableMD5		
+M	com.mongodb.client.gridfs.GridFSBucket	openDownloadStreamByName	java.lang.String	
+M	com.mongodb.client.gridfs.GridFSBucket	openDownloadStreamByName	java.lang.String,com.mongodb.client.gridfs.model.GridFSDownloadByNameOptions	
+M	com.mongodb.client.gridfs.GridFSBucket	withDisableMD5	boolean	
+M	com.mongodb.client.gridfs.GridFSFindIterable	forEach	com.mongodb.Block	
+M	com.mongodb.client.gridfs.GridFSUploadStream	getFileId		
+T	com.mongodb.client.gridfs.model.GridFSDownloadByNameOptions			
+C	com.mongodb.client.gridfs.model.GridFSFile	<init>	org.bson.BsonValue,java.lang.String,long,int,java.util.Date,java.lang.String,org.bson.Document	
+C	com.mongodb.client.gridfs.model.GridFSFile	<init>	org.bson.BsonValue,java.lang.String,long,int,java.util.Date,java.lang.String,org.bson.Document,org.bson.Document	
+M	com.mongodb.client.gridfs.model.GridFSFile	getAliases		
+M	com.mongodb.client.gridfs.model.GridFSFile	getContentType		
+M	com.mongodb.client.gridfs.model.GridFSFile	getExtraElements		
+M	com.mongodb.client.gridfs.model.GridFSFile	getMD5		
+T	com.mongodb.client.model.AggregationLevel			
+M	com.mongodb.client.model.CreateCollectionOptions	autoIndex	boolean	
+M	com.mongodb.client.model.CreateCollectionOptions	isAutoIndex		
+M	com.mongodb.client.model.CreateCollectionOptions	isUsePowerOf2Sizes		
+M	com.mongodb.client.model.CreateCollectionOptions	usePowerOf2Sizes	java.lang.Boolean	
+M	com.mongodb.client.model.DBCollectionFindOptions	getModifiers		
+M	com.mongodb.client.model.DBCollectionFindOptions	isOplogReplay		
+M	com.mongodb.client.model.DBCollectionFindOptions	modifiers	com.mongodb.DBObject	
+M	com.mongodb.client.model.DBCollectionFindOptions	oplogReplay	boolean	
+M	com.mongodb.client.model.Filters	text	java.lang.String,java.lang.String	static
+T	com.mongodb.client.model.FindOptions			
+M	com.mongodb.client.model.IndexOptions	bucketSize	java.lang.Double	
+M	com.mongodb.client.model.IndexOptions	getBucketSize		
+M	com.mongodb.client.model.Indexes	geoHaystack	java.lang.String,org.bson.conversions.Bson	static
+T	com.mongodb.client.model.ParallelCollectionScanOptions			
+C	com.mongodb.client.model.ReplaceOneModel	<init>	org.bson.conversions.Bson,java.lang.Object,com.mongodb.client.model.UpdateOptions	
+M	com.mongodb.client.model.ReplaceOneModel	getOptions		
+M	com.mongodb.client.model.ReplaceOptions	createReplaceOptions	com.mongodb.client.model.UpdateOptions	static
+C	com.mongodb.client.model.changestream.ChangeStreamDocument	<init>	com.mongodb.client.model.changestream.OperationType,org.bson.BsonDocument,org.bson.BsonDocument,org.bson.BsonDocument,java.lang.Object,org.bson.BsonDocument,org.bson.BsonTimestamp,com.mongodb.client.model.changestream.UpdateDescription	
+C	com.mongodb.client.model.changestream.ChangeStreamDocument	<init>	com.mongodb.client.model.changestream.OperationType,org.bson.BsonDocument,org.bson.BsonDocument,org.bson.BsonDocument,java.lang.Object,org.bson.BsonDocument,org.bson.BsonTimestamp,com.mongodb.client.model.changestream.UpdateDescription,org.bson.BsonInt64,org.bson.BsonDocument	
+C	com.mongodb.client.model.changestream.ChangeStreamDocument	<init>	org.bson.BsonDocument,com.mongodb.MongoNamespace,java.lang.Object,org.bson.BsonDocument,com.mongodb.client.model.changestream.OperationType,com.mongodb.client.model.changestream.UpdateDescription	
+C	com.mongodb.client.model.changestream.ChangeStreamDocument	<init>	org.bson.BsonDocument,com.mongodb.MongoNamespace,java.lang.Object,org.bson.BsonDocument,org.bson.BsonTimestamp,com.mongodb.client.model.changestream.OperationType,com.mongodb.client.model.changestream.UpdateDescription	
+C	com.mongodb.client.model.changestream.ChangeStreamDocument	<init>	org.bson.BsonDocument,org.bson.BsonDocument,java.lang.Object,org.bson.BsonDocument,org.bson.BsonTimestamp,com.mongodb.client.model.changestream.OperationType,com.mongodb.client.model.changestream.UpdateDescription	
+T	com.mongodb.client.model.changestream.ChangeStreamLevel			
+M	com.mongodb.client.result.UpdateResult	isModifiedCountAvailable		
+T	com.mongodb.connection.AsyncConnection			
+T	com.mongodb.connection.AsynchronousSocketChannelStreamFactory			
+T	com.mongodb.connection.AsynchronousSocketChannelStreamFactoryFactory			
+T	com.mongodb.connection.AsynchronousSocketChannelStreamFactoryFactory$Builder			
+T	com.mongodb.connection.BufferProvider			
+T	com.mongodb.connection.BulkWriteBatchCombiner			
+T	com.mongodb.connection.ByteBufferBsonOutput			
+T	com.mongodb.connection.Cluster			
+M	com.mongodb.connection.ClusterDescription	getAll		
+M	com.mongodb.connection.ClusterDescription	getAny		
+M	com.mongodb.connection.ClusterDescription	getAnyPrimaryOrSecondary		
+M	com.mongodb.connection.ClusterDescription	getAnyPrimaryOrSecondary	com.mongodb.TagSet	
+M	com.mongodb.connection.ClusterDescription	getByServerAddress	com.mongodb.ServerAddress	
+M	com.mongodb.connection.ClusterDescription	getPrimaries		
+M	com.mongodb.connection.ClusterDescription	getSecondaries		
+M	com.mongodb.connection.ClusterDescription	getSecondaries	com.mongodb.TagSet	
+T	com.mongodb.connection.ClusterFactory			
+M	com.mongodb.connection.ClusterSettings	getDescription		
+M	com.mongodb.connection.ClusterSettings	getMaxWaitQueueSize		
+M	com.mongodb.connection.ClusterSettings$Builder	description	java.lang.String	
+M	com.mongodb.connection.ClusterSettings$Builder	maxWaitQueueSize	int	
+T	com.mongodb.connection.Connection			
+C	com.mongodb.connection.ConnectionDescription	<init>	com.mongodb.connection.ConnectionId,com.mongodb.connection.ServerVersion,com.mongodb.connection.ServerType,int,int,int	
+C	com.mongodb.connection.ConnectionDescription	<init>	com.mongodb.connection.ConnectionId,com.mongodb.connection.ServerVersion,com.mongodb.connection.ServerType,int,int,int,java.util.List	
+C	com.mongodb.connection.ConnectionDescription	<init>	com.mongodb.connection.ConnectionId,com.mongodb.connection.ServerVersion,int,com.mongodb.connection.ServerType,int,int,int,java.util.List	
+M	com.mongodb.connection.ConnectionDescription	getServerVersion		
+C	com.mongodb.connection.ConnectionId	<init>	com.mongodb.connection.ServerId,int,java.lang.Integer	
+M	com.mongodb.connection.ConnectionId	getLocalValue		
+M	com.mongodb.connection.ConnectionId	getServerValue		
+M	com.mongodb.connection.ConnectionPoolSettings	getMaxWaitQueueSize		
+M	com.mongodb.connection.ConnectionPoolSettings$Builder	maxWaitQueueSize	int	
+T	com.mongodb.connection.DefaultClusterFactory			
+T	com.mongodb.connection.QueryResult			
+T	com.mongodb.connection.Server			
+M	com.mongodb.connection.ServerDescription	getVersion		
+C	com.mongodb.connection.ServerDescription$Builder	<init>		
+M	com.mongodb.connection.ServerDescription$Builder	version	com.mongodb.connection.ServerVersion	
+M	com.mongodb.connection.SocketSettings	isKeepAlive		
+M	com.mongodb.connection.SocketSettings$Builder	keepAlive	boolean	
+T	com.mongodb.connection.SocketStreamFactory			
+T	com.mongodb.connection.SplittablePayload			
+T	com.mongodb.connection.SplittablePayload$Type			
+T	com.mongodb.connection.Stream			
+T	com.mongodb.connection.StreamFactory			
+T	com.mongodb.connection.StreamFactoryFactory			
+T	com.mongodb.connection.TlsChannelStreamFactoryFactory			
+T	com.mongodb.event.ClusterEventMulticaster			
+T	com.mongodb.event.ClusterListenerAdapter			
+C	com.mongodb.event.CommandEvent	<init>	int,com.mongodb.connection.ConnectionDescription,java.lang.String	
+T	com.mongodb.event.CommandEventMulticaster			
+C	com.mongodb.event.CommandFailedEvent	<init>	int,com.mongodb.connection.ConnectionDescription,java.lang.String,long,java.lang.Throwable	
+T	com.mongodb.event.CommandListenerMulticaster			
+C	com.mongodb.event.CommandStartedEvent	<init>	int,com.mongodb.connection.ConnectionDescription,java.lang.String,java.lang.String,org.bson.BsonDocument	
+C	com.mongodb.event.CommandSucceededEvent	<init>	int,com.mongodb.connection.ConnectionDescription,java.lang.String,org.bson.BsonDocument,long	
+T	com.mongodb.event.ConnectionAddedEvent			
+C	com.mongodb.event.ConnectionCheckedInEvent	<init>	com.mongodb.connection.ConnectionId	
+C	com.mongodb.event.ConnectionCheckedOutEvent	<init>	com.mongodb.connection.ConnectionId	
+C	com.mongodb.event.ConnectionClosedEvent	<init>	com.mongodb.connection.ConnectionId	
+T	com.mongodb.event.ConnectionListener			
+T	com.mongodb.event.ConnectionMessageReceivedEvent			
+T	com.mongodb.event.ConnectionMessagesSentEvent			
+T	com.mongodb.event.ConnectionOpenedEvent			
+T	com.mongodb.event.ConnectionPoolEventMulticaster			
+M	com.mongodb.event.ConnectionPoolListener	connectionAdded	com.mongodb.event.ConnectionAddedEvent	
+M	com.mongodb.event.ConnectionPoolListener	connectionPoolOpened	com.mongodb.event.ConnectionPoolOpenedEvent	
+M	com.mongodb.event.ConnectionPoolListener	connectionRemoved	com.mongodb.event.ConnectionRemovedEvent	
+M	com.mongodb.event.ConnectionPoolListener	waitQueueEntered	com.mongodb.event.ConnectionPoolWaitQueueEnteredEvent	
+M	com.mongodb.event.ConnectionPoolListener	waitQueueExited	com.mongodb.event.ConnectionPoolWaitQueueExitedEvent	
+T	com.mongodb.event.ConnectionPoolListenerAdapter			
+T	com.mongodb.event.ConnectionPoolOpenedEvent			
+T	com.mongodb.event.ConnectionPoolWaitQueueEnteredEvent			
+T	com.mongodb.event.ConnectionPoolWaitQueueExitedEvent			
+T	com.mongodb.event.ConnectionRemovedEvent			
+T	com.mongodb.event.ConnectionRemovedEvent$Reason			
+T	com.mongodb.event.ServerEventMulticaster			
+C	com.mongodb.event.ServerHeartbeatFailedEvent	<init>	com.mongodb.connection.ConnectionId,long,java.lang.Throwable	
+C	com.mongodb.event.ServerHeartbeatSucceededEvent	<init>	com.mongodb.connection.ConnectionId,org.bson.BsonDocument,long	
+T	com.mongodb.event.ServerListenerAdapter			
+T	com.mongodb.event.ServerMonitorEventMulticaster			
+T	com.mongodb.event.ServerMonitorListenerAdapter			
+T	com.mongodb.gridfs.CLI			
+F	com.mongodb.gridfs.GridFS	MAX_CHUNKSIZE		static
+M	com.mongodb.gridfs.GridFSDBFile	containsKey	java.lang.String	
+M	com.mongodb.gridfs.GridFSDBFile	getMD5		
+M	com.mongodb.gridfs.GridFSDBFile	validate		
+M	com.mongodb.gridfs.GridFSFile	containsKey	java.lang.String	
+M	com.mongodb.gridfs.GridFSFile	getMD5		
+M	com.mongodb.gridfs.GridFSFile	validate		
+M	com.mongodb.gridfs.GridFSInputFile	containsKey	java.lang.String	
+M	com.mongodb.gridfs.GridFSInputFile	getMD5		
+M	com.mongodb.gridfs.GridFSInputFile	validate		
+T	com.mongodb.selector.LatencyMinimizingServerSelector			
+T	com.mongodb.selector.PrimaryServerSelector			
+T	com.mongodb.selector.ReadPreferenceServerSelector			
+T	com.mongodb.selector.ServerAddressSelector			
+T	com.mongodb.selector.WritableServerSelector			
+M	com.mongodb.session.ClientSession	setPinnedServerAddress	com.mongodb.ServerAddress	
+T	com.mongodb.session.SessionContext			
+T	com.mongodb.util.JSON			
+T	com.mongodb.util.JSONCallback			
+T	com.mongodb.util.JSONParseException			
+T	com.mongodb.util.JSONSerializers			
+T	com.mongodb.util.ObjectSerializer			
+T	com.mongodb.util.Util			
+M	org.bson.AbstractBsonReader	mark		
+M	org.bson.AbstractBsonReader	reset		
+T	org.bson.BSON			
+M	org.bson.BSONCallback	gotBinaryArray	java.lang.String,byte[]	
+M	org.bson.BSONObject	containsKey	java.lang.String	
+M	org.bson.BasicBSONCallback	gotBinaryArray	java.lang.String,byte[]	
+M	org.bson.BsonBinaryReader	mark		
+M	org.bson.BsonBinaryReader	reset		
+M	org.bson.BsonDocumentReader	mark		
+M	org.bson.BsonDocumentReader	reset		
+M	org.bson.BsonReader	mark		
+M	org.bson.BsonReader	reset		
+M	org.bson.EmptyBSONCallback	gotBinaryArray	java.lang.String,byte[]	
+M	org.bson.LazyBSONCallback	gotBinaryArray	java.lang.String,byte[]	
+M	org.bson.LazyBSONList	containsKey	java.lang.String	
+M	org.bson.LazyBSONObject	containsKey	java.lang.String	
+T	org.bson.codecs.IterableCodec			
+T	org.bson.codecs.MapCodec			
+F	org.bson.diagnostics.Loggers	PREFIX		static
+T	org.bson.io.Bits			
+M	org.bson.io.BsonInput	mark	int	
+M	org.bson.io.BsonInput	reset		
+M	org.bson.io.ByteBufferBsonInput	mark	int	
+M	org.bson.io.ByteBufferBsonInput	reset		
+M	org.bson.json.JsonReader	mark		
+M	org.bson.json.JsonReader	reset		
+C	org.bson.json.JsonWriter$Context	<init>	org.bson.json.JsonWriter,org.bson.json.JsonWriter$Context,org.bson.BsonContextType,java.lang.String	
+C	org.bson.json.JsonWriterSettings	<init>		
+C	org.bson.json.JsonWriterSettings	<init>	boolean	
+C	org.bson.json.JsonWriterSettings	<init>	org.bson.json.JsonMode	
+C	org.bson.json.JsonWriterSettings	<init>	org.bson.json.JsonMode,boolean	
+C	org.bson.json.JsonWriterSettings	<init>	org.bson.json.JsonMode,java.lang.String	
+C	org.bson.json.JsonWriterSettings	<init>	org.bson.json.JsonMode,java.lang.String,java.lang.String	
+M	org.bson.types.BasicBSONList	containsKey	java.lang.String	
+C	org.bson.types.ObjectId	<init>	int,int,short,int	
+C	org.bson.types.ObjectId	<init>	java.util.Date,int,short,int	
+M	org.bson.types.ObjectId	createFromLegacyFormat	int,int,int	static
+M	org.bson.types.ObjectId	getCounter		
+M	org.bson.types.ObjectId	getCurrentCounter		static
+M	org.bson.types.ObjectId	getGeneratedMachineIdentifier		static
+M	org.bson.types.ObjectId	getGeneratedProcessIdentifier		static
+M	org.bson.types.ObjectId	getMachineIdentifier		
+M	org.bson.types.ObjectId	getProcessIdentifier		
+M	org.bson.types.ObjectId	getTime		
+M	org.bson.types.ObjectId	getTimeSecond		
+M	org.bson.types.ObjectId	toStringMongod		
+T	org.bson.util.AbstractCopyOnWriteMap$View$Type			
+T	org.bson.util.ClassMap			

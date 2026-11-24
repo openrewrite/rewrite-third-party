@@ -160,6 +160,12 @@ recipeDependencies {
     parserClasspath("software.amazon.awssdk:utils:2.+")
     parserClasspath("software.amazon.kinesis:amazon-kinesis-client:2.7.+")
     parserClasspath("com.amazonaws:aws-xray-recorder-sdk-aws-sdk-v2:2.15.+")
+    // MongoDB Java driver 5.x types the MongoDB migration templates produce
+    parserClasspath("org.mongodb:bson:5.+")
+    parserClasspath("org.mongodb:mongodb-driver-core:5.+")
+    parserClasspath("org.mongodb:mongodb-driver-sync:5.+")
+    parserClasspath("org.mongodb:mongodb-driver-legacy:5.+")
+    testParserClasspath("org.mongodb:mongo-java-driver:3.12.+")
     testParserClasspath("com.amazonaws:aws-java-sdk-core:1.12.+")
     testParserClasspath("com.amazonaws:aws-java-sdk-sqs:1.12.+")
     testParserClasspath("com.amazonaws:aws-java-sdk-sns:1.12.+")
