@@ -1373,6 +1373,90 @@ recipeList:
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_33_3
+displayName: Quarkus Updates Aggregate 3.33.3
+description: Quarkus update recipes to upgrade your application to 3.33.3.
+preconditions:
+  - org.openrewrite.java.dependencies.search.RepositoryHasDependency:
+      groupIdPattern: io.quarkus
+      artifactIdPattern: quarkus-core
+      version: (,3.33.3)
+recipeList:
+  - org.openrewrite.quarkus.UpgradeQuarkusVersion:
+      newVersion: 3.33.x
+  - org.openrewrite.quarkus.QuarkusUpdates_v3_33_3
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.QuarkusUpdates_v3_33_3
+displayName: Quarkus update recipes up to 3.33.3
+description: The Quarkus update recipes of 3.33.3 and the versions before it, without upgrading the Quarkus platform itself.
+preconditions:
+  - org.openrewrite.java.dependencies.search.RepositoryHasDependency:
+      groupIdPattern: io.quarkus
+      artifactIdPattern: quarkus-core
+      version: (,3.33.3)
+recipeList:
+  - org.openrewrite.quarkus.QuarkusUpdates_v3_33_1
+  - org.openrewrite.quarkus.QuarkusUpdates_v3_33_3_camel_quarkus
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.QuarkusUpdates_v3_33_3_camel_quarkus
+displayName: Quarkus update recipes of 3.33.3 for `camel-quarkus`
+description: Update recipes for `org.apache.camel.quarkus:camel-quarkus` 3.33.3, applied only where `org.apache.camel.quarkus:camel-quarkus*` is used, as `quarkus update` does.
+preconditions:
+  - org.openrewrite.java.dependencies.search.RepositoryHasDependency:
+      groupIdPattern: org.apache.camel.quarkus
+      artifactIdPattern: camel-quarkus*
+      version: (,3.33.3)
+recipeList:
+  - io.quarkus.updates.camel.camel418_4.CamelQuarkusMigrationRecipe
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_33_4
+displayName: Quarkus Updates Aggregate 3.33.4
+description: Quarkus update recipes to upgrade your application to 3.33.4.
+preconditions:
+  - org.openrewrite.java.dependencies.search.RepositoryHasDependency:
+      groupIdPattern: io.quarkus
+      artifactIdPattern: quarkus-core
+      version: (,3.33.4)
+recipeList:
+  - org.openrewrite.quarkus.UpgradeQuarkusVersion:
+      newVersion: 3.33.x
+  - org.openrewrite.quarkus.QuarkusUpdates_v3_33_4
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.QuarkusUpdates_v3_33_4
+displayName: Quarkus update recipes up to 3.33.4
+description: The Quarkus update recipes of 3.33.4 and the versions before it, without upgrading the Quarkus platform itself.
+preconditions:
+  - org.openrewrite.java.dependencies.search.RepositoryHasDependency:
+      groupIdPattern: io.quarkus
+      artifactIdPattern: quarkus-core
+      version: (,3.33.4)
+recipeList:
+  - org.openrewrite.quarkus.QuarkusUpdates_v3_33_3
+  - org.openrewrite.quarkus.QuarkusUpdates_v3_33_4_camel_quarkus
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.QuarkusUpdates_v3_33_4_camel_quarkus
+displayName: Quarkus update recipes of 3.33.4 for `camel-quarkus`
+description: Update recipes for `org.apache.camel.quarkus:camel-quarkus` 3.33.4, applied only where `org.apache.camel.quarkus:camel-quarkus*` is used, as `quarkus update` does.
+preconditions:
+  - org.openrewrite.java.dependencies.search.RepositoryHasDependency:
+      groupIdPattern: org.apache.camel.quarkus
+      artifactIdPattern: camel-quarkus*
+      version: (,3.33.4)
+recipeList:
+  - io.quarkus.updates.camel.camel418_5.CamelQuarkusMigrationRecipe
+
+---
+type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v3_37_0
 displayName: Quarkus Updates Aggregate 3.37.0
 description: Quarkus update recipes to upgrade your application to 3.37.0.
@@ -1397,7 +1481,7 @@ preconditions:
       artifactIdPattern: quarkus-core
       version: (,3.37.0)
 recipeList:
-  - org.openrewrite.quarkus.QuarkusUpdates_v3_33_1
+  - org.openrewrite.quarkus.QuarkusUpdates_v3_33_4
   - io.quarkus.updates.core.quarkus337.PanacheNextRelocations
 
 ---
@@ -1506,6 +1590,90 @@ recipeList:
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_40_0
+displayName: Quarkus Updates Aggregate 3.40.0
+description: Quarkus update recipes to upgrade your application to 3.40.0.
+preconditions:
+  - org.openrewrite.java.dependencies.search.RepositoryHasDependency:
+      groupIdPattern: io.quarkus
+      artifactIdPattern: quarkus-core
+      version: (,3.40.0)
+recipeList:
+  - org.openrewrite.quarkus.UpgradeQuarkusVersion:
+      newVersion: 3.40.x
+  - org.openrewrite.quarkus.QuarkusUpdates_v3_40_0
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.QuarkusUpdates_v3_40_0
+displayName: Quarkus update recipes up to 3.40.0
+description: The Quarkus update recipes of 3.40.0 and the versions before it, without upgrading the Quarkus platform itself.
+preconditions:
+  - org.openrewrite.java.dependencies.search.RepositoryHasDependency:
+      groupIdPattern: io.quarkus
+      artifactIdPattern: quarkus-core
+      version: (,3.40.0)
+recipeList:
+  - org.openrewrite.quarkus.QuarkusUpdates_v3_39_0
+  - org.openrewrite.quarkus.QuarkusUpdates_v3_40_0_camel_quarkus
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.QuarkusUpdates_v3_40_0_camel_quarkus
+displayName: Quarkus update recipes of 3.40.0 for `camel-quarkus`
+description: Update recipes for `org.apache.camel.quarkus:camel-quarkus` 3.40.0, applied only where `org.apache.camel.quarkus:camel-quarkus*` is used, as `quarkus update` does.
+preconditions:
+  - org.openrewrite.java.dependencies.search.RepositoryHasDependency:
+      groupIdPattern: org.apache.camel.quarkus
+      artifactIdPattern: camel-quarkus*
+      version: (,3.40.0)
+recipeList:
+  - io.quarkus.updates.camel.camel422_1.CamelQuarkusMigrationRecipe
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.MigrateToQuarkus_v3_40_1
+displayName: Quarkus Updates Aggregate 3.40.1
+description: Quarkus update recipes to upgrade your application to 3.40.1.
+preconditions:
+  - org.openrewrite.java.dependencies.search.RepositoryHasDependency:
+      groupIdPattern: io.quarkus
+      artifactIdPattern: quarkus-core
+      version: (,3.40.1)
+recipeList:
+  - org.openrewrite.quarkus.UpgradeQuarkusVersion:
+      newVersion: 3.40.x
+  - org.openrewrite.quarkus.QuarkusUpdates_v3_40_1
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.QuarkusUpdates_v3_40_1
+displayName: Quarkus update recipes up to 3.40.1
+description: The Quarkus update recipes of 3.40.1 and the versions before it, without upgrading the Quarkus platform itself.
+preconditions:
+  - org.openrewrite.java.dependencies.search.RepositoryHasDependency:
+      groupIdPattern: io.quarkus
+      artifactIdPattern: quarkus-core
+      version: (,3.40.1)
+recipeList:
+  - org.openrewrite.quarkus.QuarkusUpdates_v3_40_0
+  - org.openrewrite.quarkus.QuarkusUpdates_v3_40_1_camel_quarkus
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.QuarkusUpdates_v3_40_1_camel_quarkus
+displayName: Quarkus update recipes of 3.40.1 for `camel-quarkus`
+description: Update recipes for `org.apache.camel.quarkus:camel-quarkus` 3.40.1, applied only where `org.apache.camel.quarkus:camel-quarkus*` is used, as `quarkus update` does.
+preconditions:
+  - org.openrewrite.java.dependencies.search.RepositoryHasDependency:
+      groupIdPattern: org.apache.camel.quarkus
+      artifactIdPattern: camel-quarkus*
+      version: (,3.40.1)
+recipeList:
+  - io.quarkus.updates.camel.camel422_2.CamelQuarkusMigrationRecipe
+
+---
+type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.quarkus.MigrateToQuarkus_v4_0_0
 displayName: Quarkus Updates Aggregate 4.0.0
 description: Quarkus update recipes to upgrade your application to 4.0.0.
@@ -1530,10 +1698,11 @@ preconditions:
       artifactIdPattern: quarkus-core
       version: (,4.0.0)
 recipeList:
-  - org.openrewrite.quarkus.QuarkusUpdates_v3_39_0
+  - org.openrewrite.quarkus.QuarkusUpdates_v3_40_1
   - io.quarkus.updates.core.quarkus40.UpgradeToJava21
   - io.quarkus.updates.core.quarkus40.JavaVersion21
   - io.quarkus.updates.core.quarkus40.Jackson3Migration
+  - io.quarkus.updates.core.quarkus40.HibernateORM80
   - io.quarkus.updates.core.quarkus40.HibernateORMConfigProperties
   - io.quarkus.updates.core.quarkus40.OidcConfigProperties
   - io.quarkus.updates.core.quarkus40.RestClientConfigProperties
@@ -1550,4 +1719,18 @@ recipeList:
   - io.quarkus.updates.core.quarkus40.MicrometerPrometheusMetrics
   - io.quarkus.updates.core.quarkus40.DroppedRelocations
   - io.quarkus.updates.core.quarkus40.FlywayMongoDBDependencyRename
+  - org.openrewrite.quarkus.QuarkusUpdates_v4_0_0_camel_quarkus
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.QuarkusUpdates_v4_0_0_camel_quarkus
+displayName: Quarkus update recipes of 4.0.0 for `camel-quarkus`
+description: Update recipes for `org.apache.camel.quarkus:camel-quarkus` 4.0.0, applied only where `org.apache.camel.quarkus:camel-quarkus*` is used, as `quarkus update` does.
+preconditions:
+  - org.openrewrite.java.dependencies.search.RepositoryHasDependency:
+      groupIdPattern: org.apache.camel.quarkus
+      artifactIdPattern: camel-quarkus*
+      version: (,4.0.0)
+recipeList:
+  - io.quarkus.updates.camel.camel423.CamelQuarkusMigrationRecipe
 
