@@ -1702,7 +1702,6 @@ recipeList:
   - io.quarkus.updates.core.quarkus40.UpgradeToJava21
   - io.quarkus.updates.core.quarkus40.JavaVersion21
   - io.quarkus.updates.core.quarkus40.Jackson3Migration
-  - io.quarkus.updates.core.quarkus40.HibernateORM80
   - io.quarkus.updates.core.quarkus40.HibernateORMConfigProperties
   - io.quarkus.updates.core.quarkus40.OidcConfigProperties
   - io.quarkus.updates.core.quarkus40.RestClientConfigProperties

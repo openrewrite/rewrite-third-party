@@ -16,17 +16,12 @@
 package org.openrewrite.recipe.quarkus.internal;
 
 import org.junit.jupiter.api.Test;
-import org.junitpioneer.jupiter.ExpectedToFail;
 import org.openrewrite.test.RewriteTest;
 
 class MigrateToQuarkusTest implements RewriteTest {
 
-    @ExpectedToFail("AWS defines a broken method matcher, see https://github.com/aws/aws-sdk-java-v2/pull/6438")
     @Test
-    void loadRecipe() {
-        rewriteRun(
-          // Merely load the recipe to trigger validation logic
-          spec -> spec.recipeFromResources("org.openrewrite.quarkus.MigrateToQuarkus_v3_0")
-        );
+    void aggregatedRecipesConfigure() {
+        assertRecipesConfigure("org.openrewrite.quarkus.MigrateToQuarkus_v");
     }
 }

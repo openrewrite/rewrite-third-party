@@ -48,6 +48,7 @@ dependencies {
     // Required by the shaded quarkus-update-recipes, which is not resolved transitively
     runtimeOnly("org.openrewrite.recipe:rewrite-jackson:${rewriteVersion}")
     runtimeOnly("org.openrewrite.recipe:rewrite-quarkus:${rewriteVersion}")
+    runtimeOnly("org.hibernate.migration:hibernate-migration-recipes:latest.release")
 
     // Shaded into the fat jar below. Declared as `provided` (not `runtimeOnly`) so they are
     // published with `<scope>provided</scope>`: bundled here, but not re-resolved as a second
@@ -76,7 +77,6 @@ dependencies {
     testImplementation("org.openrewrite:rewrite-properties")
 
     testImplementation("tech.picnic.error-prone-support:error-prone-contrib:${rewriteVersion}:recipes")
-    testImplementation("org.junit-pioneer:junit-pioneer:latest.release")
     testImplementation("org.openrewrite.gradle.tooling:model:${rewriteVersion}")
 
     testRuntimeOnly("org.gradle:gradle-tooling-api:latest.release")
@@ -225,6 +225,23 @@ tasks.withType<ShadowJar> {
     exclude("generate-recipes")
     exclude("scripts/")
     exclude("v1-v2-service-mapping-diffs.csv")
+}
+
+// Tests see the Quarkus update recipes where the shadow jar relocates them, so they load like they do for consumers
+val relocatedQuarkusUpdates = tasks.register<Sync>("relocatedQuarkusUpdates") {
+    from({
+        configurations.getByName("compileClasspath")
+            .filter { it.name.startsWith("quarkus-update-recipes-") }
+            .map { zipTree(it) }
+    }) {
+        include("quarkus-updates/**")
+        eachFile { path = path.replaceFirst("quarkus-updates/", "META-INF/rewrite/") }
+        includeEmptyDirs = false
+    }
+    into(layout.buildDirectory.dir("relocated-quarkus-updates"))
+}
+sourceSets.test {
+    runtimeClasspath += files(relocatedQuarkusUpdates)
 }
 
 tasks {
