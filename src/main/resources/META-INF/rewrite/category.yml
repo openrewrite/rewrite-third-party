@@ -448,3 +448,8 @@ type: specs.openrewrite.org/v1beta/category
 name: Migration
 packageName: sh.stubborn.contract.migration
 description: Recipes for migrating from [Spring Cloud Contract](https://spring.io/projects/spring-cloud-contract) to [Stubborn Contract](https://docs.stubborn.sh/contract/).
+---
+type: specs.openrewrite.org/v1beta/category
+name: Sonar rules
+packageName: org.openrewrite.thirdparty.sonar
+description: Recipes that cover SonarQube Java rules, grouped by the default Sonar severity of each rule.
