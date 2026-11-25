@@ -24,7 +24,6 @@ import java.util.regex.Pattern;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.openrewrite.java.Assertions.mavenProject;
 import static org.openrewrite.maven.Assertions.pomXml;
-import static org.openrewrite.recipe.quarkus.internal.QuarkusPreconditionTest.loadConsolidatedRecipe;
 import static org.openrewrite.yaml.Assertions.yaml;
 
 /// Compares the generated aggregation recipes with what `quarkus update` does for the same project.
@@ -80,7 +79,7 @@ class QuarkusCliParityTest implements RewriteTest {
     @Test
     void upgradesJavaInGitHubActionsWorkflowLikeTheCli() {
         rewriteRun(
-          spec -> spec.recipe(loadConsolidatedRecipe("org.openrewrite.quarkus.MigrateToQuarkus_v3_7_0")),
+          spec -> spec.recipeFromResources("org.openrewrite.quarkus.MigrateToQuarkus_v3_7_0"),
           mavenProject(
             "app",
             pomXml(POM_ON_QUARKUS_3_6, spec -> spec.after(pom -> assertThat(pom)
@@ -117,7 +116,7 @@ class QuarkusCliParityTest implements RewriteTest {
     @Test
     void upgradesQuarkusPlatformLikeTheCli() {
         rewriteRun(
-          spec -> spec.recipe(loadConsolidatedRecipe("org.openrewrite.quarkus.MigrateToQuarkus_v3_39_0")),
+          spec -> spec.recipeFromResources("org.openrewrite.quarkus.MigrateToQuarkus_v3_39_0"),
           mavenProject(
             "app",
             pomXml(

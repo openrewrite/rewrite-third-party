@@ -16,18 +16,8 @@
 package org.openrewrite.recipe.quarkus.internal;
 
 import org.junit.jupiter.api.Test;
-import org.openrewrite.Recipe;
-import org.openrewrite.config.Environment;
-import org.openrewrite.config.YamlResourceLoader;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
-
-import java.io.InputStream;
-import java.net.URI;
-import java.net.URL;
-import java.util.List;
-import java.util.Properties;
-import java.util.jar.JarFile;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.openrewrite.java.Assertions.mavenProject;
@@ -40,33 +30,7 @@ class QuarkusPreconditionTest implements RewriteTest {
 
     @Override
     public void defaults(RecipeSpec spec) {
-        spec.recipe(loadConsolidatedRecipe("org.openrewrite.quarkus.MigrateToQuarkus_v3_1_0"));
-    }
-
-    static Recipe loadConsolidatedRecipe(String recipeName) {
-        try {
-            Environment.Builder builder = Environment.builder().scanRuntimeClasspath();
-            URL marker = QuarkusPreconditionTest.class.getClassLoader().getResource("quarkus-updates/core/3.0.alpha1.yaml");
-            if (marker != null) {
-                String jarPath = marker.getPath().substring("file:".length(), marker.getPath().indexOf("!"));
-                try (var jar = new JarFile(jarPath)) {
-                    jar.stream()
-                      .filter(e -> e.getName().startsWith("quarkus-updates/") && e.getName().endsWith(".yaml"))
-                      .forEach(entry -> {
-                          try (InputStream is = jar.getInputStream(entry)) {
-                              builder.load(new YamlResourceLoader(
-                                is, URI.create(entry.getName()), new Properties(),
-                                (ClassLoader) null, List.of()));
-                          } catch (Exception e) {
-                              throw new RuntimeException(e);
-                          }
-                      });
-                }
-            }
-            return builder.build().activateRecipes(recipeName);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to load consolidated recipe: " + recipeName, e);
-        }
+        spec.recipeFromResources("org.openrewrite.quarkus.MigrateToQuarkus_v3_1_0");
     }
 
     private static String pomWithQuarkusBom(String bomVersion) {

@@ -15,8 +15,12 @@ jobs:
         with:
           submodules: true
 
-      - name: Update quarkus-updates submodule to latest
-        run: git submodule update --remote quarkus-updates
+      # Match the quarkus-update-recipes release the build shades, as main can reference recipes not yet released
+      - name: Check out the latest quarkus-updates release
+        run: |
+          version=$(curl -fsSL https://repo1.maven.org/maven2/io/quarkus/quarkus-update-recipes/maven-metadata.xml | sed -n 's:.*<release>\(.*\)</release>.*:\1:p')
+          git -C quarkus-updates fetch --depth 1 origin "refs/tags/${version}:refs/tags/${version}"
+          git -C quarkus-updates checkout "${version}"
 
       - name: Create quarkus aggregation recipes
         run: ./gradlew generateQuarkusAggregation
