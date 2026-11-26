@@ -81,6 +81,25 @@ class RemoveUnusedAwsSdkV1ImportsTest implements RewriteTest {
               )
             );
         }
+
+        @Test
+        void keepsUnusedImportOfV2TypeThatExists() {
+            rewriteRun(
+              spec -> spec.parser(JavaParser.fromJavaVersion()
+                .classpathFromResources(new InMemoryExecutionContext(), "aws-core")),
+              //language=java
+              java(
+                """
+                  package com.example;
+
+                  import software.amazon.awssdk.awscore.client.builder.AwsClientBuilder;
+
+                  class Builders {
+                  }
+                  """
+              )
+            );
+        }
     }
 
     @Test
@@ -109,25 +128,6 @@ class RemoveUnusedAwsSdkV1ImportsTest implements RewriteTest {
 
               class Endpoints {
                   URI local = URI.create("http://localhost:8000");
-              }
-              """
-          )
-        );
-    }
-
-    @Test
-    void keepsUnusedImportOfV2TypeThatExists() {
-        rewriteRun(
-          spec -> spec.parser(JavaParser.fromJavaVersion()
-            .classpathFromResources(new InMemoryExecutionContext(), "aws-core")),
-          //language=java
-          java(
-            """
-              package com.example;
-
-              import software.amazon.awssdk.awscore.client.builder.AwsClientBuilder;
-
-              class Builders {
               }
               """
           )
