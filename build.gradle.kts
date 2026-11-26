@@ -31,6 +31,10 @@ repositories {
     }
 }
 
+tasks.named<JavaCompile>("compileJava") {
+    options.release = 17
+}
+
 val rewriteVersion = rewriteRecipe.rewriteVersion.get()
 dependencies {
     implementation(platform("org.openrewrite:rewrite-bom:$rewriteVersion"))
