@@ -64,6 +64,11 @@ dependencies {
     "provided"("com.oracle.weblogic.rewrite:rewrite-weblogic:latest.release") { isTransitive = false }
 //    "provided"("io.liftwizard:liftwizard-rewrite:latest.release") { isTransitive = false }
     "provided"("io.quarkus:quarkus-update-recipes:latest.release") { isTransitive = false }
+    constraints {
+        "provided"("io.quarkus:quarkus-update-recipes:1.16.0") {
+            because("quarkus-consolidated.yml is generated from this release, which the proxy may not list as latest yet")
+        }
+    }
     "provided"("org.apache.camel.upgrade:camel-upgrade-recipes:latest.release") { isTransitive = false }
     "provided"("org.apache.wicket:wicket-migration:latest.release") { isTransitive = false }
     // Pinned to 4.x: axon-migration 5.x ships classes compiled for Java 21 (class file v65)
