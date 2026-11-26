@@ -1702,6 +1702,7 @@ recipeList:
   - io.quarkus.updates.core.quarkus40.UpgradeToJava21
   - io.quarkus.updates.core.quarkus40.JavaVersion21
   - io.quarkus.updates.core.quarkus40.Jackson3Migration
+  - io.quarkus.updates.core.quarkus40.HibernateORM80
   - io.quarkus.updates.core.quarkus40.HibernateORMConfigProperties
   - io.quarkus.updates.core.quarkus40.OidcConfigProperties
   - io.quarkus.updates.core.quarkus40.RestClientConfigProperties
@@ -1713,6 +1714,16 @@ recipeList:
   - io.quarkus.updates.core.quarkus40.HttpSslConfigProperties
   - io.quarkus.updates.core.quarkus40.KeycloakPolicyEnforcerConfigProperties
   - io.quarkus.updates.core.quarkus40.MiscConfigProperties
+  - io.quarkus.updates.core.quarkus40.LogAsyncConfigProperties
+  - io.quarkus.updates.core.quarkus40.DataHibernateRecordRenames
+  - io.quarkus.updates.core.quarkus40.UpdateConfigPackagePom
+  - io.quarkus.updates.core.quarkus40.UpdateConfigPackageTypeJar
+  - io.quarkus.updates.core.quarkus40.UpdateConfigPackageTypeFastJar
+  - io.quarkus.updates.core.quarkus40.UpdateConfigPackageTypeUberJar
+  - io.quarkus.updates.core.quarkus40.UpdateConfigPackageTypeMutableJar
+  - io.quarkus.updates.core.quarkus40.UpdateConfigPackageTypeNative
+  - io.quarkus.updates.core.quarkus40.UpdateConfigPackageTypeNativeSources
+  - io.quarkus.updates.core.quarkus40.UpdateConfigPackageSimpleProperties
   - io.quarkus.updates.core.quarkus40.ArcDefaultBeanToReserve
   - io.quarkus.updates.core.quarkus40.ArcExtensionApiRemovals
   - io.quarkus.updates.core.quarkus40.MicrometerPrometheusMetrics
@@ -1732,4 +1743,33 @@ preconditions:
       version: (,4.0.0)
 recipeList:
   - io.quarkus.updates.camel.camel423.CamelQuarkusMigrationRecipe
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.MigrateToQuarkus_v4_0_1
+displayName: Quarkus Updates Aggregate 4.0.1
+description: Quarkus update recipes to upgrade your application to 4.0.1.
+preconditions:
+  - org.openrewrite.java.dependencies.search.RepositoryHasDependency:
+      groupIdPattern: io.quarkus
+      artifactIdPattern: quarkus-core
+      version: (,4.0.1)
+recipeList:
+  - org.openrewrite.quarkus.UpgradeQuarkusVersion:
+      newVersion: 4.0.x
+  - org.openrewrite.quarkus.QuarkusUpdates_v4_0_1
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.quarkus.QuarkusUpdates_v4_0_1
+displayName: Quarkus update recipes up to 4.0.1
+description: The Quarkus update recipes of 4.0.1 and the versions before it, without upgrading the Quarkus platform itself.
+preconditions:
+  - org.openrewrite.java.dependencies.search.RepositoryHasDependency:
+      groupIdPattern: io.quarkus
+      artifactIdPattern: quarkus-core
+      version: (,4.0.1)
+recipeList:
+  - org.openrewrite.quarkus.QuarkusUpdates_v4_0_0
+  - io.quarkus.updates.core.quarkus401.SpringTestDependencyRename
 
