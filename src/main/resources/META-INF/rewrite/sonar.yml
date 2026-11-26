@@ -21,6 +21,8 @@ displayName: Sonar rules for third-party recipes
 description: Fixes or flags code reported by SonarQube Java rules, grouped by the default Sonar severity of each rule.
 preconditions:
   - org.openrewrite.Singleton
+  - org.openrewrite.FindSourceFiles:
+      filePattern: "**/*.java"
 recipeList:
   - org.openrewrite.thirdparty.sonar.Critical
 ---
@@ -30,5 +32,7 @@ displayName: Sonar critical rules for third-party recipes
 description: Fixes or flags code reported by SonarQube Java rules whose default Sonar severity is Critical.
 preconditions:
   - org.openrewrite.Singleton
+  - org.openrewrite.FindSourceFiles:
+      filePattern: "**/*.java"
 recipeList:
   - tech.picnic.errorprone.refasterrules.StringRulesRecipes
