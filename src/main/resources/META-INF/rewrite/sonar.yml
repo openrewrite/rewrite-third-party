@@ -35,4 +35,92 @@ preconditions:
   - org.openrewrite.FindSourceFiles:
       filePattern: "**/*.java"
 recipeList:
-  - tech.picnic.errorprone.refasterrules.StringRulesRecipes
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$EmptyStringRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$StringIdentityRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$StringIsEmptyWithStringRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$StringIsEmptyRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$StringJoinRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$StringJoinVarargsRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$StringValueOfWithObjectRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$NewString3Recipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$NewString1Recipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$StringValueOfRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$StringSubstringRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$MathMaxNegativeOneStringIndexOfMinusIntRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$MathMaxNegativeOneStringIndexOfMinusStringRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$MathMaxNegativeOneStringLastIndexOfMinusIntRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$MathMaxNegativeOneStringLastIndexOfMinusStringRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$StringLastIndexOfMinusOneIntRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$StringLastIndexOfMinusOneStringRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$StringStartsWithRecipe
+  - org.openrewrite.thirdparty.sonar.StringRulesJava11
+  - org.openrewrite.thirdparty.sonar.StringRulesJava15
+  - org.openrewrite.thirdparty.sonar.StringRulesJava21
+  - org.openrewrite.thirdparty.sonar.StringRulesGuavaMaven
+  - org.openrewrite.thirdparty.sonar.StringRulesGuavaGradle
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.thirdparty.sonar.StringRulesJava11
+displayName: Picnic `String` rules that need Java 11
+description: Runs the Picnic `String` Refaster rules that introduce `String#isBlank()` or `Predicate#not(Predicate)`, on Java 11 and later sources only.
+preconditions:
+  - org.openrewrite.Singleton
+  - org.openrewrite.java.search.HasJavaVersion:
+      version: "[11,)"
+recipeList:
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$NotStringIsEmptyRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$StringIsBlankRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$OptionalOfNullableFilterNotStringIsEmptyRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$OptionalFilterNotStringIsEmptyRecipe
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.thirdparty.sonar.StringRulesJava15
+displayName: Picnic `String` rules that need Java 15
+description: Runs the Picnic `String` Refaster rule that introduces `String#formatted(Object...)`, on Java 15 and later sources only.
+preconditions:
+  - org.openrewrite.Singleton
+  - org.openrewrite.java.search.HasJavaVersion:
+      version: "[15,)"
+recipeList:
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$FormattedRecipe
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.thirdparty.sonar.StringRulesJava21
+displayName: Picnic `String` rules that need Java 21
+description: Runs the Picnic `String` Refaster rules that introduce `String#indexOf(int, int, int)` or `String#indexOf(String, int, int)`, on Java 21 and later sources only.
+preconditions:
+  - org.openrewrite.Singleton
+  - org.openrewrite.java.search.HasJavaVersion:
+      version: "[21,)"
+recipeList:
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$MathMaxNegativeOneStringIndexOfMinusIntWithIntRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$MathMaxNegativeOneStringIndexOfMinusStringWithIntRecipe
+---
+# One per build tool: the combined `java.dependencies` precondition cannot limit Gradle to `compileClasspath`
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.thirdparty.sonar.StringRulesGuavaMaven
+displayName: Picnic `String` rules that need Guava, for Maven modules
+description: Runs the Picnic `String` Refaster rules that introduce Guava's `Strings` or `Utf8`, in Maven modules with Guava in compile scope only.
+preconditions:
+  - org.openrewrite.Singleton
+  - org.openrewrite.maven.search.ModuleHasDependency:
+      groupIdPattern: com.google.guava
+      artifactIdPattern: guava
+      scope: compile
+recipeList:
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$StringsIsNullOrEmptyRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$Utf8EncodedLengthRecipe
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.thirdparty.sonar.StringRulesGuavaGradle
+displayName: Picnic `String` rules that need Guava, for Gradle projects
+description: Runs the Picnic `String` Refaster rules that introduce Guava's `Strings` or `Utf8`, in Gradle projects with Guava on the `compileClasspath` only.
+preconditions:
+  - org.openrewrite.Singleton
+  - org.openrewrite.gradle.search.ModuleHasDependency:
+      groupIdPattern: com.google.guava
+      artifactIdPattern: guava
+      configuration: compileClasspath
+recipeList:
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$StringsIsNullOrEmptyRecipe
+  - tech.picnic.errorprone.refasterrules.StringRulesRecipes$Utf8EncodedLengthRecipe
